@@ -19,7 +19,8 @@ import { LanguageService } from '../../../core/services/language.service';
         </div>
       </header>
 
-      <div class="content-body">
+      <div class="content-body auth-layout">
+        <section class="auth-form-panel">
         <!-- Logo -->
         <div class="logo-section">
           <img src="/logo.png" alt="اعْتَمِدْ" class="screen-logo" />
@@ -162,6 +163,14 @@ import { LanguageService } from '../../../core/services/language.service';
         <div class="login-footer">
           <p>{{ lang.t('register_has_account') }} <a routerLink="/auth/login">{{ lang.t('welcome_login') }}</a></p>
         </div>
+        </section>
+        <aside class="auth-brand-panel">
+          <div class="brand-mark">E</div>
+          <span class="brand-kicker">ETAMID · اعتمد</span>
+          <h1>{{ lang.t('home_guest_title') }}</h1>
+          <p>{{ lang.t('home_guest_desc') }}</p>
+          <div class="brand-decoration" aria-hidden="true"><span>✓</span></div>
+        </aside>
       </div>
     </div>
   `,

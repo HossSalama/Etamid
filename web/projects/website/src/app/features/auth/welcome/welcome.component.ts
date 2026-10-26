@@ -27,6 +27,10 @@ import { LanguageService } from '../../../core/services/language.service';
 
       <!-- Bottom Actions -->
       <footer class="bottom-actions">
+        <div class="account-choice-heading">
+          <h1>{{ lang.t('welcome_choose_account_title') }}</h1>
+          <p>{{ lang.t('welcome_choose_account_desc') }}</p>
+        </div>
         <a routerLink="/auth/register-individual" class="btn btn-black">
           {{ lang.t('welcome_create_individual') }}
         </a>

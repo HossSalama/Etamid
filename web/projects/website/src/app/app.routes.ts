@@ -4,7 +4,7 @@ export const routes: Routes = [
   {
     path: '',
     pathMatch: 'full',
-    redirectTo: 'auth/welcome',
+    redirectTo: 'home',
   },
   {
     path: 'auth/welcome',
@@ -57,6 +57,6 @@ export const routes: Routes = [
   },
   {
     path: '**',
-    redirectTo: 'auth/welcome',
+    redirectTo: 'home',
   },
 ];

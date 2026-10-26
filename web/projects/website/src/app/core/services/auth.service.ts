@@ -57,6 +57,27 @@ export class AuthService {
     );
   }
 
+  refreshProfile(): Observable<ApiResponse<UserProfile>> {
+    return this.http.get<ApiResponse<UserProfile>>('/api/v1/me').pipe(
+      tap((res) => {
+        if (res.success && res.data) this.saveCurrentUser(res.data);
+      })
+    );
+  }
+
+  uploadAvatar(file: File): Observable<ApiResponse<{ avatarUrl: string }>> {
+    const formData = new FormData();
+    formData.append('file', file, file.name);
+    return this.http.post<ApiResponse<{ avatarUrl: string }>>('/api/v1/me/avatar', formData).pipe(
+      tap((res) => {
+        const user = this._currentUser();
+        if (res.success && res.data?.avatarUrl && user) {
+          this.saveCurrentUser({ ...user, avatarUrl: res.data.avatarUrl });
+        }
+      })
+    );
+  }
+
   logout(): void {
     const refreshToken = this.getRefreshToken();
     if (refreshToken) {
@@ -65,6 +86,11 @@ export class AuthService {
       });
     }
     this.clearAuth();
+  }
+
+  private saveCurrentUser(user: UserProfile): void {
+    localStorage.setItem('etamid_user', JSON.stringify(user));
+    this._currentUser.set(user);
   }
 
   getAccessToken(): string | null {

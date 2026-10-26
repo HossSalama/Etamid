@@ -22,6 +22,7 @@ export interface DealItem {
   standalone: true,
   imports: [RouterLink, ReactiveFormsModule],
   template: `
+    @if (authService.isAuthenticated()) {
     <div class="app-screen home-screen">
       <!-- Top Red/Coral Header Card -->
       <header class="home-header-card">
@@ -77,7 +78,96 @@ export interface DealItem {
       </header>
 
       <!-- Main Body Content -->
-      <main class="home-content-body">
+      <main class="home-content-body" [class.guest-layout]="!authService.isAuthenticated()">
+        @if (activeNav() === 'profile' && authService.isAuthenticated()) {
+          <section class="profile-section">
+            <div class="section-title-row">
+              <h2 class="section-title">{{ lang.t('profile_title') }}</h2>
+            </div>
+
+            <div class="profile-card">
+              <div class="profile-photo-block">
+                <div class="profile-avatar-large">
+                  @if (profilePhotoUrl()) {
+                    <img [src]="profilePhotoUrl()" [alt]="lang.t('profile_photo')" />
+                  } @else {
+                    <span>{{ authService.currentUser()?.name?.charAt(0) || '👤' }}</span>
+                  }
+                </div>
+                <div class="profile-photo-actions">
+                  <h3>{{ lang.t('profile_photo') }}</h3>
+                  <p>{{ lang.t('profile_photo_hint') }}</p>
+                  <input
+                    #avatarInput
+                    class="visually-hidden"
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp"
+                    (change)="onAvatarSelected($event)"
+                  />
+                  <div class="profile-button-row">
+                    <button type="button" class="btn btn-outline-coral" (click)="avatarInput.click()">
+                      {{ lang.t('profile_change_photo') }}
+                    </button>
+                    @if (selectedAvatar()) {
+                      <button
+                        type="button"
+                        class="btn btn-black"
+                        [disabled]="isUploadingAvatar()"
+                        (click)="saveAvatar()"
+                      >
+                        {{ isUploadingAvatar() ? lang.t('profile_uploading') : lang.t('profile_save_photo') }}
+                      </button>
+                    }
+                  </div>
+                  @if (avatarError()) {
+                    <p class="profile-message profile-error" role="alert">{{ lang.t(avatarError()!) }}</p>
+                  }
+                  @if (avatarSaved()) {
+                    <p class="profile-message profile-success" role="status">{{ lang.t('profile_upload_success') }}</p>
+                  }
+                </div>
+              </div>
+
+              <div class="profile-details">
+                <div class="profile-detail-row">
+                  <span>{{ lang.t('profile_name') }}</span>
+                  <strong>{{ authService.currentUser()?.name }}</strong>
+                </div>
+                <div class="profile-detail-row">
+                  <span>{{ lang.t('profile_phone') }}</span>
+                  <strong dir="ltr">{{ authService.currentUser()?.phone }}</strong>
+                </div>
+                <div class="profile-detail-row">
+                  <span>{{ lang.t('profile_email') }}</span>
+                  <strong dir="ltr">{{ authService.currentUser()?.email }}</strong>
+                </div>
+                <div class="profile-detail-row">
+                  <span>{{ lang.t('profile_code') }}</span>
+                  <strong dir="ltr">{{ authService.currentUser()?.code }}</strong>
+                </div>
+              </div>
+            </div>
+          </section>
+        } @else {
+        @if (!authService.isAuthenticated()) {
+          <section class="guest-welcome-panel">
+            <div class="guest-welcome-copy">
+              <span class="guest-eyebrow">ETAMID · ESCROW</span>
+              <h2>{{ lang.t('home_guest_title') }}</h2>
+              <p>{{ lang.t('home_guest_desc') }}</p>
+              <div class="guest-welcome-actions">
+                <a routerLink="/auth/register-individual" class="guest-primary-action">{{ lang.t('welcome_create_individual') }}</a>
+                <a routerLink="/auth/login" class="guest-secondary-action">{{ lang.t('welcome_login') }}</a>
+              </div>
+            </div>
+            <div class="guest-welcome-art" aria-hidden="true">
+              <div class="guest-art-orbit"></div>
+              <div class="guest-art-shield">✓</div>
+              <div class="guest-art-card guest-art-card-top"><span>✓</span></div>
+              <div class="guest-art-card guest-art-card-bottom"><span>•••</span></div>
+            </div>
+          </section>
+        }
         <!-- WALLET SECTION -->
         <section class="wallet-section">
           <div class="section-title-row">
@@ -250,6 +340,7 @@ export interface DealItem {
             </div>
           </section>
         }
+        }
       </main>
 
       <!-- REAL NEW DEAL MODAL -->
@@ -352,26 +443,130 @@ export interface DealItem {
           <span class="nav-label">{{ lang.t('home_nav_wallet') }}</span>
         </button>
         <button class="nav-item" [class.active]="activeNav() === 'profile'" (click)="activeNav.set('profile')">
-          <span class="nav-icon">👤</span>
+          <span class="nav-icon">
+            @if (authService.currentUser()?.avatarUrl) {
+              <img class="nav-avatar-img" [src]="authService.currentUser()?.avatarUrl" [alt]="lang.t('profile_photo')" />
+            } @else {
+              👤
+            }
+          </span>
           <span class="nav-label">{{ lang.t('home_nav_profile') }}</span>
         </button>
       </nav>
     </div>
+    } @else {
+      <div class="public-landing">
+        <header class="landing-nav">
+          <a routerLink="/home" class="landing-brand" aria-label="Etamid home">
+            <img src="/logo.png" alt="اعتمد" />
+          </a>
+          <nav class="landing-links" aria-label="Main navigation">
+            <a href="#features">{{ lang.t('landing_nav_features') }}</a>
+            <a href="#how-it-works">{{ lang.t('landing_nav_steps') }}</a>
+          </nav>
+          <div class="landing-nav-actions">
+            <button class="landing-language" type="button" (click)="lang.toggleLanguage()">{{ lang.langLabel() }} <span>⌄</span></button>
+            <a routerLink="/auth/login" class="landing-login">{{ lang.t('welcome_login') }}</a>
+            <a routerLink="/auth/welcome" class="landing-nav-cta">{{ lang.t('landing_nav_register') }}</a>
+          </div>
+        </header>
+
+        <main>
+          <section class="landing-hero">
+            <div class="landing-hero-copy">
+              <span class="landing-eyebrow"><i></i>{{ lang.t('landing_eyebrow') }}</span>
+              <h1>{{ lang.t('landing_headline_first') }} <em>{{ lang.t('landing_headline_second') }}</em></h1>
+              <p class="landing-subtitle">{{ lang.t('landing_subtitle') }}</p>
+              <div class="landing-hero-actions">
+                <a routerLink="/auth/welcome" class="landing-primary-action">{{ lang.t('landing_primary_cta') }} <span aria-hidden="true">←</span></a>
+                <a routerLink="/auth/register-company" class="landing-secondary-action">{{ lang.t('welcome_create_company') }}</a>
+              </div>
+              <div class="landing-microcopy"><span>✓</span>{{ lang.t('landing_microcopy') }}</div>
+            </div>
+
+            <div class="landing-visual" aria-hidden="true">
+              <div class="landing-visual-glow"></div>
+              <div class="landing-visual-ring landing-visual-ring-one"></div>
+              <div class="landing-visual-ring landing-visual-ring-two"></div>
+              <div class="journey-card">
+                <div class="journey-card-head">
+                  <div><span>{{ lang.t('landing_visual_kicker') }}</span><h2>{{ lang.t('landing_visual_title') }}</h2></div>
+                  <b>✓</b>
+                </div>
+                <div class="journey-track"><i></i><i></i><i></i></div>
+                <div class="journey-row"><span class="journey-number">01</span><div><strong>{{ lang.t('landing_step_one_title') }}</strong><small>{{ lang.t('landing_step_one_desc') }}</small></div><span class="journey-check">✓</span></div>
+                <div class="journey-row journey-row-active"><span class="journey-number">02</span><div><strong>{{ lang.t('landing_step_two_title') }}</strong><small>{{ lang.t('landing_visual_active') }}</small></div><span class="journey-dot"></span></div>
+                <div class="journey-row journey-row-muted"><span class="journey-number">03</span><div><strong>{{ lang.t('landing_step_three_title') }}</strong><small>{{ lang.t('landing_visual_next') }}</small></div><span class="journey-empty"></span></div>
+              </div>
+              <div class="landing-float-chip landing-float-chip-top"><span>✓</span>{{ lang.t('landing_visual_chip_one') }}</div>
+              <div class="landing-float-chip landing-float-chip-bottom"><span>↗</span>{{ lang.t('landing_visual_chip_two') }}</div>
+            </div>
+          </section>
+
+          <section class="landing-features" id="features">
+            <div class="landing-section-heading">
+              <span>{{ lang.t('landing_features_kicker') }}</span>
+              <h2>{{ lang.t('landing_features_title') }}</h2>
+              <p>{{ lang.t('landing_features_desc') }}</p>
+            </div>
+            <div class="landing-feature-grid">
+              <article class="landing-feature-card"><span class="feature-index">01</span><div class="feature-symbol">◎</div><h3>{{ lang.t('landing_feature_one_title') }}</h3><p>{{ lang.t('landing_feature_one_desc') }}</p></article>
+              <article class="landing-feature-card"><span class="feature-index">02</span><div class="feature-symbol">↗</div><h3>{{ lang.t('landing_feature_two_title') }}</h3><p>{{ lang.t('landing_feature_two_desc') }}</p></article>
+              <article class="landing-feature-card"><span class="feature-index">03</span><div class="feature-symbol">≋</div><h3>{{ lang.t('landing_feature_three_title') }}</h3><p>{{ lang.t('landing_feature_three_desc') }}</p></article>
+            </div>
+          </section>
+
+          <section class="landing-how" id="how-it-works">
+            <div class="landing-section-heading">
+              <span>{{ lang.t('landing_steps_kicker') }}</span>
+              <h2>{{ lang.t('landing_steps_title') }}</h2>
+              <p>{{ lang.t('landing_steps_desc') }}</p>
+            </div>
+            <div class="landing-steps-grid">
+              <article class="landing-step-card"><span>01</span><h3>{{ lang.t('landing_step_one_title') }}</h3><p>{{ lang.t('landing_step_one_desc') }}</p></article>
+              <article class="landing-step-card"><span>02</span><h3>{{ lang.t('landing_step_two_title') }}</h3><p>{{ lang.t('landing_step_two_desc') }}</p></article>
+              <article class="landing-step-card"><span>03</span><h3>{{ lang.t('landing_step_three_title') }}</h3><p>{{ lang.t('landing_step_three_desc') }}</p></article>
+            </div>
+          </section>
+
+          <section class="landing-bottom-cta">
+            <div><span>{{ lang.t('landing_bottom_kicker') }}</span><h2>{{ lang.t('landing_bottom_title') }}</h2><p>{{ lang.t('landing_bottom_desc') }}</p></div>
+            <a routerLink="/auth/welcome">{{ lang.t('landing_primary_cta') }} <span aria-hidden="true">←</span></a>
+          </section>
+        </main>
+
+        <footer class="landing-footer">
+          <a routerLink="/home" class="landing-footer-brand"><img src="/logo.png" alt="اعتمد" /></a>
+          <span>{{ lang.t('landing_footer_note') }}</span>
+          <a routerLink="/auth/login">{{ lang.t('welcome_login') }}</a>
+        </footer>
+      </div>
+    }
   `,
   styles: [`
     .home-screen {
+      width: 100%;
+      max-width: none;
       min-height: 100vh;
       background-color: #f8fafc;
       padding-bottom: 80px;
       position: relative;
+      box-shadow: none;
     }
 
     .home-header-card {
       background: #eb5757;
       border-radius: 0 0 28px 28px;
-      padding: 1.5rem 1.5rem 1.75rem;
+      padding: clamp(1.25rem, 3vw, 2.5rem) clamp(1rem, 5vw, 4.5rem) clamp(1.5rem, 3vw, 2.25rem);
       color: #ffffff;
       box-shadow: 0 10px 25px rgba(235, 87, 87, 0.25);
+    }
+
+    .header-top-row,
+    .header-cta-wrapper {
+      width: 100%;
+      max-width: 1480px;
+      margin-inline: auto;
     }
 
     .header-top-row {
@@ -527,10 +722,13 @@ export interface DealItem {
     }
 
     .home-content-body {
-      padding: 1.25rem 1.25rem 2rem;
+      width: 100%;
+      max-width: 1480px;
+      margin-inline: auto;
+      padding: clamp(1rem, 3vw, 2.5rem) clamp(1rem, 4vw, 3.5rem) 2rem;
       display: flex;
       flex-direction: column;
-      gap: 1.5rem;
+      gap: clamp(1.25rem, 2.5vw, 2.5rem);
     }
 
     .section-title-row {
@@ -1117,6 +1315,72 @@ export class HomeComponent {
 
   readonly deals = signal<DealItem[]>([]);
   readonly availableBalance = signal<number>(0.0);
+
+  readonly selectedAvatar = signal<File | null>(null);
+  readonly avatarPreview = signal<string | null>(null);
+  readonly isUploadingAvatar = signal(false);
+  readonly avatarError = signal<string | null>(null);
+  readonly avatarSaved = signal(false);
+
+  constructor() {
+    if (this.authService.isAuthenticated()) {
+      this.authService.refreshProfile().subscribe({ error: () => {} });
+    }
+  }
+
+  profilePhotoUrl(): string | null {
+    return this.avatarPreview() || this.authService.currentUser()?.avatarUrl || null;
+  }
+
+  onAvatarSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = '';
+    if (!file) return;
+
+    this.avatarError.set(null);
+    this.avatarSaved.set(false);
+    if (!file.type.startsWith('image/') || file.size > 10 * 1024 * 1024) {
+      this.selectedAvatar.set(null);
+      this.avatarPreview.set(null);
+      this.avatarError.set('profile_invalid_photo');
+      return;
+    }
+
+    this.selectedAvatar.set(file);
+    const reader = new FileReader();
+    reader.onload = () => this.avatarPreview.set(typeof reader.result === 'string' ? reader.result : null);
+    reader.onerror = () => {
+      this.avatarPreview.set(null);
+      this.avatarError.set('profile_invalid_photo');
+    };
+    reader.readAsDataURL(file);
+  }
+
+  saveAvatar(): void {
+    const file = this.selectedAvatar();
+    if (!file || this.isUploadingAvatar()) return;
+
+    this.isUploadingAvatar.set(true);
+    this.avatarError.set(null);
+    this.avatarSaved.set(false);
+    this.authService.uploadAvatar(file).subscribe({
+      next: (response) => {
+        this.isUploadingAvatar.set(false);
+        if (!response.success || !response.data?.avatarUrl) {
+          this.avatarError.set('profile_upload_error');
+          return;
+        }
+        this.selectedAvatar.set(null);
+        this.avatarPreview.set(null);
+        this.avatarSaved.set(true);
+      },
+      error: () => {
+        this.isUploadingAvatar.set(false);
+        this.avatarError.set('profile_upload_error');
+      },
+    });
+  }
 
   readonly escrowHeldBalance = computed(() =>
     this.deals()
