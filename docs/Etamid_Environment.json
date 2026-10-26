@@ -1,0 +1,115 @@
+{
+  "id": "5e0e9f43-6741-4916-9d50-ba35cabc5fd5",
+  "name": "Etamid Environment",
+  "values": [
+    {
+      "key": "baseUrl",
+      "value": "https://REPLACE-WITH-YOUR-MOCK-ID.mock.pstmn.io",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "language",
+      "value": "en",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "accessToken",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "refreshToken",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "resetToken",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "userId",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "deviceToken",
+      "value": "fcm-mock-device-token",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "dealId",
+      "value": "1",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "editId",
+      "value": "1",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "sellerId",
+      "value": "102",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "notificationId",
+      "value": "1",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "disputeId",
+      "value": "1",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "ticketId",
+      "value": "1",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "draftId",
+      "value": "1",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "companyDealId",
+      "value": "1",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "installmentId",
+      "value": "3",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "fileId",
+      "value": "f_9a8b7c6d",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "nafathRequestId",
+      "value": "nf-7c1d9a",
+      "type": "default",
+      "enabled": true
+    }
+  ],
+  "_postman_variable_scope": "environment"
+}

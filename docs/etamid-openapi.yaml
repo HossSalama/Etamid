@@ -1,0 +1,1867 @@
+openapi: 3.0.3
+info:
+  title: Etamid (اعتمد) Mobile API
+  version: 1.0.0
+  description: |
+    عقد الـ API بين الـ Backend (.NET) وتطبيق الموبايل.
+    - كل الردود بصيغة موحدة: { success, message, data, errors, meta }
+    - اللغة: هيدر Accept-Language (ar | en)
+    - التواريخ: ISO 8601 بتوقيت UTC
+    - المبالغ: number بالريال السعودي (SAR) بخانتين عشريتين
+    - الجوال: بصيغة 05XXXXXXXX
+    - الأخطاء: errors[].code ثابت للبرمجة، و message مترجم للعرض
+    - الإجراءات المتاحة لكل معاملة تأتي جاهزة في availableActions ولا يحسبها الموبايل
+servers:
+  - url: https://mock.etamid.example/api/v1
+    description: Mock (Postman/Prism)
+  - url: https://staging-api.etamid.example/api/v1
+    description: Staging
+  - url: https://api.etamid.example/api/v1
+    description: Production
+security:
+  - bearerAuth: []
+tags:
+  - name: Config
+  - name: Auth
+  - name: Profile
+  - name: Notifications
+  - name: Deals
+  - name: Wallet
+  - name: Disputes
+  - name: Support
+  - name: Company
+
+paths:
+  # ---------------- Config ----------------
+  /config:
+    get:
+      tags: [Config]
+      summary: إعدادات التطبيق (لغات، إصدار أدنى، روابط)
+      security: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/AppConfig' }
+  /lookups/{type}:
+    get:
+      tags: [Config]
+      summary: قوائم ثابتة للشاشات
+      description: |
+        types: reject-reasons | dispute-reasons | shipping-companies | banks | duration-units | payment-methods | company-reject-reasons
+      security: []
+      parameters:
+        - { name: type, in: path, required: true, schema: { type: string, enum: [reject-reasons, dispute-reasons, shipping-companies, banks, duration-units, payment-methods, company-reject-reasons] } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data: { type: array, items: { $ref: '#/components/schemas/LookupItem' } }
+  /terms/{type}:
+    get:
+      tags: [Config]
+      summary: الشروط والأحكام (منصة، معاملة، شركات)
+      security: []
+      parameters:
+        - { name: type, in: path, required: true, schema: { type: string, enum: [platform, deal, company] } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/Terms' }
+
+  # ---------------- Auth ----------------
+  /auth/register/individual:
+    post:
+      tags: [Auth]
+      summary: إنشاء حساب فرد (شاشة signup - individual)
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, phone, email, password, acceptTerms]
+              properties:
+                username: { type: string, example: "ندى الشرقاوي" }
+                phone: { type: string, example: "0551234567" }
+                email: { type: string, format: email }
+                password: { type: string, format: password, minLength: 8 }
+                acceptTerms: { type: boolean, description: يجب أن تكون true }
+      responses:
+        "201": { $ref: '#/components/responses/OtpSent' }
+        "422": { $ref: '#/components/responses/ValidationError' }
+        "409": { $ref: '#/components/responses/Conflict' }
+  /auth/register/company:
+    post:
+      tags: [Auth]
+      summary: إنشاء حساب شركة (شاشة signup - companies)
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [companyName, ownerPhone, commercialRegNo, email, password, acceptTerms]
+              properties:
+                companyName: { type: string }
+                ownerPhone: { type: string }
+                commercialRegNo: { type: string }
+                taxNo: { type: string, nullable: true, description: اختياري }
+                email: { type: string, format: email }
+                password: { type: string, format: password }
+                acceptTerms: { type: boolean }
+      responses:
+        "201": { $ref: '#/components/responses/OtpSent' }
+        "422": { $ref: '#/components/responses/ValidationError' }
+        "409": { $ref: '#/components/responses/Conflict' }
+  /auth/otp/verify:
+    post:
+      tags: [Auth]
+      summary: تفعيل الحساب بالكود (شاشة verify account)
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [phone, code]
+              properties:
+                phone: { type: string }
+                code: { type: string, minLength: 6, maxLength: 6, example: "123456" }
+      responses:
+        "200": { $ref: '#/components/responses/AuthTokens' }
+        "400":
+          description: كود خاطئ أو منتهي (OTP_INVALID | OTP_EXPIRED | OTP_ATTEMPTS_EXCEEDED)
+          content: { application/json: { schema: { $ref: '#/components/schemas/Envelope' } } }
+  /auth/otp/resend:
+    post:
+      tags: [Auth]
+      summary: إعادة إرسال الكود (مع عدّاد)
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [phone, purpose]
+              properties:
+                phone: { type: string }
+                purpose: { type: string, enum: [register, password_reset] }
+      responses:
+        "200": { $ref: '#/components/responses/OtpSent' }
+        "429": { $ref: '#/components/responses/TooManyRequests' }
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: تسجيل الدخول (شاشة login)
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [phone, password]
+              properties:
+                phone: { type: string }
+                password: { type: string, format: password }
+      responses:
+        "200": { $ref: '#/components/responses/AuthTokens' }
+        "401":
+          description: INVALID_CREDENTIALS
+          content: { application/json: { schema: { $ref: '#/components/schemas/Envelope' } } }
+        "403":
+          description: ACCOUNT_NOT_VERIFIED (يجب تفعيل الحساب) أو ACCOUNT_SUSPENDED
+          content: { application/json: { schema: { $ref: '#/components/schemas/Envelope' } } }
+  /auth/refresh:
+    post:
+      tags: [Auth]
+      summary: تجديد التوكن
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refreshToken]
+              properties:
+                refreshToken: { type: string }
+      responses:
+        "200": { $ref: '#/components/responses/AuthTokens' }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: تسجيل الخروج
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refreshToken: { type: string }
+                deviceToken: { type: string, description: لإلغاء إشعارات الجهاز }
+      responses:
+        "200": { $ref: '#/components/responses/Ok' }
+  /auth/password/forgot:
+    post:
+      tags: [Auth]
+      summary: استرداد كلمة المرور - الخطوة 1 (إرسال الكود)
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [phone]
+              properties:
+                phone: { type: string }
+      responses:
+        "200": { $ref: '#/components/responses/OtpSent' }
+        "404": { $ref: '#/components/responses/NotFound' }
+  /auth/password/verify-otp:
+    post:
+      tags: [Auth]
+      summary: استرداد كلمة المرور - الخطوة 2 (التحقق من الكود)
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [phone, code]
+              properties:
+                phone: { type: string }
+                code: { type: string }
+      responses:
+        "200":
+          description: يرجع resetToken يُستخدم في الخطوة 3
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          resetToken: { type: string }
+        "400": { $ref: '#/components/responses/ValidationError' }
+  /auth/password/reset:
+    post:
+      tags: [Auth]
+      summary: استرداد كلمة المرور - الخطوة 3 (كلمة جديدة)
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [resetToken, newPassword, confirmPassword]
+              properties:
+                resetToken: { type: string }
+                newPassword: { type: string, format: password }
+                confirmPassword: { type: string, format: password }
+      responses:
+        "200": { $ref: '#/components/responses/Ok' }
+        "422": { $ref: '#/components/responses/ValidationError' }
+
+  # ---------------- Profile ----------------
+  /me:
+    get:
+      tags: [Profile]
+      summary: بيانات حسابي (شاشة حسابي)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/Profile' }
+    put:
+      tags: [Profile]
+      summary: تعديل بيانات الملف الشخصي
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                username: { type: string }
+                email: { type: string, format: email }
+      responses:
+        "200": { $ref: '#/components/responses/Ok' }
+        "422": { $ref: '#/components/responses/ValidationError' }
+    delete:
+      tags: [Profile]
+      summary: حذف الحساب (يُرفض إذا وُجدت معاملات نشطة أو رصيد)
+      responses:
+        "200": { $ref: '#/components/responses/Ok' }
+        "409": { $ref: '#/components/responses/Conflict' }
+  /me/password:
+    put:
+      tags: [Profile]
+      summary: تغيير كلمة المرور (الأمان والخصوصية)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [currentPassword, newPassword]
+              properties:
+                currentPassword: { type: string, format: password }
+                newPassword: { type: string, format: password }
+      responses:
+        "200": { $ref: '#/components/responses/Ok' }
+        "422": { $ref: '#/components/responses/ValidationError' }
+  /me/language:
+    put:
+      tags: [Profile]
+      summary: تغيير اللغة
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [language]
+              properties:
+                language: { type: string, enum: [ar, en] }
+      responses:
+        "200": { $ref: '#/components/responses/Ok' }
+  /me/avatar:
+    post:
+      tags: [Profile]
+      summary: رفع صورة الملف الشخصي
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file: { type: string, format: binary }
+      responses:
+        "200": { $ref: '#/components/responses/Ok' }
+  /me/kyc/nafath/start:
+    post:
+      tags: [Profile]
+      summary: بدء التحقق من الهوية عبر نفاذ
+      responses:
+        "200":
+          description: يرجع رقم التحقق الذي يظهر للمستخدم ليختاره داخل تطبيق نفاذ
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          requestId: { type: string }
+                          randomNumber: { type: string, example: "42" }
+                          expiresInSeconds: { type: integer, example: 120 }
+  /me/kyc/nafath/status:
+    get:
+      tags: [Profile]
+      summary: حالة التحقق (Polling كل 3 ثوانٍ)
+      parameters:
+        - { name: requestId, in: query, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          status: { type: string, enum: [pending, verified, rejected, expired] }
+  /me/bank-account:
+    get:
+      tags: [Profile]
+      summary: الحساب البنكي (IBAN مقنّع)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/BankAccount' }
+    put:
+      tags: [Profile]
+      summary: إضافة أو تعديل الحساب البنكي (يتحقق من الـ IBAN ويحدد البنك)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [holderName, iban]
+              properties:
+                holderName: { type: string }
+                iban: { type: string, example: "SA0380000000608010167519" }
+      responses:
+        "200": { $ref: '#/components/responses/Ok' }
+        "422": { $ref: '#/components/responses/ValidationError' }
+  /me/home:
+    get:
+      tags: [Profile]
+      summary: بيانات الشاشة الرئيسية (فرد أو شركة حسب نوع الحساب)
+      description: يمكن استدعاؤه كزائر (يرجع walletActivated=false بدون بيانات)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/Home' }
+  /devices:
+    post:
+      tags: [Profile]
+      summary: تسجيل جهاز للإشعارات (FCM)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [deviceToken, platform]
+              properties:
+                deviceToken: { type: string }
+                platform: { type: string, enum: [android, ios] }
+      responses:
+        "200": { $ref: '#/components/responses/Ok' }
+  /devices/{deviceToken}:
+    delete:
+      tags: [Profile]
+      summary: إلغاء تسجيل جهاز
+      parameters:
+        - { name: deviceToken, in: path, required: true, schema: { type: string } }
+      responses:
+        "200": { $ref: '#/components/responses/Ok' }
+
+  # ---------------- Notifications ----------------
+  /notifications:
+    get:
+      tags: [Notifications]
+      summary: قائمة الإشعارات
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data: { type: array, items: { $ref: '#/components/schemas/Notification' } }
+  /notifications/unread-count:
+    get:
+      tags: [Notifications]
+      summary: عدد غير المقروء (نقطة الجرس)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          count: { type: integer }
+  /notifications/{id}/read:
+    put:
+      tags: [Notifications]
+      summary: تعليم إشعار كمقروء
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        "200": { $ref: '#/components/responses/Ok' }
+  /notifications/read-all:
+    put:
+      tags: [Notifications]
+      summary: تعليم الكل كمقروء
+      responses:
+        "200": { $ref: '#/components/responses/Ok' }
+
+  # ---------------- Deals (individual) ----------------
+  /users/lookup:
+    get:
+      tags: [Deals]
+      summary: البحث عن بائع بالجوال أو الكود (أيقونة البحث في معاملة جديدة)
+      parameters:
+        - { name: q, in: query, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/Counterparty' }
+        "404": { $ref: '#/components/responses/NotFound' }
+  /deals:
+    post:
+      tags: [Deals]
+      summary: إنشاء معاملة جديدة (المشتري)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title, sellerPhoneOrCode, description, amount, durationValue, durationUnit, needShipping, acceptTerms]
+              properties:
+                title: { type: string, example: "iPhone 18 Pro Max 1T" }
+                sellerPhoneOrCode: { type: string }
+                description: { type: string, maxLength: 200 }
+                amount: { type: number, example: 6200 }
+                durationValue: { type: integer, example: 5 }
+                durationUnit: { type: string, enum: [hour, day] }
+                needShipping: { type: boolean }
+                shippingCompanyId: { type: integer, nullable: true, description: مطلوب إذا needShipping=true }
+                shippingAddressId: { type: integer, nullable: true }
+                acceptTerms: { type: boolean }
+      responses:
+        "201":
+          description: تم الإرسال (شاشة deal sent)
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/Deal' }
+        "422": { $ref: '#/components/responses/ValidationError' }
+    get:
+      tags: [Deals]
+      summary: قائمة المعاملات
+      parameters:
+        - { name: role, in: query, required: true, schema: { type: string, enum: [buyer, seller] } }
+        - { name: tab, in: query, required: false, schema: { type: string, enum: [new, in_progress, completed] } }
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data: { type: array, items: { $ref: '#/components/schemas/DealSummary' } }
+  /deals/{id}:
+    get:
+      tags: [Deals]
+      summary: تفاصيل المعاملة (كل حالات الشاشات تعتمد على status + availableActions)
+      parameters:
+        - $ref: '#/components/parameters/DealId'
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/Deal' }
+        "404": { $ref: '#/components/responses/NotFound' }
+  /deals/{id}/accept:
+    post:
+      tags: [Deals]
+      summary: قبول المعاملة (البائع أو المشتري بعد التعديل) مع الموافقة على الشروط
+      parameters:
+        - $ref: '#/components/parameters/DealId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [acceptTerms]
+              properties:
+                acceptTerms: { type: boolean }
+      responses:
+        "200": { $ref: '#/components/responses/DealResult' }
+        "409": { $ref: '#/components/responses/Conflict' }
+  /deals/{id}/reject:
+    post:
+      tags: [Deals]
+      summary: رفض المعاملة مع السبب
+      parameters:
+        - $ref: '#/components/parameters/DealId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reasonId]
+              properties:
+                reasonId: { type: integer }
+                note: { type: string, maxLength: 200, description: مطلوب عند اختيار سبب آخر }
+      responses:
+        "200": { $ref: '#/components/responses/DealResult' }
+        "409": { $ref: '#/components/responses/Conflict' }
+  /deals/{id}/edits:
+    post:
+      tags: [Deals]
+      summary: اقتراح تعديل (قيمة، مدة، تفاصيل)
+      parameters:
+        - $ref: '#/components/parameters/DealId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                amount: { type: number }
+                durationValue: { type: integer }
+                durationUnit: { type: string, enum: [hour, day] }
+                description: { type: string, maxLength: 200 }
+      responses:
+        "200": { $ref: '#/components/responses/DealResult' }
+        "409": { $ref: '#/components/responses/Conflict' }
+  /deals/{id}/edits/{editId}/approve:
+    post:
+      tags: [Deals]
+      summary: الموافقة على التعديل المقترح
+      parameters:
+        - $ref: '#/components/parameters/DealId'
+        - { name: editId, in: path, required: true, schema: { type: integer } }
+      responses:
+        "200": { $ref: '#/components/responses/DealResult' }
+  /deals/{id}/edits/{editId}/reject:
+    post:
+      tags: [Deals]
+      summary: رفض التعديل المقترح
+      parameters:
+        - $ref: '#/components/parameters/DealId'
+        - { name: editId, in: path, required: true, schema: { type: integer } }
+      responses:
+        "200": { $ref: '#/components/responses/DealResult' }
+  /deals/{id}/pay:
+    post:
+      tags: [Deals]
+      summary: حجز المبلغ لدى المنصة (Apple Pay / mada / المحفظة)
+      parameters:
+        - $ref: '#/components/parameters/DealId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [paymentMethod]
+              properties:
+                paymentMethod: { type: string, enum: [apple_pay, mada, card, wallet] }
+                paymentToken: { type: string, description: توكن Apple Pay أو البطاقة من البوابة }
+      responses:
+        "200":
+          description: نجاح أو يتطلب خطوة إضافية (3DS)
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          status: { type: string, enum: [succeeded, requires_action, failed] }
+                          redirectUrl: { type: string, nullable: true }
+                          deal: { $ref: '#/components/schemas/Deal' }
+        "402":
+          description: PAYMENT_FAILED
+          content: { application/json: { schema: { $ref: '#/components/schemas/Envelope' } } }
+  /deals/{id}/ship:
+    post:
+      tags: [Deals]
+      summary: البائع يسجل الشحن (إنشاء شحنة أرامكس أو رقم تتبع يدوي)
+      parameters:
+        - $ref: '#/components/parameters/DealId'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                trackingNumber: { type: string }
+      responses:
+        "200": { $ref: '#/components/responses/DealResult' }
+  /deals/{id}/tracking:
+    get:
+      tags: [Deals]
+      summary: تتبع الشحنة
+      parameters:
+        - $ref: '#/components/parameters/DealId'
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          trackingNumber: { type: string }
+                          status: { type: string }
+                          events:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                at: { type: string, format: date-time }
+                                description: { type: string }
+  /deals/{id}/confirm-delivery:
+    post:
+      tags: [Deals]
+      summary: تأكيد استلام المنتج (يحرّر المبلغ للبائع)
+      parameters:
+        - $ref: '#/components/parameters/DealId'
+      responses:
+        "200": { $ref: '#/components/responses/DealResult' }
+  /deals/{id}/not-received:
+    post:
+      tags: [Deals]
+      summary: لم أستلم المنتج (شاشة deal failure، يبقى المبلغ محجوزاً)
+      parameters:
+        - $ref: '#/components/parameters/DealId'
+      responses:
+        "200": { $ref: '#/components/responses/DealResult' }
+  /deals/{id}/rating:
+    post:
+      tags: [Deals]
+      summary: تقييم المتجر بعد الاستلام
+      parameters:
+        - $ref: '#/components/parameters/DealId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [stars]
+              properties:
+                stars: { type: integer, minimum: 1, maximum: 5 }
+                comment: { type: string, maxLength: 300, nullable: true }
+      responses:
+        "200": { $ref: '#/components/responses/Ok' }
+        "409": { $ref: '#/components/responses/Conflict' }
+  /deals/{id}/timeline:
+    get:
+      tags: [Deals]
+      summary: سجل حالات المعاملة
+      parameters:
+        - $ref: '#/components/parameters/DealId'
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            status: { $ref: '#/components/schemas/DealStatus' }
+                            label: { type: string }
+                            at: { type: string, format: date-time }
+  /sellers/{id}/store:
+    get:
+      tags: [Deals]
+      summary: صفحة المتجر (seller review page)
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/Store' }
+  /sellers/{id}/reviews:
+    get:
+      tags: [Deals]
+      summary: تقييمات المتجر
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data: { type: array, items: { $ref: '#/components/schemas/Review' } }
+
+  # ---------------- Wallet ----------------
+  /wallet:
+    get:
+      tags: [Wallet]
+      summary: المحفظة (الرصيد)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/Wallet' }
+  /wallet/transactions:
+    get:
+      tags: [Wallet]
+      summary: سجل التحويلات
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data: { type: array, items: { $ref: '#/components/schemas/WalletTransaction' } }
+  /wallet/withdraw:
+    post:
+      tags: [Wallet]
+      summary: سحب إلى الحساب البنكي (يتطلب توثيق وحساب بنكي)
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [amount]
+              properties:
+                amount: { type: number }
+      responses:
+        "200": { $ref: '#/components/responses/Ok' }
+        "422":
+          description: INSUFFICIENT_BALANCE | BANK_ACCOUNT_REQUIRED | KYC_REQUIRED
+          content: { application/json: { schema: { $ref: '#/components/schemas/Envelope' } } }
+  /wallet/withdrawals:
+    get:
+      tags: [Wallet]
+      summary: طلبات السحب وحالتها
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id: { type: integer }
+                            amount: { type: number }
+                            status: { type: string, enum: [pending, processing, completed, rejected] }
+                            createdAt: { type: string, format: date-time }
+
+  # ---------------- Uploads / Disputes / Support ----------------
+  /uploads:
+    post:
+      tags: [Disputes]
+      summary: رفع ملف (صورة أو PDF، حتى 10MB)، يرجع fileId يُستخدم في النزاع
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file: { type: string, format: binary }
+      responses:
+        "201":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          fileId: { type: string }
+                          url: { type: string }
+        "422": { $ref: '#/components/responses/ValidationError' }
+  /disputes:
+    post:
+      tags: [Disputes]
+      summary: فتح نزاع (شاشات dispute)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [dealId, reasonId, details, confirmed]
+              properties:
+                dealId: { type: integer }
+                reasonId: { type: integer }
+                details: { type: string, maxLength: 200 }
+                fileIds: { type: array, maxItems: 5, items: { type: string } }
+                confirmed: { type: boolean, description: تأكيد صحة المعلومات }
+      responses:
+        "201":
+          description: رقم النزاع مثل D-45872
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/Dispute' }
+        "409": { $ref: '#/components/responses/Conflict' }
+    get:
+      tags: [Disputes]
+      summary: نزاعاتي
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data: { type: array, items: { $ref: '#/components/schemas/Dispute' } }
+  /disputes/{id}:
+    get:
+      tags: [Disputes]
+      summary: تفاصيل نزاع
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/Dispute' }
+  /disputes/{id}/messages:
+    post:
+      tags: [Disputes]
+      summary: إضافة رسالة أو مستندات للنزاع
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message: { type: string }
+                fileIds: { type: array, items: { type: string } }
+      responses:
+        "200": { $ref: '#/components/responses/Ok' }
+  /support/faqs:
+    get:
+      tags: [Support]
+      summary: الأسئلة الشائعة
+      security: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id: { type: integer }
+                            question: { type: string }
+                            answer: { type: string }
+  /support/contact:
+    post:
+      tags: [Support]
+      summary: تواصل معنا (إنشاء تذكرة)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [subject, message]
+              properties:
+                subject: { type: string }
+                message: { type: string }
+                dealId: { type: integer, nullable: true }
+      responses:
+        "201": { $ref: '#/components/responses/Ok' }
+  /support/tickets:
+    get:
+      tags: [Support]
+      summary: طلبات الدعم
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id: { type: integer }
+                            number: { type: string, example: "S-1021" }
+                            subject: { type: string }
+                            status: { type: string, enum: [open, in_review, closed] }
+                            createdAt: { type: string, format: date-time }
+
+  # ---------------- Company ----------------
+  /company/dashboard:
+    get:
+      tags: [Company]
+      summary: رئيسية الشركة (إحصائيات + الدفعات القادمة)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/CompanyDashboard' }
+  /company/deals/drafts:
+    post:
+      tags: [Company]
+      summary: الخطوة 1 - تفاصيل المعاملة (ينشئ مسودة)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CompanyDealStep1'
+      responses:
+        "201":
+          description: يرجع draftId
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          draftId: { type: integer }
+        "422": { $ref: '#/components/responses/ValidationError' }
+  /company/deals/drafts/{draftId}:
+    put:
+      tags: [Company]
+      summary: تعديل الخطوة 1
+      parameters:
+        - $ref: '#/components/parameters/DraftId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CompanyDealStep1'
+      responses:
+        "200": { $ref: '#/components/responses/Ok' }
+  /company/deals/drafts/{draftId}/schedule:
+    put:
+      tags: [Company]
+      summary: الخطوة 2 - جدول الدفعات (مجموع الدفعات = القيمة الإجمالية)
+      parameters:
+        - $ref: '#/components/parameters/DraftId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [payments]
+              properties:
+                payments:
+                  type: array
+                  minItems: 1
+                  items:
+                    type: object
+                    required: [amount, dueDate]
+                    properties:
+                      amount: { type: number, example: 612500 }
+                      dueDate: { type: string, format: date, example: "2026-11-15" }
+      responses:
+        "200": { $ref: '#/components/responses/Ok' }
+        "422":
+          description: PAYMENTS_TOTAL_MISMATCH أو تاريخ قبل تاريخ البدء
+          content: { application/json: { schema: { $ref: '#/components/schemas/Envelope' } } }
+  /company/deals/drafts/{draftId}/approval-settings:
+    put:
+      tags: [Company]
+      summary: الخطوة 3 - إعدادات اعتماد الدفعات
+      parameters:
+        - $ref: '#/components/parameters/DraftId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [sendRequestDaysBefore, responseDeadlineDays]
+              properties:
+                sendRequestDaysBefore: { type: integer, example: 7, description: متى يُرسل طلب الموافقة (قبل الاستحقاق بكم يوم) }
+                responseDeadlineDays: { type: integer, example: 3, description: مهلة الرد }
+                notes: { type: string, maxLength: 200, nullable: true }
+      responses:
+        "200": { $ref: '#/components/responses/Ok' }
+  /company/deals/drafts/{draftId}/penalty:
+    put:
+      tags: [Company]
+      summary: الخطوة 4 - الشرط الجزائي
+      parameters:
+        - $ref: '#/components/parameters/DraftId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [percentage]
+              properties:
+                percentage: { type: number, example: 5 }
+                graceDays: { type: integer, example: 30, description: يبدأ تطبيق الشرط بعد هذه المدة من الاستحقاق }
+                clauses: { type: string, maxLength: 200, nullable: true }
+      responses:
+        "200": { $ref: '#/components/responses/Ok' }
+  /company/deals/drafts/{draftId}/review:
+    get:
+      tags: [Company]
+      summary: الخطوة 5 - مراجعة قبل الإنشاء
+      parameters:
+        - $ref: '#/components/parameters/DraftId'
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/CompanyDeal' }
+  /company/deals/drafts/{draftId}/submit:
+    post:
+      tags: [Company]
+      summary: إنشاء المعاملة وإشعار الطرف الآخر
+      parameters:
+        - $ref: '#/components/parameters/DraftId'
+      responses:
+        "201":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/CompanyDeal' }
+        "422": { $ref: '#/components/responses/ValidationError' }
+  /company/deals:
+    get:
+      tags: [Company]
+      summary: قائمة معاملات الشركة
+      parameters:
+        - { name: tab, in: query, required: true, schema: { type: string, enum: [new, active, completed] } }
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data: { type: array, items: { $ref: '#/components/schemas/CompanyDealSummary' } }
+  /company/deals/{id}:
+    get:
+      tags: [Company]
+      summary: تفاصيل الصفقة (الدفعات، الشرط الجزائي، العقد)
+      parameters:
+        - $ref: '#/components/parameters/DealId'
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/CompanyDeal' }
+  /company/deals/{id}/accept:
+    post:
+      tags: [Company]
+      summary: قبول المعاملة (الطرف الآخر)
+      parameters:
+        - $ref: '#/components/parameters/DealId'
+      responses:
+        "200": { $ref: '#/components/responses/Ok' }
+  /company/deals/{id}/reject:
+    post:
+      tags: [Company]
+      summary: رفض المعاملة (الطرف الآخر)
+      parameters:
+        - $ref: '#/components/parameters/DealId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reasonId]
+              properties:
+                reasonId: { type: integer }
+                note: { type: string }
+      responses:
+        "200": { $ref: '#/components/responses/Ok' }
+  /company/deals/{id}/contract:
+    get:
+      tags: [Company]
+      summary: رابط عقد المعاملة (مؤقت)
+      parameters:
+        - $ref: '#/components/parameters/DealId'
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          url: { type: string }
+                          expiresAt: { type: string, format: date-time }
+  /company/payments/upcoming:
+    get:
+      tags: [Company]
+      summary: الدفعات القادمة (عرض الكل)
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data: { type: array, items: { $ref: '#/components/schemas/UpcomingPayment' } }
+  /company/payments/{id}:
+    get:
+      tags: [Company]
+      summary: تفاصيل دفعة (شاشة اعتماد الدفعة)
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/PaymentInstallment' }
+  /company/payments/{id}/approve:
+    post:
+      tags: [Company]
+      summary: اعتماد الدفعة
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        "200": { $ref: '#/components/responses/Ok' }
+        "409": { $ref: '#/components/responses/Conflict' }
+  /company/payments/{id}/reject:
+    post:
+      tags: [Company]
+      summary: رفض الدفعة مع السبب
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason: { type: string, maxLength: 200 }
+      responses:
+        "200": { $ref: '#/components/responses/Ok' }
+
+  # ---------------- Webhooks ----------------
+  /payments/webhook:
+    post:
+      tags: [Wallet]
+      summary: (للـ Backend فقط) إشعار بوابة الدفع. لا يستخدمه الموبايل
+      security: []
+      requestBody:
+        content:
+          application/json:
+            schema: { type: object }
+      responses:
+        "200": { description: OK }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    Page: { name: page, in: query, schema: { type: integer, default: 1, minimum: 1 } }
+    PageSize: { name: pageSize, in: query, schema: { type: integer, default: 20, maximum: 100 } }
+    DealId: { name: id, in: path, required: true, schema: { type: integer } }
+    DraftId: { name: draftId, in: path, required: true, schema: { type: integer } }
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: UUID يولّده الموبايل لكل عملية مالية لمنع التكرار عند إعادة المحاولة
+      schema: { type: string, format: uuid }
+  responses:
+    Ok:
+      description: نجاح بدون بيانات
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Envelope' }
+          example: { success: true, message: "تمت العملية بنجاح", data: null, errors: [] }
+    OtpSent:
+      description: تم إرسال الكود
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/Envelope'
+              - type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      phone: { type: string }
+                      resendAfterSeconds: { type: integer, example: 56 }
+                      expiresInSeconds: { type: integer, example: 300 }
+    AuthTokens:
+      description: توكنات الدخول
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/Envelope'
+              - type: object
+                properties:
+                  data: { $ref: '#/components/schemas/AuthData' }
+    DealResult:
+      description: المعاملة بعد الإجراء
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/Envelope'
+              - type: object
+                properties:
+                  data: { $ref: '#/components/schemas/Deal' }
+    Unauthorized:
+      description: UNAUTHORIZED / TOKEN_EXPIRED
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Envelope' }
+          example: { success: false, message: "انتهت الجلسة", data: null, errors: [{ code: "TOKEN_EXPIRED", message: "انتهت الجلسة" }] }
+    NotFound:
+      description: NOT_FOUND
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Envelope' }
+    Conflict:
+      description: تعارض (مثل PHONE_EXISTS أو INVALID_DEAL_STATE)
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Envelope' }
+    ValidationError:
+      description: أخطاء التحقق، كل خطأ مع الحقل
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Envelope' }
+          example:
+            success: false
+            message: "بيانات غير صحيحة"
+            data: null
+            errors: [{ code: "REQUIRED", field: "phone", message: "رقم الجوال مطلوب" }]
+    TooManyRequests:
+      description: TOO_MANY_REQUESTS (هيدر Retry-After بالثواني)
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Envelope' }
+
+  schemas:
+    Envelope:
+      type: object
+      properties:
+        success: { type: boolean }
+        message: { type: string }
+        data: { nullable: true }
+        errors: { type: array, items: { $ref: '#/components/schemas/ApiError' } }
+        meta: { $ref: '#/components/schemas/PageMeta' }
+    ApiError:
+      type: object
+      properties:
+        code: { type: string, example: "INVALID_CREDENTIALS" }
+        field: { type: string, nullable: true }
+        message: { type: string }
+    PageMeta:
+      type: object
+      properties:
+        page: { type: integer }
+        pageSize: { type: integer }
+        total: { type: integer }
+        totalPages: { type: integer }
+    AppConfig:
+      type: object
+      properties:
+        languages: { type: array, items: { type: string }, example: [ar, en] }
+        minVersion: { type: object, properties: { android: { type: string }, ios: { type: string } } }
+        forceUpdate: { type: boolean }
+        supportWhatsapp: { type: string }
+        currency: { type: string, example: SAR }
+    LookupItem:
+      type: object
+      properties:
+        id: { type: integer }
+        code: { type: string }
+        name: { type: string }
+        iconUrl: { type: string, nullable: true }
+    Terms:
+      type: object
+      properties:
+        version: { type: string }
+        title: { type: string }
+        items: { type: array, items: { type: string } }
+    AuthData:
+      type: object
+      properties:
+        accessToken: { type: string }
+        refreshToken: { type: string }
+        expiresInSeconds: { type: integer, example: 3600 }
+        user: { $ref: '#/components/schemas/Profile' }
+    Profile:
+      type: object
+      properties:
+        id: { type: integer }
+        code: { type: string, description: كود المستخدم للبحث }
+        type: { type: string, enum: [individual, company] }
+        name: { type: string }
+        phone: { type: string }
+        email: { type: string }
+        avatarUrl: { type: string, nullable: true }
+        language: { type: string, enum: [ar, en] }
+        phoneVerified: { type: boolean }
+        nafathVerified: { type: boolean }
+        walletActivated: { type: boolean }
+        bankAccount: { $ref: '#/components/schemas/BankAccount' }
+        company:
+          type: object
+          nullable: true
+          properties:
+            commercialRegNo: { type: string }
+            taxNo: { type: string, nullable: true }
+    BankAccount:
+      type: object
+      nullable: true
+      properties:
+        holderName: { type: string }
+        ibanMasked: { type: string, example: "SA•••••••••4582" }
+        bankName: { type: string, example: "مصرف الراجحي" }
+        bankLogoUrl: { type: string }
+    Home:
+      type: object
+      properties:
+        accountType: { type: string, enum: [guest, individual, company] }
+        unreadNotifications: { type: integer }
+        wallet: { $ref: '#/components/schemas/Wallet' }
+        activeDeals: { type: array, items: { $ref: '#/components/schemas/DealSummary' } }
+        activeDealsCount: { type: integer }
+        company: { $ref: '#/components/schemas/CompanyDashboard' }
+    Notification:
+      type: object
+      properties:
+        id: { type: integer }
+        type: { type: string, enum: [deal_request, deal_accepted, deal_rejected, deal_edit, deal_funded, deal_shipped, deal_delivered, dispute_update, payment_approval, payment_due, penalty, wallet, system] }
+        title: { type: string }
+        body: { type: string }
+        isRead: { type: boolean }
+        dealId: { type: integer, nullable: true }
+        paymentId: { type: integer, nullable: true }
+        createdAt: { type: string, format: date-time }
+    Counterparty:
+      type: object
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        phone: { type: string }
+        whatsappUrl: { type: string, nullable: true }
+        avatarUrl: { type: string, nullable: true }
+        verified: { type: boolean }
+        rating: { type: number, nullable: true }
+        successfulDeals: { type: integer }
+    DealStatus:
+      type: string
+      enum: [draft, pending_seller, edit_proposed, pending_buyer_approval, accepted, funded, shipped, delivered, completed, rejected, disputed, refunded, expired, cancelled]
+    DealAction:
+      type: string
+      description: الإجراءات التي يظهر لها زر في الشاشة للمستخدم الحالي
+      enum: [accept, reject, edit, approve_edit, reject_edit, pay, ship, confirm_delivery, report_not_received, rate, open_dispute, contact_support, view_tracking]
+    Badge:
+      type: object
+      description: الشارة الزمنية (3 أيام = أصفر، 6 ساعات = أحمر)
+      properties:
+        text: { type: string, example: "متبقي 3 أيام" }
+        color: { type: string, enum: [yellow, red, green, grey] }
+        remainingSeconds: { type: integer }
+    DealSummary:
+      type: object
+      properties:
+        id: { type: integer }
+        number: { type: string, example: "45872" }
+        title: { type: string }
+        amount: { type: number }
+        status: { $ref: '#/components/schemas/DealStatus' }
+        role: { type: string, enum: [buyer, seller] }
+        counterpartyName: { type: string }
+        imageUrl: { type: string, nullable: true }
+        createdAt: { type: string, format: date-time }
+        badge: { $ref: '#/components/schemas/Badge' }
+        availableActions: { type: array, items: { $ref: '#/components/schemas/DealAction' } }
+    Deal:
+      type: object
+      properties:
+        id: { type: integer }
+        number: { type: string, example: "45872" }
+        title: { type: string }
+        description: { type: string }
+        amount: { type: number }
+        currency: { type: string, example: SAR }
+        durationValue: { type: integer }
+        durationUnit: { type: string, enum: [hour, day] }
+        status: { $ref: '#/components/schemas/DealStatus' }
+        role: { type: string, enum: [buyer, seller] }
+        imageUrl: { type: string, nullable: true }
+        counterparty: { $ref: '#/components/schemas/Counterparty' }
+        paymentMethod: { type: string, nullable: true, example: apple_pay }
+        fundsHeld: { type: boolean, description: هل المبلغ محجوز لدى المنصة }
+        shipping:
+          type: object
+          nullable: true
+          properties:
+            companyName: { type: string, example: "أرامكس" }
+            companyLogoUrl: { type: string }
+            address: { type: string }
+            trackingNumber: { type: string, nullable: true }
+        pendingEdit: { $ref: '#/components/schemas/DealEdit' }
+        rejection:
+          type: object
+          nullable: true
+          properties:
+            reason: { type: string }
+            note: { type: string, nullable: true }
+        banner:
+          type: object
+          nullable: true
+          description: التنبيه الملوّن أعلى الشاشة (أزرق/أخضر/أحمر/أصفر)
+          properties:
+            type: { type: string, enum: [info, success, error, warning] }
+            text: { type: string }
+        rated: { type: boolean }
+        dispute: { $ref: '#/components/schemas/Dispute' }
+        createdAt: { type: string, format: date-time }
+        badge: { $ref: '#/components/schemas/Badge' }
+        availableActions: { type: array, items: { $ref: '#/components/schemas/DealAction' } }
+    DealEdit:
+      type: object
+      nullable: true
+      properties:
+        id: { type: integer }
+        proposedBy: { type: string, enum: [buyer, seller] }
+        status: { type: string, enum: [pending, approved, rejected] }
+        previous:
+          type: object
+          properties:
+            amount: { type: number }
+            durationValue: { type: integer }
+            durationUnit: { type: string }
+            description: { type: string }
+        proposed:
+          type: object
+          properties:
+            amount: { type: number }
+            durationValue: { type: integer }
+            durationUnit: { type: string }
+            description: { type: string }
+        createdAt: { type: string, format: date-time }
+    Store:
+      type: object
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        category: { type: string, example: "أجهزة إلكترونية" }
+        bannerUrl: { type: string }
+        rating: { type: number, example: 4.9 }
+        successfulDeals: { type: integer, example: 345 }
+    Review:
+      type: object
+      properties:
+        id: { type: integer }
+        reviewerName: { type: string }
+        reviewerAvatarUrl: { type: string, nullable: true }
+        verified: { type: boolean }
+        stars: { type: integer }
+        comment: { type: string, nullable: true }
+        createdAt: { type: string, format: date-time }
+    Wallet:
+      type: object
+      properties:
+        activated: { type: boolean }
+        balance: { type: number, example: 12450 }
+        heldAmount: { type: number, description: المبالغ المحجوزة }
+        currency: { type: string, example: SAR }
+    WalletTransaction:
+      type: object
+      properties:
+        id: { type: integer }
+        type: { type: string, enum: [paid, refund, release, withdrawal, topup, penalty] }
+        amount: { type: number, description: موجب أو سالب }
+        dealNumber: { type: string, nullable: true }
+        createdAt: { type: string, format: date-time }
+    Dispute:
+      type: object
+      nullable: true
+      properties:
+        id: { type: integer }
+        number: { type: string, example: "D-45872" }
+        dealId: { type: integer }
+        reason: { type: string }
+        details: { type: string }
+        status: { type: string, enum: [under_review, awaiting_info, resolved_buyer, resolved_seller, closed] }
+        files: { type: array, items: { type: string } }
+        resolution: { type: string, nullable: true }
+        createdAt: { type: string, format: date-time }
+    CompanyDashboard:
+      type: object
+      properties:
+        activeDealsCount: { type: integer, example: 6 }
+        totalDues: { type: number, example: 2450000 }
+        upcomingPaymentsCount: { type: integer, example: 4 }
+        upcomingPayments: { type: array, items: { $ref: '#/components/schemas/UpcomingPayment' } }
+    UpcomingPayment:
+      type: object
+      properties:
+        paymentId: { type: integer }
+        dealId: { type: integer }
+        counterpartyName: { type: string }
+        amount: { type: number }
+        dueDate: { type: string, format: date }
+        badge: { type: string, enum: [on_time, near, upcoming, overdue] }
+    CompanyDealStep1:
+      type: object
+      required: [companyName, title, companyPhone, details, totalAmount, startDate]
+      properties:
+        companyName: { type: string }
+        title: { type: string }
+        companyPhone: { type: string }
+        details: { type: string, maxLength: 200 }
+        totalAmount: { type: number, example: 2450000 }
+        startDate: { type: string, format: date }
+        contractFileId: { type: string, nullable: true, description: من POST /uploads }
+    PaymentInstallment:
+      type: object
+      properties:
+        id: { type: integer }
+        order: { type: integer, example: 3 }
+        label: { type: string, example: "الدفعة الثالثة" }
+        amount: { type: number }
+        dueDate: { type: string, format: date }
+        status: { type: string, enum: [scheduled, awaiting_approval, approved, rejected, paid, overdue, penalty_applied] }
+        dealNumber: { type: string }
+        dealTitle: { type: string }
+        notes: { type: string, nullable: true }
+        availableActions: { type: array, items: { type: string, enum: [approve, reject] } }
+    CompanyDealSummary:
+      type: object
+      properties:
+        id: { type: integer }
+        number: { type: string }
+        title: { type: string }
+        counterpartyName: { type: string }
+        totalAmount: { type: number }
+        startDate: { type: string, format: date }
+        status: { type: string, enum: [pending, active, completed, rejected] }
+    CompanyDeal:
+      type: object
+      properties:
+        id: { type: integer }
+        number: { type: string }
+        title: { type: string }
+        counterpartyName: { type: string }
+        totalAmount: { type: number }
+        startDate: { type: string, format: date }
+        status: { type: string, enum: [draft, pending, active, completed, rejected] }
+        payments: { type: array, items: { $ref: '#/components/schemas/PaymentInstallment' } }
+        approvalSettings:
+          type: object
+          properties:
+            sendRequestDaysBefore: { type: integer }
+            responseDeadlineDays: { type: integer }
+            notes: { type: string, nullable: true }
+        penalty:
+          type: object
+          properties:
+            percentage: { type: number }
+            graceDays: { type: integer }
+            clauses: { type: string, nullable: true }
+        hasContract: { type: boolean }

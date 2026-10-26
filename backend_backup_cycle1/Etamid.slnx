@@ -1,0 +1,14 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Etamid.SharedKernel/Etamid.SharedKernel.csproj" />
+    <Project Path="src/Etamid.Domain/Etamid.Domain.csproj" />
+    <Project Path="src/Etamid.Application/Etamid.Application.csproj" />
+    <Project Path="src/Etamid.Infrastructure/Etamid.Infrastructure.csproj" />
+    <Project Path="src/Etamid.Api/Etamid.Api.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Etamid.Domain.Tests/Etamid.Domain.Tests.csproj" />
+    <Project Path="tests/Etamid.Application.Tests/Etamid.Application.Tests.csproj" />
+    <Project Path="tests/Etamid.Api.IntegrationTests/Etamid.Api.IntegrationTests.csproj" />
+  </Folder>
+</Solution>

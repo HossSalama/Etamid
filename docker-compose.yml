@@ -1,0 +1,18 @@
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "Etamid_Dev#2026"
+    ports: ["1433:1433"]
+    volumes: ["sqldata:/var/opt/mssql"]
+  redis:
+    image: redis:7
+    ports: ["6379:6379"]
+  seq:
+    image: datalust/seq:latest
+    environment:
+      ACCEPT_EULA: "Y"
+    ports: ["5341:80"]
+volumes:
+  sqldata:

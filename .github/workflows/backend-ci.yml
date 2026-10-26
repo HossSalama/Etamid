@@ -1,0 +1,21 @@
+name: Backend CI
+on:
+  push:
+    branches: [main, develop]
+    paths: ["backend/**"]
+  pull_request:
+    paths: ["backend/**"]
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - run: dotnet restore Etamid.slnx
+      - run: dotnet build Etamid.slnx --no-restore -c Release -p:TreatWarningsAsErrors=true
+      - run: dotnet test Etamid.slnx --no-build -c Release --logger "trx"

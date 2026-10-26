@@ -1,0 +1,102 @@
+/* Etamid (اعتمد) - Figma Design System */
+:root {
+  --primary-coral: #eb5757;
+  --primary-coral-dark: #d84545;
+  --primary-coral-light: rgba(241, 151, 151, 0.4);
+  --primary-coral-border: #f19797;
+  --primary-black: #111827;
+  --primary-black-hover: #000000;
+  
+  --text-main: #1f2937;
+  --text-muted: #6b7280;
+  --text-light: #9ca3af;
+  
+  --bg-gradient: linear-gradient(to top, rgba(241, 151, 151, 0.35) 0%, rgba(255, 255, 255, 0) 65%);
+  --bg-white: #ffffff;
+  --border-light: #e5e7eb;
+  
+  --success-color: #10b981;
+  --warning-color: #f59e0b;
+  --danger-color: #ef4444;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  font-family: 'Cairo', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+body {
+  background-color: #ffffff;
+  color: var(--text-main);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+html[dir="rtl"] {
+  direction: rtl;
+  text-align: right;
+}
+
+html[dir="ltr"] {
+  direction: ltr;
+  text-align: left;
+}
+
+html[dir="ltr"] .content-body,
+html[dir="ltr"] .header-greeting,
+html[dir="ltr"] .form-group,
+html[dir="ltr"] .deal-card,
+html[dir="ltr"] .inactive-icon-row,
+html[dir="ltr"] .support-content,
+html[dir="ltr"] .new-deal-modal {
+  text-align: left !important;
+}
+
+html[dir="rtl"] .content-body,
+html[dir="rtl"] .header-greeting,
+html[dir="rtl"] .form-group,
+html[dir="rtl"] .deal-card,
+html[dir="rtl"] .inactive-icon-row,
+html[dir="rtl"] .support-content,
+html[dir="rtl"] .new-deal-modal {
+  text-align: right !important;
+}
+
+/* Cursor and hover on language selector */
+.lang-selector {
+  cursor: pointer;
+  user-select: none;
+  transition: opacity 0.2s;
+  &:hover {
+    opacity: 0.8;
+  }
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* Mobile-First Frame Container */
+.app-screen {
+  width: 100%;
+  max-width: 440px;
+  min-height: 100vh;
+  margin: 0 auto;
+  background-color: #ffffff;
+  background-image: var(--bg-gradient);
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  box-shadow: 0 0 25px rgba(0, 0, 0, 0.05);
+}
+
+@media (min-width: 441px) {
+  body {
+    background-color: #f3f4f6;
+  }
+}
