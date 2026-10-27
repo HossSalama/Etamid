@@ -9,19 +9,24 @@ admin/      Angular admin panel (later)
 docs/       OpenAPI contract, specs, DB design, Postman collection
 ```
 
-## Run locally (3 commands)
-```bash
-docker compose up -d                                   # SQL Server, Redis, Seq
-cd backend
-dotnet run --project src/Etamid.Api                    # http://localhost:5080/swagger
-```
-Seq (logs): http://localhost:5341 — Health: `/health` and `/health/ready`.
+## Run the API locally with Docker
 
-## First migration
+Install Docker Desktop on Windows, copy `.env.example` to `.env`, generate the local secrets, then run:
+
+```bash
+docker compose up --build -d
+```
+
+Swagger: http://localhost:5080/swagger. Health: `/health` and `/health/ready`. See [`docs/docker-mobile-ios.md`](docs/docker-mobile-ios.md) for Windows setup, team onboarding, and iOS/device networking. Never commit or share `.env`.
+
+## EF Core migrations
+
+The Docker Compose Development setup applies existing migrations when the API starts. To generate a new migration as a maintainer, install the .NET 10 SDK and run:
+
 ```bash
 cd backend
 dotnet tool install --global dotnet-ef
-dotnet ef migrations add Initial -p src/Etamid.Infrastructure -s src/Etamid.Api -o Persistence/Migrations
+dotnet ef migrations add MigrationName -p src/Etamid.Infrastructure -s src/Etamid.Api -o Migrations
 dotnet ef database update -p src/Etamid.Infrastructure -s src/Etamid.Api
 ```
 
