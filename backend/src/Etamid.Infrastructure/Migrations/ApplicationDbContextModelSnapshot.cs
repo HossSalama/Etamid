@@ -1161,8 +1161,19 @@ namespace Etamid.Infrastructure.Migrations
                     b.Property<DateTime?>("CompletedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<string>("ContractHash")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("ContractSnapshot")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
+
+                    b.Property<long>("CreatedById")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("Currency")
                         .IsRequired()
@@ -1176,6 +1187,9 @@ namespace Etamid.Infrastructure.Migrations
                         .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTime?>("DisputedAt")
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("DurationUnit")
                         .IsRequired()
@@ -1197,6 +1211,9 @@ namespace Etamid.Infrastructure.Migrations
 
                     b.Property<long?>("ImageFileId")
                         .HasColumnType("bigint");
+
+                    b.Property<DateTime?>("InspectionEndsAt")
+                        .HasColumnType("datetime2");
 
                     b.Property<bool>("IsDisputed")
                         .HasColumnType("bit");
@@ -1284,6 +1301,8 @@ namespace Etamid.Infrastructure.Migrations
                     b.HasIndex("SellerId", "Status");
 
                     b.HasIndex("Status", "ExpiresAt");
+
+                    b.HasIndex("Status", "InspectionEndsAt");
 
                     b.ToTable("Deals", t =>
                         {
@@ -2674,6 +2693,10 @@ namespace Etamid.Infrastructure.Migrations
 
                     b.HasIndex("OwnerUserId");
 
+                    b.HasIndex("Type")
+                        .IsUnique()
+                        .HasFilter("[OwnerUserId] IS NULL");
+
                     b.ToTable("LedgerAccounts");
                 });
 
@@ -3577,7 +3600,7 @@ namespace Etamid.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("Etamid.Domain.Deals.Deal", null)
-                        .WithMany()
+                        .WithMany("History")
                         .HasForeignKey("DealId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
@@ -3896,7 +3919,7 @@ namespace Etamid.Infrastructure.Migrations
                         .IsRequired();
 
                     b.HasOne("Etamid.Domain.Money.LedgerTransaction", null)
-                        .WithMany()
+                        .WithMany("Entries")
                         .HasForeignKey("TransactionId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
@@ -4066,9 +4089,19 @@ namespace Etamid.Infrastructure.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Etamid.Domain.Deals.Deal", b =>
+                {
+                    b.Navigation("History");
+                });
+
             modelBuilder.Entity("Etamid.Domain.Identity.User", b =>
                 {
                     b.Navigation("CompanyProfile");
+                });
+
+            modelBuilder.Entity("Etamid.Domain.Money.LedgerTransaction", b =>
+                {
+                    b.Navigation("Entries");
                 });
 #pragma warning restore 612, 618
         }

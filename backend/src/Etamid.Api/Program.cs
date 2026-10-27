@@ -6,6 +6,7 @@ using Etamid.Application.Common.Models;
 using Etamid.Infrastructure;
 using Etamid.Infrastructure.Storage;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.FileProviders;
 using Serilog;
 
@@ -24,6 +25,16 @@ builder.Services
     .AddApi(builder.Configuration);
 
 var app = builder.Build();
+
+if (app.Configuration.GetValue<bool>("Database:ApplyMigrationsOnStart"))
+{
+    if (app.Environment.IsProduction())
+        throw new InvalidOperationException("Automatic database migrations are disabled in Production.");
+
+    await using var scope = app.Services.CreateAsyncScope();
+    var db = scope.ServiceProvider.GetRequiredService<Etamid.Infrastructure.Persistence.ApplicationDbContext>();
+    await db.Database.MigrateAsync();
+}
 
 if (app.Configuration.GetValue<bool>("Persistence:UseInMemory"))
 {

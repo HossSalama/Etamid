@@ -45,6 +45,9 @@ public sealed class LedgerTransaction : CreatedEntity<long>
     public string? IdempotencyKey { get; set; }
     public CreatedByType CreatedByType { get; set; }
     public long? CreatedById { get; set; }
+
+    /// <summary>The balanced Dr/Cr lines of this transaction; saved together with it in one unit of work.</summary>
+    public List<LedgerEntry> Entries { get; } = [];
 }
 
 /// <summary>Append-only. Never updated or deleted; corrections are new reversing entries.</summary>

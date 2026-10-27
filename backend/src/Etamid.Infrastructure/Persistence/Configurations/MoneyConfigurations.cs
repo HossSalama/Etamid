@@ -27,6 +27,8 @@ public sealed class LedgerAccountConfiguration : IEntityTypeConfiguration<Ledger
     {
         b.Property(x => x.Currency).HasMaxLength(3);
         b.HasIndex(x => x.OwnerUserId);
+        // Exactly one platform account (escrow, revenue, gateway clearing...) per type.
+        b.HasIndex(x => x.Type).IsUnique().HasFilter("[OwnerUserId] IS NULL");
         b.ForeignKey<LedgerAccount, User>(x => x.OwnerUserId);
     }
 }
@@ -39,6 +41,7 @@ public sealed class LedgerTransactionConfiguration : IEntityTypeConfiguration<Le
         b.Property(x => x.IdempotencyKey).HasMaxLength(64);
         b.HasIndex(x => x.PublicId).IsUnique();
         b.HasIndex(x => x.IdempotencyKey).IsUnique().HasFilter("[IdempotencyKey] IS NOT NULL");
+        b.HasMany(x => x.Entries).WithOne().HasForeignKey(e => e.TransactionId).OnDelete(DeleteBehavior.Restrict);
         b.ForeignKey<LedgerTransaction, Deal>(x => x.DealId);
         b.ForeignKey<LedgerTransaction, CompanyDeal>(x => x.CompanyDealId);
         b.ForeignKey<LedgerTransaction, PaymentInstallment>(x => x.InstallmentId);
@@ -53,7 +56,6 @@ public sealed class LedgerEntryConfiguration : IEntityTypeConfiguration<LedgerEn
     {
         b.HasIndex(x => new { x.AccountId, x.CreatedAt });
         b.ToTable(t => t.HasCheckConstraint("CK_LedgerEntries_Amount", "[Amount] > 0"));
-        b.ForeignKey<LedgerEntry, LedgerTransaction>(x => x.TransactionId);
         b.ForeignKey<LedgerEntry, LedgerAccount>(x => x.AccountId);
     }
 }

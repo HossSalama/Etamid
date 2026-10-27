@@ -103,6 +103,23 @@ public static class DependencyInjection
             throw new InvalidOperationException("The fake Nafath client cannot be used in Production.");
 
         services.AddSingleton<INafathClient, FakeNafathClient>();
+
+        AddPayments(services, configuration, environment);
+    }
+
+    private static void AddPayments(IServiceCollection services, IConfiguration configuration, IHostEnvironment environment)
+    {
+        var provider = configuration["Payments:Provider"] ?? "Fake";
+        if (!provider.Equals("Fake", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("Only the fake payment gateway exists so far. Set Payments:Provider to Fake.");
+        if (environment.IsProduction())
+            throw new InvalidOperationException("The fake payment gateway cannot be used in Production.");
+
+        services.AddSingleton<IPaymentGateway, Payments.FakePaymentGateway>();
+        services.AddSingleton<IWebhookSignatureVerifier, Payments.HmacWebhookSignatureVerifier>();
+
+        if (configuration.GetValue("Escrow:MaintenanceEnabled", true))
+            services.AddHostedService<Jobs.EscrowMaintenanceWorker>();
     }
 
     private static bool TryGet32Bytes(string value)

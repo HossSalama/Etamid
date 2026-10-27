@@ -1,0 +1,10 @@
+.git
+**/bin
+**/obj
+**/TestResults
+**/.vs
+**/*.user
+**/*.suo
+.env
+src/Etamid.Api/appsettings.Local.json
+src/Etamid.Api/appsettings.Development.json
