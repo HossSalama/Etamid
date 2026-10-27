@@ -31,6 +31,11 @@ public static class DependencyInjection
         services.AddScoped<UserProfileService>();
         services.AddScoped<RegistrationService>();
 
+        // Deals and escrow
+        services.AddScoped<Etamid.Application.Deals.Services.EscrowLedgerService>();
+        services.AddScoped<Etamid.Application.Deals.Services.EscrowReleaseService>();
+        services.AddScoped<Etamid.Application.Deals.Services.IdempotencyService>();
+
         // Files
         services.AddScoped<Etamid.Application.Files.FileUploadService>();
 

@@ -19,15 +19,19 @@ public sealed class DealConfiguration : IEntityTypeConfiguration<Deal>
         b.Property(x => x.ShippingAddressSnapshot).HasMaxLength(400);
         b.Property(x => x.PaymentMethodCode).HasMaxLength(30);
         b.Property(x => x.RejectNote).HasMaxLength(200);
+        b.Property(x => x.ContractSnapshot).HasColumnType("nvarchar(max)");
+        b.Property(x => x.ContractHash).HasMaxLength(64);
         b.Property(x => x.RowVersion).IsRowVersion();
 
         b.HasIndex(x => x.Number).IsUnique();
+        b.HasIndex(x => new { x.Status, x.InspectionEndsAt });
         b.HasIndex(x => new { x.BuyerId, x.Status });
         b.HasIndex(x => new { x.SellerId, x.Status });
         b.HasIndex(x => new { x.Status, x.ExpiresAt });
 
         b.ToTable(t => t.HasCheckConstraint("CK_Deals_DifferentParties", "[BuyerId] <> [SellerId]"));
 
+        b.HasMany(x => x.History).WithOne().HasForeignKey(h => h.DealId).OnDelete(DeleteBehavior.Restrict);
         b.ForeignKey<Deal, User>(x => x.BuyerId);
         b.ForeignKey<Deal, User>(x => x.SellerId);
         b.ForeignKey<Deal, ShippingCompany>(x => x.ShippingCompanyId);
@@ -63,7 +67,6 @@ public sealed class DealStatusHistoryConfiguration : IEntityTypeConfiguration<De
         b.Property(x => x.ToStatus).HasMaxLength(30);
         b.Property(x => x.Note).HasMaxLength(300);
         b.HasIndex(x => new { x.DealId, x.CreatedAt });
-        b.ForeignKey<DealStatusHistory, Deal>(x => x.DealId);
         b.ForeignKey<DealStatusHistory, User>(x => x.ActorUserId);
     }
 }

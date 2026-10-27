@@ -3,50 +3,10 @@ using Etamid.SharedKernel;
 
 namespace Etamid.Domain.Deals;
 
-public enum DealStatus
-{
-    Draft, PendingSeller, EditProposed, PendingBuyerApproval, Accepted, Funded,
-    Shipped, Delivered, Completed, Rejected, Disputed, Refunded, Expired, Cancelled
-}
 public enum DurationUnit { Hour, Day }
 public enum EditStatus { Pending, Approved, Rejected, Cancelled }
 public enum ActorType { Buyer, Seller, System, Admin }
 public enum ShipmentStatus { Created, PickedUp, InTransit, OutForDelivery, Delivered, Failed, Returned }
-
-public sealed class Deal : AuditableEntity<long>
-{
-    public long Number { get; set; }
-    public long BuyerId { get; set; }
-    public long SellerId { get; set; }
-    public string Title { get; set; } = string.Empty;
-    public string Description { get; set; } = string.Empty;
-    public decimal Amount { get; set; }
-    public decimal OriginalAmount { get; set; }
-    public string Currency { get; set; } = "SAR";
-    public int DurationValue { get; set; }
-    public DurationUnit DurationUnit { get; set; }
-    public DealStatus Status { get; set; }
-    public bool NeedShipping { get; set; }
-    public long? ShippingCompanyId { get; set; }
-    public long? ShippingAddressId { get; set; }
-    public string? ShippingAddressSnapshot { get; set; }
-    public string? PaymentMethodCode { get; set; }
-    public long? ImageFileId { get; set; }
-    public long? RejectReasonId { get; set; }
-    public string? RejectNote { get; set; }
-    public DateTime RespondDeadlineAt { get; set; }
-    public DateTime? AcceptedAt { get; set; }
-    public DateTime? FundedAt { get; set; }
-    public DateTime? ShippedAt { get; set; }
-    public DateTime? DeliveredAt { get; set; }
-    public DateTime? CompletedAt { get; set; }
-    public DateTime? ExpiresAt { get; set; }
-    /// <summary>Platform fee (currently a fixed 50 SAR charged to the seller; see AppSettings).</summary>
-    public decimal? FeeAmount { get; set; }
-    public decimal? SellerNetAmount { get; set; }
-    public bool IsDisputed { get; set; }
-    public byte[] RowVersion { get; set; } = [];
-}
 
 public sealed class DealEditRequest : CreatedEntity<long>
 {

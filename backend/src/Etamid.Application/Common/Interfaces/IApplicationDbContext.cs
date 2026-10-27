@@ -1,4 +1,6 @@
 using Etamid.Domain.Config;
+using Etamid.Domain.Deals;
+using Etamid.Domain.Disputes;
 using Etamid.Domain.Files;
 using Etamid.Domain.Identity;
 using Etamid.Domain.Money;
@@ -30,6 +32,19 @@ public interface IApplicationDbContext
     DbSet<StoreProfile> StoreProfiles { get; }
     DbSet<Address> Addresses { get; }
     DbSet<NafathVerification> NafathVerifications { get; }
+
+    // Deals and escrow
+    DbSet<Deal> Deals { get; }
+    DbSet<DealStatusHistory> DealStatusHistory { get; }
+    DbSet<Payment> Payments { get; }
+    DbSet<PaymentWebhookEvent> PaymentWebhookEvents { get; }
+    DbSet<LedgerAccount> LedgerAccounts { get; }
+    DbSet<LedgerTransaction> LedgerTransactions { get; }
+    DbSet<LedgerEntry> LedgerEntries { get; }
+    DbSet<EscrowHold> EscrowHolds { get; }
+    DbSet<IdempotencyRecord> IdempotencyKeys { get; }
+    DbSet<Dispute> Disputes { get; }
+    DbSet<DisputeMessage> DisputeMessages { get; }
 
     DbSet<TEntity> Set<TEntity>() where TEntity : class;
 
