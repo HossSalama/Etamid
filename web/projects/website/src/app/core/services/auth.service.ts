@@ -9,6 +9,7 @@ import {
   RegisterCompanyRequest,
   RegisterIndividualRequest,
   RegisterResponse,
+  UpdateProfileRequest,
   UserProfile,
   VerifyOtpRequest,
   ResendOtpRequest,
@@ -61,6 +62,21 @@ export class AuthService {
     return this.http.get<ApiResponse<UserProfile>>('/api/v1/me').pipe(
       tap((res) => {
         if (res.success && res.data) this.saveCurrentUser(res.data);
+      })
+    );
+  }
+
+  updateProfile(request: UpdateProfileRequest): Observable<ApiResponse<null>> {
+    return this.http.put<ApiResponse<null>>('/api/v1/me', request).pipe(
+      tap((res) => {
+        const user = this._currentUser();
+        if (res.success && user) {
+          this.saveCurrentUser({
+            ...user,
+            name: request.username.trim(),
+            email: request.email.trim().toLowerCase(),
+          });
+        }
       })
     );
   }

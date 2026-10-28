@@ -139,6 +139,29 @@ a {
 .profile-message { margin-top: 0.65rem !important; font-weight: 700; }
 .profile-error { color: #b91c1c !important; }
 .profile-success { color: #047857 !important; }
+.profile-section .section-title-row { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; }
+.profile-edit-toggle { flex: 0 0 auto; min-height: 42px; }
+.profile-edit-form { display: grid; gap: 0.9rem; min-width: 0; padding-top: 0.35rem; }
+.profile-form-field { display: grid; gap: 0.4rem; min-width: 0; }
+.profile-form-field label { color: #374151; font-size: 0.86rem; font-weight: 750; }
+.profile-form-field input {
+  width: 100%;
+  min-height: 46px;
+  border: 1px solid #d1d5db;
+  border-radius: 12px;
+  padding: 0.7rem 0.85rem;
+  color: #111827;
+  background: #fff;
+  font: inherit;
+  outline: none;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+.profile-form-field input:focus { border-color: #eb5757; box-shadow: 0 0 0 3px rgba(235, 87, 87, 0.13); }
+.profile-form-field input[aria-invalid='true'] { border-color: #b91c1c; }
+.profile-field-error { color: #b91c1c; font-size: 0.78rem; font-weight: 650; }
+.profile-phone-locked { align-items: flex-start; }
+.profile-phone-value { display: grid; justify-items: end; gap: 0.35rem; min-width: 0; }
+.profile-phone-value small { max-width: 28rem; color: #6b7280; font-size: 0.74rem; line-height: 1.5; text-align: end; }
 .profile-details { padding-top: 0.35rem; }
 .profile-detail-row {
   display: flex;

@@ -83,6 +83,14 @@ export interface DealItem {
           <section class="profile-section">
             <div class="section-title-row">
               <h2 class="section-title">{{ lang.t('profile_title') }}</h2>
+              <button
+                type="button"
+                class="btn btn-outline-coral profile-edit-toggle"
+                [disabled]="isSavingProfile()"
+                (click)="isEditingProfile() ? cancelProfileEdit() : startProfileEdit()"
+              >
+                {{ isEditingProfile() ? lang.t('profile_cancel') : lang.t('profile_edit') }}
+              </button>
             </div>
 
             <div class="profile-card">
@@ -128,24 +136,89 @@ export interface DealItem {
                 </div>
               </div>
 
-              <div class="profile-details">
-                <div class="profile-detail-row">
-                  <span>{{ lang.t('profile_name') }}</span>
-                  <strong>{{ authService.currentUser()?.name }}</strong>
+              @if (isEditingProfile()) {
+                <form class="profile-edit-form" [formGroup]="profileForm" (ngSubmit)="saveProfile()" novalidate>
+                  <div class="profile-form-field">
+                    <label for="profile-name">{{ lang.t('profile_name') }}</label>
+                    <input
+                      id="profile-name"
+                      type="text"
+                      formControlName="name"
+                      autocomplete="name"
+                      maxlength="150"
+                      [attr.aria-invalid]="profileForm.controls.name.invalid && profileForm.controls.name.touched"
+                    />
+                    @if (profileForm.controls.name.touched && profileForm.controls.name.hasError('required')) {
+                      <small class="profile-field-error">{{ lang.t('profile_name_required') }}</small>
+                    } @else if (profileForm.controls.name.touched && profileForm.controls.name.hasError('maxlength')) {
+                      <small class="profile-field-error">{{ lang.t('profile_name_max') }}</small>
+                    }
+                  </div>
+
+                  <div class="profile-form-field">
+                    <label for="profile-email">{{ lang.t('profile_email') }}</label>
+                    <input
+                      id="profile-email"
+                      type="email"
+                      formControlName="email"
+                      autocomplete="email"
+                      inputmode="email"
+                      dir="ltr"
+                      maxlength="254"
+                      [attr.aria-invalid]="profileForm.controls.email.invalid && profileForm.controls.email.touched"
+                    />
+                    @if (profileForm.controls.email.touched && profileForm.controls.email.invalid) {
+                      <small class="profile-field-error">{{ lang.t('profile_email_invalid') }}</small>
+                    }
+                  </div>
+
+                  <div class="profile-detail-row profile-phone-locked">
+                    <span>{{ lang.t('profile_phone') }}</span>
+                    <div class="profile-phone-value">
+                      <strong dir="ltr">{{ authService.currentUser()?.phone }}</strong>
+                      <small>{{ lang.t('profile_phone_locked_hint') }}</small>
+                    </div>
+                  </div>
+
+                  @if (profileError()) {
+                    <p class="profile-message profile-error" role="alert">{{ lang.t(profileError()!) }}</p>
+                  }
+
+                  <div class="profile-button-row">
+                    <button type="submit" class="btn btn-black" [disabled]="isSavingProfile()">
+                      {{ isSavingProfile() ? lang.t('profile_saving') : lang.t('profile_save') }}
+                    </button>
+                    <button type="button" class="btn btn-outline-coral" [disabled]="isSavingProfile()" (click)="cancelProfileEdit()">
+                      {{ lang.t('profile_cancel') }}
+                    </button>
+                  </div>
+                </form>
+              } @else {
+                <div class="profile-details">
+                  @if (profileSaved()) {
+                    <p class="profile-message profile-success" role="status">{{ lang.t('profile_save_success') }}</p>
+                  }
+                  <div class="profile-detail-row">
+                    <span>{{ lang.t('profile_name') }}</span>
+                    <strong>{{ authService.currentUser()?.name }}</strong>
+                  </div>
+                  <div class="profile-detail-row profile-phone-locked">
+                    <span>{{ lang.t('profile_phone') }}</span>
+                    <div class="profile-phone-value">
+                      <strong dir="ltr">{{ authService.currentUser()?.phone }}</strong>
+                      <small>{{ lang.t('profile_phone_locked_hint') }}</small>
+                    </div>
+                  </div>
+                  <div class="profile-detail-row">
+                    <span>{{ lang.t('profile_email') }}</span>
+                    <strong dir="ltr">{{ authService.currentUser()?.email }}</strong>
+                  </div>
+                  <div class="profile-detail-row">
+                    <span>{{ lang.t('profile_code') }}</span>
+                    <strong dir="ltr">{{ authService.currentUser()?.code }}</strong>
+                  </div>
                 </div>
-                <div class="profile-detail-row">
-                  <span>{{ lang.t('profile_phone') }}</span>
-                  <strong dir="ltr">{{ authService.currentUser()?.phone }}</strong>
-                </div>
-                <div class="profile-detail-row">
-                  <span>{{ lang.t('profile_email') }}</span>
-                  <strong dir="ltr">{{ authService.currentUser()?.email }}</strong>
-                </div>
-                <div class="profile-detail-row">
-                  <span>{{ lang.t('profile_code') }}</span>
-                  <strong dir="ltr">{{ authService.currentUser()?.code }}</strong>
-                </div>
-              </div>
+              }
             </div>
           </section>
         } @else {
@@ -1321,11 +1394,76 @@ export class HomeComponent {
   readonly isUploadingAvatar = signal(false);
   readonly avatarError = signal<string | null>(null);
   readonly avatarSaved = signal(false);
+  readonly isEditingProfile = signal(false);
+  readonly isSavingProfile = signal(false);
+  readonly profileError = signal<string | null>(null);
+  readonly profileSaved = signal(false);
+  readonly profileForm = this.fb.nonNullable.group({
+    name: ['', [Validators.required, Validators.maxLength(150)]],
+    email: ['', [Validators.required, Validators.email, Validators.maxLength(254)]],
+  });
 
   constructor() {
     if (this.authService.isAuthenticated()) {
       this.authService.refreshProfile().subscribe({ error: () => {} });
     }
+  }
+
+  startProfileEdit(): void {
+    const user = this.authService.currentUser();
+    if (!user) return;
+
+    this.profileForm.reset({ name: user.name, email: user.email });
+    this.profileError.set(null);
+    this.profileSaved.set(false);
+    this.isEditingProfile.set(true);
+  }
+
+  cancelProfileEdit(): void {
+    if (this.isSavingProfile()) return;
+    this.isEditingProfile.set(false);
+    this.profileError.set(null);
+    this.profileForm.reset();
+  }
+
+  saveProfile(): void {
+    if (this.isSavingProfile()) return;
+    if (this.profileForm.invalid) {
+      this.profileForm.markAllAsTouched();
+      return;
+    }
+
+    const values = this.profileForm.getRawValue();
+    this.isSavingProfile.set(true);
+    this.profileError.set(null);
+    this.profileSaved.set(false);
+    this.authService.updateProfile({ username: values.name.trim(), email: values.email.trim() }).subscribe({
+      next: (response) => {
+        this.isSavingProfile.set(false);
+        if (!response.success) {
+          this.profileError.set(this.profileSaveErrorKey(response));
+          return;
+        }
+        this.isEditingProfile.set(false);
+        this.profileSaved.set(true);
+      },
+      error: (error: unknown) => {
+        this.isSavingProfile.set(false);
+        this.profileError.set(this.profileSaveErrorKey(error));
+      },
+    });
+  }
+
+  private profileSaveErrorKey(error: unknown): string {
+    if (typeof error === 'object' && error !== null) {
+      const envelope = error as {
+        errors?: { code?: string }[];
+        error?: { errors?: { code?: string }[] };
+      };
+      const errors = envelope.error?.errors ?? envelope.errors ?? [];
+      if (errors.some((item) => item.code === 'EMAIL_EXISTS')) return 'profile_email_exists';
+    }
+    return 'profile_save_error';
   }
 
   profilePhotoUrl(): string | null {
