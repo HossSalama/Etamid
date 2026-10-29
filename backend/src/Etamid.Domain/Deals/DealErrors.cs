@@ -11,6 +11,8 @@ public static class DealErrors
 
     public static readonly Error InvalidState = Error.Conflict("DEAL_INVALID_STATE");
     public static readonly Error NotAllowed = Error.Forbidden("DEAL_ACTION_NOT_ALLOWED");
+    public static readonly Error EditAlreadyPending = Error.Conflict("DEAL_EDIT_ALREADY_PENDING");
+    public static readonly Error EditNotFound = Error.NotFound("DEAL_EDIT_NOT_FOUND");
     public static readonly Error Disputed = Error.Conflict("DEAL_DISPUTED");
     public static readonly Error ResponseExpired = Error.Conflict("DEAL_RESPONSE_EXPIRED");
     public static readonly Error FundingExpired = Error.Conflict("DEAL_FUNDING_EXPIRED");

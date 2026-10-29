@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
-namespace Etamid.Infrastructure.Persistence.Migrations
+namespace Etamid.Infrastructure.Migrations
 {
     /// <inheritdoc />
     public partial class Cycle3Deals : Migration

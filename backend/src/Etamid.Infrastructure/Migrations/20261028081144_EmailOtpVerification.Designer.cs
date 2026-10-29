@@ -9,11 +9,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
 
-namespace Etamid.Infrastructure.Persistence.Migrations
+namespace Etamid.Infrastructure.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20261027072703_Cycle3Deals")]
-    partial class Cycle3Deals
+    [Migration("20261028081144_EmailOtpVerification")]
+    partial class EmailOtpVerification
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -2169,6 +2169,60 @@ namespace Etamid.Infrastructure.Persistence.Migrations
                     b.ToTable("Devices");
                 });
 
+            modelBuilder.Entity("Etamid.Domain.Identity.EmailOtp", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<int>("Attempts")
+                        .HasColumnType("int");
+
+                    b.Property<string>("CodeHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<DateTime?>("ConsumedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Purpose")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<DateTime?>("ResetTokenExpiresAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ResetTokenHash")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<DateTime?>("ResetTokenUsedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<long>("UserId")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ResetTokenHash")
+                        .IsUnique()
+                        .HasFilter("[ResetTokenHash] IS NOT NULL");
+
+                    b.HasIndex("UserId", "Purpose", "CreatedAt");
+
+                    b.ToTable("EmailOtps");
+                });
+
             modelBuilder.Entity("Etamid.Domain.Identity.NafathVerification", b =>
                 {
                     b.Property<long>("Id")
@@ -3790,6 +3844,15 @@ namespace Etamid.Infrastructure.Persistence.Migrations
                 });
 
             modelBuilder.Entity("Etamid.Domain.Identity.Device", b =>
+                {
+                    b.HasOne("Etamid.Domain.Identity.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Etamid.Domain.Identity.EmailOtp", b =>
                 {
                     b.HasOne("Etamid.Domain.Identity.User", null)
                         .WithMany()

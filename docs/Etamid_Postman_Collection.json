@@ -871,7 +871,7 @@
                 },
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"phone\": \"0551234567\",\n  \"purpose\": \"register\"\n}",
+                  "raw": "{\n  \"phone\": \"0551234567\"\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -1036,7 +1036,8 @@
                   ],
                   "body": "{\n  \"success\": false,\n  \"message\": \"You have reached the daily limit of codes.\",\n  \"data\": null,\n  \"errors\": [\n    {\n      \"code\": \"OTP_LIMIT_REACHED\",\n      \"message\": \"You have reached the daily limit of codes.\"\n    }\n  ]\n}"
                 }
-              ]
+              ],
+              "description": "IMPLEMENTED (registration only): POST /auth/otp/resend takes {phone} only — no purpose field in current code. Returns generic success even for unknown numbers / during 60s cooldown."
             },
             {
               "name": "Login",
@@ -1780,7 +1781,7 @@
               ]
             },
             {
-              "name": "[Proposed] Logout From All Devices",
+              "name": "Logout From All Devices",
               "event": [
                 {
                   "listen": "test",
@@ -1890,7 +1891,8 @@
                   ],
                   "body": "{\n  \"success\": false,\n  \"message\": \"Your session has expired. Please sign in again.\",\n  \"data\": null,\n  \"errors\": [\n    {\n      \"code\": \"TOKEN_EXPIRED\",\n      \"message\": \"Your session has expired. Please sign in again.\"\n    }\n  ]\n}"
                 }
-              ]
+              ],
+              "description": "IMPLEMENTED: POST /auth/logout-all."
             },
             {
               "name": "Forgot Password — Step 1 (Send Code)",
@@ -2767,7 +2769,8 @@
                   ],
                   "body": "{\n  \"success\": false,\n  \"message\": \"This email is already registered.\",\n  \"data\": null,\n  \"errors\": [\n    {\n      \"code\": \"EMAIL_EXISTS\",\n      \"message\": \"This email is already registered.\",\n      \"field\": \"email\"\n    }\n  ]\n}"
                 }
-              ]
+              ],
+              "description": "IMPLEMENTED: PUT /me returns data {emailChanged, emailVerificationRequired, otpSent}. If the email changed, it is unverified until its own OTP is confirmed via POST /auth/otp/verify (phone + code)."
             },
             {
               "name": "Change Password",
@@ -3172,7 +3175,7 @@
               ]
             },
             {
-              "name": "Delete Account",
+              "name": "[NOT IMPLEMENTED] Delete Account",
               "event": [
                 {
                   "listen": "test",
@@ -3279,7 +3282,8 @@
                   ],
                   "body": "{\n  \"success\": false,\n  \"message\": \"You cannot delete your account while you have active deals or a balance.\",\n  \"data\": null,\n  \"errors\": [\n    {\n      \"code\": \"ACCOUNT_HAS_ACTIVE_DEALS\",\n      \"message\": \"You cannot delete your account while you have active deals or a balance.\"\n    }\n  ]\n}"
                 }
-              ]
+              ],
+              "description": "NOT IMPLEMENTED in current backend — do not use for mobile development. Kept in the collection as a roadmap item only."
             }
           ]
         },
@@ -4058,7 +4062,7 @@
           "name": "🏠 Home Screen",
           "item": [
             {
-              "name": "Get Home Screen",
+              "name": "[NOT IMPLEMENTED] Get Home Screen",
               "event": [
                 {
                   "listen": "test",
@@ -4203,7 +4207,8 @@
                   ],
                   "body": "{\n  \"success\": true,\n  \"message\": \"Success\",\n  \"data\": {\n    \"accountType\": \"company\",\n    \"unreadNotifications\": 1,\n    \"wallet\": {\n      \"activated\": true,\n      \"balance\": 12450,\n      \"heldAmount\": 6200,\n      \"currency\": \"SAR\"\n    },\n    \"activeDeals\": [],\n    \"activeDealsCount\": 6,\n    \"company\": {\n      \"activeDealsCount\": 6,\n      \"totalDues\": 2450000,\n      \"upcomingPaymentsCount\": 4,\n      \"upcomingPayments\": [\n        {\n          \"paymentId\": 3,\n          \"dealId\": 1,\n          \"counterpartyName\": \"Future Tech Company\",\n          \"amount\": 2450000,\n          \"dueDate\": \"2026-10-15\",\n          \"badge\": \"on_time\"\n        },\n        {\n          \"paymentId\": 4,\n          \"dealId\": 1,\n          \"counterpartyName\": \"Al-Nakheel Trading\",\n          \"amount\": 2450000,\n          \"dueDate\": \"2026-11-15\",\n          \"badge\": \"on_time\"\n        },\n        {\n          \"paymentId\": 5,\n          \"dealId\": 1,\n          \"counterpartyName\": \"Al-Tatweer Industrial\",\n          \"amount\": 2450000,\n          \"dueDate\": \"2026-12-15\",\n          \"badge\": \"near\"\n        },\n        {\n          \"paymentId\": 6,\n          \"dealId\": 1,\n          \"counterpartyName\": \"Al-Khaleej Contracting\",\n          \"amount\": 2450000,\n          \"dueDate\": \"2027-01-15\",\n          \"badge\": \"upcoming\"\n        }\n      ]\n    }\n  }\n}"
                 }
-              ]
+              ],
+              "description": "NOT IMPLEMENTED in current backend — do not use for mobile development. Kept in the collection as a roadmap item only."
             }
           ]
         },
@@ -4211,7 +4216,7 @@
           "name": "🔔 Notifications",
           "item": [
             {
-              "name": "List Notifications",
+              "name": "[NOT IMPLEMENTED] List Notifications",
               "event": [
                 {
                   "listen": "test",
@@ -4348,10 +4353,11 @@
                   ],
                   "body": "{\n  \"success\": true,\n  \"message\": \"Success\",\n  \"data\": [],\n  \"meta\": {\n    \"page\": 1,\n    \"pageSize\": 20,\n    \"total\": 0,\n    \"totalPages\": 1\n  }\n}"
                 }
-              ]
+              ],
+              "description": "NOT IMPLEMENTED in current backend — do not use for mobile development. Kept in the collection as a roadmap item only."
             },
             {
-              "name": "Unread Count",
+              "name": "[NOT IMPLEMENTED] Unread Count",
               "event": [
                 {
                   "listen": "test",
@@ -4461,10 +4467,11 @@
                   ],
                   "body": "{\n  \"success\": true,\n  \"message\": \"Success\",\n  \"data\": {\n    \"count\": 0\n  }\n}"
                 }
-              ]
+              ],
+              "description": "NOT IMPLEMENTED in current backend — do not use for mobile development. Kept in the collection as a roadmap item only."
             },
             {
-              "name": "Mark One as Read",
+              "name": "[NOT IMPLEMENTED] Mark One as Read",
               "event": [
                 {
                   "listen": "test",
@@ -4541,10 +4548,11 @@
                   ],
                   "body": "{\n  \"success\": true,\n  \"message\": \"Notification marked as read.\",\n  \"data\": null\n}"
                 }
-              ]
+              ],
+              "description": "NOT IMPLEMENTED in current backend — do not use for mobile development. Kept in the collection as a roadmap item only."
             },
             {
-              "name": "Mark All as Read",
+              "name": "[NOT IMPLEMENTED] Mark All as Read",
               "event": [
                 {
                   "listen": "test",
@@ -4619,7 +4627,8 @@
                   ],
                   "body": "{\n  \"success\": true,\n  \"message\": \"All notifications marked as read.\",\n  \"data\": null\n}"
                 }
-              ]
+              ],
+              "description": "NOT IMPLEMENTED in current backend — do not use for mobile development. Kept in the collection as a roadmap item only."
             }
           ]
         }
@@ -4671,7 +4680,7 @@
                   "query": [
                     {
                       "key": "q",
-                      "value": "0559876543"
+                      "value": "{{sellerPhoneOrCode}}"
                     }
                   ]
                 },
@@ -4760,10 +4769,11 @@
                   ],
                   "body": "{\n  \"success\": false,\n  \"message\": \"No user found with this phone or code.\",\n  \"data\": null,\n  \"errors\": [\n    {\n      \"code\": \"USER_NOT_FOUND\",\n      \"message\": \"No user found with this phone or code.\"\n    }\n  ]\n}"
                 }
-              ]
+              ],
+              "description": "IMPLEMENTED: GET /users/lookup?q=<phone-or-code> (exact match only, caller excluded). Returns name, code, storeName, avatarUrl, emailVerified, nafathVerified, rating, successfulDeals — no id/phone/email."
             },
             {
-              "name": "Get Store Page",
+              "name": "[NOT IMPLEMENTED] Get Store Page",
               "event": [
                 {
                   "listen": "test",
@@ -4876,10 +4886,11 @@
                   ],
                   "body": "{\n  \"success\": false,\n  \"message\": \"The requested resource was not found.\",\n  \"data\": null,\n  \"errors\": [\n    {\n      \"code\": \"NOT_FOUND\",\n      \"message\": \"The requested resource was not found.\"\n    }\n  ]\n}"
                 }
-              ]
+              ],
+              "description": "NOT IMPLEMENTED in current backend — do not use for mobile development. Kept in the collection as a roadmap item only."
             },
             {
-              "name": "List Store Reviews",
+              "name": "[NOT IMPLEMENTED] List Store Reviews",
               "event": [
                 {
                   "listen": "test",
@@ -4976,7 +4987,8 @@
                   ],
                   "body": "{\n  \"success\": true,\n  \"message\": \"Success\",\n  \"data\": [\n    {\n      \"id\": 1,\n      \"reviewerName\": \"Nada Alsharawi\",\n      \"reviewerAvatarUrl\": \"https://cdn.example.com/avatars/101.jpg\",\n      \"verified\": true,\n      \"stars\": 5,\n      \"comment\": \"Excellent product, well packaged and delivered on time.\",\n      \"createdAt\": \"2026-09-10T12:00:00Z\"\n    },\n    {\n      \"id\": 2,\n      \"reviewerName\": \"Nada Alsharawi\",\n      \"reviewerAvatarUrl\": \"https://cdn.example.com/avatars/101.jpg\",\n      \"verified\": true,\n      \"stars\": 5,\n      \"comment\": \"Excellent product, well packaged and delivered on time.\",\n      \"createdAt\": \"2026-09-10T12:00:00Z\"\n    },\n    {\n      \"id\": 3,\n      \"reviewerName\": \"Nada Alsharawi\",\n      \"reviewerAvatarUrl\": \"https://cdn.example.com/avatars/101.jpg\",\n      \"verified\": true,\n      \"stars\": 5,\n      \"comment\": \"Excellent product, well packaged and delivered on time.\",\n      \"createdAt\": \"2026-09-10T12:00:00Z\"\n    }\n  ],\n  \"meta\": {\n    \"page\": 1,\n    \"pageSize\": 20,\n    \"total\": 3,\n    \"totalPages\": 1\n  }\n}"
                 }
-              ]
+              ],
+              "description": "NOT IMPLEMENTED in current backend — do not use for mobile development. Kept in the collection as a roadmap item only."
             }
           ]
         },
@@ -6105,7 +6117,154 @@
               ]
             },
             {
-              "name": "Get Deal Timeline",
+              "name": "Cancel Deal",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const res = pm.response.json();",
+                      "pm.test('Status is a documented response (200, 409)', () => pm.expect([200, 409]).to.include(pm.response.code));",
+                      "pm.test('Response uses the standard envelope', () => {",
+                      "  pm.expect(res).to.have.property('success');",
+                      "  pm.expect(res).to.have.property('message');",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Accept-Language",
+                    "value": "{{language}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/deals/{{dealId}}/reject",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "deals",
+                    "{{dealId}}",
+                    "cancel"
+                  ]
+                },
+                "description": "## Reject a Deal\n\n**Requires authentication.**\n\n### Path Parameters\n| Param | Type | Description |\n|---|---|---|\n| id | integer | Deal id |\n\n### Request Fields\n| Field | Type | Required | Rules |\n|---|---|---|---|\n| reasonId | integer | ✅ | From `/lookups/reject-reasons` |\n| note | string | No | Max 200 chars. **Required** when the reason is 'Other reason' |"
+              },
+              "response": [
+                {
+                  "name": "200 OK — Deal Rejected",
+                  "originalRequest": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Accept-Language",
+                        "value": "{{language}}"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{baseUrl}}/api/v1/deals/{{dealId}}/reject",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "api",
+                        "v1",
+                        "deals",
+                        "{{dealId}}",
+                        "reject"
+                      ]
+                    },
+                    "description": "## Reject a Deal\n\n**Requires authentication.**\n\n### Path Parameters\n| Param | Type | Description |\n|---|---|---|\n| id | integer | Deal id |\n\n### Request Fields\n| Field | Type | Required | Rules |\n|---|---|---|---|\n| reasonId | integer | ✅ | From `/lookups/reject-reasons` |\n| note | string | No | Max 200 chars. **Required** when the reason is 'Other reason' |",
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"reasonId\": 3,\n  \"note\": null\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    }
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"success\": true,\n  \"message\": \"Deal rejected.\",\n  \"data\": {\n    \"id\": 1,\n    \"number\": \"45872\",\n    \"title\": \"iPhone 18 Pro Max 1T\",\n    \"description\": \"Brand new original device, sealed box, delivered in the agreed condition.\",\n    \"amount\": 6200,\n    \"currency\": \"SAR\",\n    \"durationValue\": 5,\n    \"durationUnit\": \"day\",\n    \"status\": \"rejected\",\n    \"role\": \"seller\",\n    \"imageUrl\": \"https://cdn.example.com/deals/45872.jpg\",\n    \"counterparty\": {\n      \"id\": 101,\n      \"name\": \"Nada Alsharawi\",\n      \"phone\": \"0551234567\",\n      \"whatsappUrl\": \"https://wa.me/966551234567\",\n      \"avatarUrl\": \"https://cdn.example.com/avatars/101.jpg\",\n      \"verified\": true,\n      \"rating\": null,\n      \"successfulDeals\": 12\n    },\n    \"paymentMethod\": null,\n    \"fundsHeld\": false,\n    \"shipping\": {\n      \"companyName\": \"Aramex\",\n      \"companyLogoUrl\": \"https://cdn.example.com/shipping/aramex.png\",\n      \"address\": \"3161-3203 Aram, Riyadh 12582, Saudi Arabia\",\n      \"trackingNumber\": null\n    },\n    \"pendingEdit\": null,\n    \"rejection\": {\n      \"reason\": \"Product is not available\",\n      \"note\": null\n    },\n    \"banner\": null,\n    \"rated\": false,\n    \"dispute\": null,\n    \"createdAt\": \"2026-10-20T08:45:00Z\",\n    \"badge\": null,\n    \"availableActions\": []\n  }\n}"
+                },
+                {
+                  "name": "409 — Invalid Deal State",
+                  "originalRequest": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Accept-Language",
+                        "value": "{{language}}"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{baseUrl}}/api/v1/deals/{{dealId}}/reject",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "api",
+                        "v1",
+                        "deals",
+                        "{{dealId}}",
+                        "reject"
+                      ]
+                    },
+                    "description": "## Reject a Deal\n\n**Requires authentication.**\n\n### Path Parameters\n| Param | Type | Description |\n|---|---|---|\n| id | integer | Deal id |\n\n### Request Fields\n| Field | Type | Required | Rules |\n|---|---|---|---|\n| reasonId | integer | ✅ | From `/lookups/reject-reasons` |\n| note | string | No | Max 200 chars. **Required** when the reason is 'Other reason' |",
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"reasonId\": 3,\n  \"note\": null\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    }
+                  },
+                  "status": "Conflict",
+                  "code": 409,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"success\": false,\n  \"message\": \"This action is not allowed in the current deal state.\",\n  \"data\": null,\n  \"errors\": [\n    {\n      \"code\": \"INVALID_DEAL_STATE\",\n      \"message\": \"This action is not allowed in the current deal state.\"\n    }\n  ]\n}"
+                }
+              ],
+              "description": "IMPLEMENTED: POST /deals/{id}/cancel (either party, pending_acceptance / awaiting_funding only, before any money moves)."
+            },
+            {
+              "name": "[NOT IMPLEMENTED] Get Deal Timeline",
               "event": [
                 {
                   "listen": "test",
@@ -6182,7 +6341,8 @@
                   ],
                   "body": "{\n  \"success\": true,\n  \"message\": \"Success\",\n  \"data\": [\n    {\n      \"status\": \"pending_seller\",\n      \"label\": \"Request sent\",\n      \"at\": \"2026-10-20T08:45:00Z\"\n    },\n    {\n      \"status\": \"accepted\",\n      \"label\": \"Accepted by the seller\",\n      \"at\": \"2026-10-20T11:00:00Z\"\n    },\n    {\n      \"status\": \"funded\",\n      \"label\": \"Funds held\",\n      \"at\": \"2026-10-20T11:10:00Z\"\n    },\n    {\n      \"status\": \"shipped\",\n      \"label\": \"Shipped\",\n      \"at\": \"2026-10-22T08:00:00Z\"\n    },\n    {\n      \"status\": \"completed\",\n      \"label\": \"Completed\",\n      \"at\": \"2026-10-23T09:00:00Z\"\n    }\n  ]\n}"
                 }
-              ]
+              ],
+              "description": "NOT IMPLEMENTED in current backend — do not use for mobile development. Kept in the collection as a roadmap item only."
             }
           ]
         },
@@ -6342,7 +6502,8 @@
                   ],
                   "body": "{\n  \"success\": false,\n  \"message\": \"There is already a pending edit for this deal.\",\n  \"data\": null,\n  \"errors\": [\n    {\n      \"code\": \"EDIT_ALREADY_PENDING\",\n      \"message\": \"There is already a pending edit for this deal.\"\n    }\n  ]\n}"
                 }
-              ]
+              ],
+              "description": "IMPLEMENTED: POST /deals/{id}/edits (before acceptance only, one pending edit at a time). Returns 201 DealEdit. Acceptance is blocked while an edit is pending."
             },
             {
               "name": "Approve Edit",
@@ -6464,7 +6625,8 @@
                   ],
                   "body": "{\n  \"success\": false,\n  \"message\": \"This action is not allowed in the current deal state.\",\n  \"data\": null,\n  \"errors\": [\n    {\n      \"code\": \"INVALID_DEAL_STATE\",\n      \"message\": \"This action is not allowed in the current deal state.\"\n    }\n  ]\n}"
                 }
-              ]
+              ],
+              "description": "IMPLEMENTED: POST /deals/{id}/edits/{editId}/approve (other party only, before response deadline). Applies the new terms; deal stays pending_acceptance."
             },
             {
               "name": "Reject Edit",
@@ -6586,7 +6748,131 @@
                   ],
                   "body": "{\n  \"success\": false,\n  \"message\": \"This action is not allowed in the current deal state.\",\n  \"data\": null,\n  \"errors\": [\n    {\n      \"code\": \"INVALID_DEAL_STATE\",\n      \"message\": \"This action is not allowed in the current deal state.\"\n    }\n  ]\n}"
                 }
-              ]
+              ],
+              "description": "IMPLEMENTED: POST /deals/{id}/edits/{editId}/reject (other party only)."
+            },
+            {
+              "name": "Cancel Edit",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const res = pm.response.json();",
+                      "pm.test('Status is a documented response (200, 409)', () => pm.expect([200, 409]).to.include(pm.response.code));",
+                      "pm.test('Response uses the standard envelope', () => {",
+                      "  pm.expect(res).to.have.property('success');",
+                      "  pm.expect(res).to.have.property('message');",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept-Language",
+                    "value": "{{language}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/deals/{{dealId}}/edits/{{editId}}/reject",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "deals",
+                    "{{dealId}}",
+                    "edits",
+                    "{{editId}}",
+                    "cancel"
+                  ]
+                },
+                "description": "## Reject a Proposed Edit\n\n**Requires authentication.**\n\n### Path Parameters\n| Param | Type | Description |\n|---|---|---|\n| id | integer | Deal id |\n| editId | integer | Edit id |\n\n### Business Rules\n- The seller sees the red banner 'The buyer rejected the edits'."
+              },
+              "response": [
+                {
+                  "name": "200 OK — Edit Rejected",
+                  "originalRequest": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Accept-Language",
+                        "value": "{{language}}"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{baseUrl}}/api/v1/deals/{{dealId}}/edits/{{editId}}/reject",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "api",
+                        "v1",
+                        "deals",
+                        "{{dealId}}",
+                        "edits",
+                        "{{editId}}",
+                        "reject"
+                      ]
+                    },
+                    "description": "## Reject a Proposed Edit\n\n**Requires authentication.**\n\n### Path Parameters\n| Param | Type | Description |\n|---|---|---|\n| id | integer | Deal id |\n| editId | integer | Edit id |\n\n### Business Rules\n- The seller sees the red banner 'The buyer rejected the edits'."
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"success\": true,\n  \"message\": \"Edit rejected.\",\n  \"data\": {\n    \"id\": 1,\n    \"number\": \"45872\",\n    \"title\": \"iPhone 18 Pro Max 1T\",\n    \"description\": \"Brand new original device, sealed box, delivered in the agreed condition.\",\n    \"amount\": 6200,\n    \"currency\": \"SAR\",\n    \"durationValue\": 5,\n    \"durationUnit\": \"day\",\n    \"status\": \"pending_seller\",\n    \"role\": \"buyer\",\n    \"imageUrl\": \"https://cdn.example.com/deals/45872.jpg\",\n    \"counterparty\": {\n      \"id\": 102,\n      \"name\": \"Mobile Shop\",\n      \"phone\": \"0559876543\",\n      \"whatsappUrl\": \"https://wa.me/966559876543\",\n      \"avatarUrl\": \"https://cdn.example.com/avatars/102.jpg\",\n      \"verified\": true,\n      \"rating\": 4.9,\n      \"successfulDeals\": 345\n    },\n    \"paymentMethod\": null,\n    \"fundsHeld\": false,\n    \"shipping\": {\n      \"companyName\": \"Aramex\",\n      \"companyLogoUrl\": \"https://cdn.example.com/shipping/aramex.png\",\n      \"address\": \"3161-3203 Aram, Riyadh 12582, Saudi Arabia\",\n      \"trackingNumber\": null\n    },\n    \"pendingEdit\": {\n      \"id\": 1,\n      \"proposedBy\": \"seller\",\n      \"status\": \"rejected\",\n      \"previous\": {\n        \"amount\": 6200,\n        \"durationValue\": 5,\n        \"durationUnit\": \"day\",\n        \"description\": \"Brand new original device, sealed box, delivered in the agreed condition.\"\n      },\n      \"proposed\": {\n        \"amount\": 6400,\n        \"durationValue\": 7,\n        \"durationUnit\": \"day\",\n        \"description\": \"Brand new original device, sealed box, delivered in the agreed condition.\"\n      },\n      \"createdAt\": \"2026-10-20T10:00:00Z\"\n    },\n    \"rejection\": null,\n    \"banner\": null,\n    \"rated\": false,\n    \"dispute\": null,\n    \"createdAt\": \"2026-10-20T08:45:00Z\",\n    \"badge\": null,\n    \"availableActions\": []\n  }\n}"
+                },
+                {
+                  "name": "409 — Invalid Deal State",
+                  "originalRequest": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Accept-Language",
+                        "value": "{{language}}"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{baseUrl}}/api/v1/deals/{{dealId}}/edits/{{editId}}/reject",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "api",
+                        "v1",
+                        "deals",
+                        "{{dealId}}",
+                        "edits",
+                        "{{editId}}",
+                        "reject"
+                      ]
+                    },
+                    "description": "## Reject a Proposed Edit\n\n**Requires authentication.**\n\n### Path Parameters\n| Param | Type | Description |\n|---|---|---|\n| id | integer | Deal id |\n| editId | integer | Edit id |\n\n### Business Rules\n- The seller sees the red banner 'The buyer rejected the edits'."
+                  },
+                  "status": "Conflict",
+                  "code": 409,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"success\": false,\n  \"message\": \"This action is not allowed in the current deal state.\",\n  \"data\": null,\n  \"errors\": [\n    {\n      \"code\": \"INVALID_DEAL_STATE\",\n      \"message\": \"This action is not allowed in the current deal state.\"\n    }\n  ]\n}"
+                }
+              ],
+              "description": "IMPLEMENTED: POST /deals/{id}/edits/{editId}/cancel (proposer only)."
             }
           ]
         },
@@ -6594,7 +6880,7 @@
           "name": "💳 Funding (Escrow)",
           "item": [
             {
-              "name": "Pay and Hold Funds",
+              "name": "Fund Deal (Escrow)",
               "event": [
                 {
                   "listen": "test",
@@ -6623,9 +6909,9 @@
                     "value": "{{language}}"
                   },
                   {
-                    "key": "Idempotency-Key",
-                    "value": "{{$guid}}",
-                    "description": "Required UUID generated by the app for each money operation."
+                    "key": "X-Idempotency-Key",
+                    "value": "{{idempotencyKey}}",
+                    "type": "text"
                   }
                 ],
                 "url": {
@@ -6638,19 +6924,10 @@
                     "v1",
                     "deals",
                     "{{dealId}}",
-                    "pay"
+                    "fund"
                   ]
                 },
-                "description": "## Pay and Hold the Funds (Escrow)\n\n**Requires authentication. Buyer only.**\n\nThe amount is **held by Etamid** and is not released to the seller until the buyer confirms receipt.\n\n### Path Parameters\n| Param | Type | Description |\n|---|---|---|\n| id | integer | Deal id |\n\n### Headers\n| Header | Required | Description |\n|---|---|---|\n| Idempotency-Key | ✅ | UUID v4 generated per attempt. Reuse the same key when retrying the same operation. |\n\n### Request Fields\n| Field | Type | Required | Rules |\n|---|---|---|---|\n| paymentMethod | string | ✅ | `apple_pay`, `mada`, `card` or `wallet` |\n| paymentToken | string | No | Token from Apple Pay / the card SDK (not for `wallet`) |\n\n### Business Rules\n- Allowed only in `accepted` state.\n- `requires_action` means a 3DS step: open `redirectUrl` in a web view.\n- The final result is confirmed asynchronously by the gateway webhook; the deal moves to `funded`.\n\n### Next Step\nThe seller is notified to start the work and ship.\n\n### Frontend Notes\n- Generate a new `Idempotency-Key` per payment attempt; reuse it on network retries.\n- On `402` allow the user to choose another method.",
-                "body": {
-                  "mode": "raw",
-                  "raw": "{\n  \"paymentMethod\": \"apple_pay\",\n  \"paymentToken\": \"mock-apple-pay-token\"\n}",
-                  "options": {
-                    "raw": {
-                      "language": "json"
-                    }
-                  }
-                }
+                "description": "## Pay and Hold the Funds (Escrow)\n\n**Requires authentication. Buyer only.**\n\nThe amount is **held by Etamid** and is not released to the seller until the buyer confirms receipt.\n\n### Path Parameters\n| Param | Type | Description |\n|---|---|---|\n| id | integer | Deal id |\n\n### Headers\n| Header | Required | Description |\n|---|---|---|\n| Idempotency-Key | ✅ | UUID v4 generated per attempt. Reuse the same key when retrying the same operation. |\n\n### Request Fields\n| Field | Type | Required | Rules |\n|---|---|---|---|\n| paymentMethod | string | ✅ | `apple_pay`, `mada`, `card` or `wallet` |\n| paymentToken | string | No | Token from Apple Pay / the card SDK (not for `wallet`) |\n\n### Business Rules\n- Allowed only in `accepted` state.\n- `requires_action` means a 3DS step: open `redirectUrl` in a web view.\n- The final result is confirmed asynchronously by the gateway webhook; the deal moves to `funded`.\n\n### Next Step\nThe seller is notified to start the work and ship.\n\n### Frontend Notes\n- Generate a new `Idempotency-Key` per payment attempt; reuse it on network retries.\n- On `402` allow the user to choose another method."
               },
               "response": [
                 {
@@ -6869,7 +7146,8 @@
                   ],
                   "body": "{\n  \"success\": false,\n  \"message\": \"This action is not allowed in the current deal state.\",\n  \"data\": null,\n  \"errors\": [\n    {\n      \"code\": \"INVALID_DEAL_STATE\",\n      \"message\": \"This action is not allowed in the current deal state.\"\n    }\n  ]\n}"
                 }
-              ]
+              ],
+              "description": "IMPLEMENTED: POST /deals/{id}/fund, no body. X-Idempotency-Key required (non-empty, max 64 chars). Provider is Fake only in current code; method is BankTransfer."
             }
           ]
         },
@@ -6877,7 +7155,7 @@
           "name": "🚚 Shipping & Delivery",
           "item": [
             {
-              "name": "Ship Deal (Seller)",
+              "name": "Deliver Deal (Seller)",
               "event": [
                 {
                   "listen": "test",
@@ -6916,19 +7194,10 @@
                     "v1",
                     "deals",
                     "{{dealId}}",
-                    "ship"
+                    "deliver"
                   ]
                 },
-                "description": "## Register the Shipment\n\n**Requires authentication. Seller only.**\n\n### Path Parameters\n| Param | Type | Description |\n|---|---|---|\n| id | integer | Deal id |\n\n### Request Fields\n| Field | Type | Required | Rules |\n|---|---|---|---|\n| trackingNumber | string | No | Leave empty to create an Aramex shipment automatically |\n\n### Business Rules\n- Allowed only in `funded` state and when `needShipping = true`.\n- The buyer is notified.",
-                "body": {
-                  "mode": "raw",
-                  "raw": "{\n  \"trackingNumber\": null\n}",
-                  "options": {
-                    "raw": {
-                      "language": "json"
-                    }
-                  }
-                }
+                "description": "## Register the Shipment\n\n**Requires authentication. Seller only.**\n\n### Path Parameters\n| Param | Type | Description |\n|---|---|---|\n| id | integer | Deal id |\n\n### Request Fields\n| Field | Type | Required | Rules |\n|---|---|---|---|\n| trackingNumber | string | No | Leave empty to create an Aramex shipment automatically |\n\n### Business Rules\n- Allowed only in `funded` state and when `needShipping = true`.\n- The buyer is notified."
               },
               "response": [
                 {
@@ -7029,10 +7298,11 @@
                   ],
                   "body": "{\n  \"success\": false,\n  \"message\": \"This action is not allowed in the current deal state.\",\n  \"data\": null,\n  \"errors\": [\n    {\n      \"code\": \"INVALID_DEAL_STATE\",\n      \"message\": \"This action is not allowed in the current deal state.\"\n    }\n  ]\n}"
                 }
-              ]
+              ],
+              "description": "IMPLEMENTED: POST /deals/{id}/deliver, no body, no tracking number in current code. Moves the deal directly to inspection."
             },
             {
-              "name": "Track Shipment",
+              "name": "[NOT IMPLEMENTED] Track Shipment",
               "event": [
                 {
                   "listen": "test",
@@ -7145,10 +7415,11 @@
                   ],
                   "body": "{\n  \"success\": false,\n  \"message\": \"This deal has no shipment yet.\",\n  \"data\": null,\n  \"errors\": [\n    {\n      \"code\": \"SHIPMENT_NOT_FOUND\",\n      \"message\": \"This deal has no shipment yet.\"\n    }\n  ]\n}"
                 }
-              ]
+              ],
+              "description": "NOT IMPLEMENTED in current backend — do not use for mobile development. Kept in the collection as a roadmap item only."
             },
             {
-              "name": "Confirm Delivery",
+              "name": "Release Escrow (Confirm Receipt)",
               "event": [
                 {
                   "listen": "test",
@@ -7171,6 +7442,11 @@
                   {
                     "key": "Accept-Language",
                     "value": "{{language}}"
+                  },
+                  {
+                    "key": "X-Idempotency-Key",
+                    "value": "{{idempotencyKey}}",
+                    "type": "text"
                   }
                 ],
                 "url": {
@@ -7183,7 +7459,7 @@
                     "v1",
                     "deals",
                     "{{dealId}}",
-                    "confirm-delivery"
+                    "release"
                   ]
                 },
                 "description": "## Confirm Receipt and Release Funds\n\n**Requires authentication. Buyer only.**\n\n### Path Parameters\n| Param | Type | Description |\n|---|---|---|\n| id | integer | Deal id |\n\n### Business Rules\n- Funds move from the escrow hold to the seller's wallet (minus the platform fee).\n- The deal becomes `completed`.\n\n### Next Step\nAsk the buyer to rate the store (`POST /deals/{id}/rating`)."
@@ -7261,10 +7537,11 @@
                   ],
                   "body": "{\n  \"success\": false,\n  \"message\": \"This action is not allowed in the current deal state.\",\n  \"data\": null,\n  \"errors\": [\n    {\n      \"code\": \"INVALID_DEAL_STATE\",\n      \"message\": \"This action is not allowed in the current deal state.\"\n    }\n  ]\n}"
                 }
-              ]
+              ],
+              "description": "IMPLEMENTED: POST /deals/{id}/release, buyer only, from inspection only. X-Idempotency-Key required."
             },
             {
-              "name": "Report Not Received",
+              "name": "[NOT IMPLEMENTED] Report Not Received",
               "event": [
                 {
                   "listen": "test",
@@ -7377,7 +7654,8 @@
                   ],
                   "body": "{\n  \"success\": false,\n  \"message\": \"This action is not allowed in the current deal state.\",\n  \"data\": null,\n  \"errors\": [\n    {\n      \"code\": \"INVALID_DEAL_STATE\",\n      \"message\": \"This action is not allowed in the current deal state.\"\n    }\n  ]\n}"
                 }
-              ]
+              ],
+              "description": "NOT IMPLEMENTED in current backend — do not use for mobile development. Kept in the collection as a roadmap item only."
             }
           ]
         },
@@ -7385,7 +7663,7 @@
           "name": "⭐ Ratings",
           "item": [
             {
-              "name": "Rate the Store",
+              "name": "[NOT IMPLEMENTED] Rate the Store",
               "event": [
                 {
                   "listen": "test",
@@ -7537,7 +7815,8 @@
                   ],
                   "body": "{\n  \"success\": false,\n  \"message\": \"You have already rated this deal.\",\n  \"data\": null,\n  \"errors\": [\n    {\n      \"code\": \"ALREADY_RATED\",\n      \"message\": \"You have already rated this deal.\"\n    }\n  ]\n}"
                 }
-              ]
+              ],
+              "description": "NOT IMPLEMENTED in current backend — do not use for mobile development. Kept in the collection as a roadmap item only."
             }
           ]
         }
@@ -7550,7 +7829,7 @@
           "name": "👛 Wallet",
           "item": [
             {
-              "name": "Get Wallet",
+              "name": "[NOT IMPLEMENTED] Get Wallet",
               "event": [
                 {
                   "listen": "test",
@@ -7657,10 +7936,11 @@
                   ],
                   "body": "{\n  \"success\": true,\n  \"message\": \"Success\",\n  \"data\": {\n    \"activated\": false,\n    \"balance\": 0,\n    \"heldAmount\": 0,\n    \"currency\": \"SAR\"\n  }\n}"
                 }
-              ]
+              ],
+              "description": "NOT IMPLEMENTED in current backend — do not use for mobile development. Kept in the collection as a roadmap item only."
             },
             {
-              "name": "Wallet Transactions",
+              "name": "[NOT IMPLEMENTED] Wallet Transactions",
               "event": [
                 {
                   "listen": "test",
@@ -7800,7 +8080,8 @@
                   ],
                   "body": "{\n  \"success\": true,\n  \"message\": \"Success\",\n  \"data\": [],\n  \"meta\": {\n    \"page\": 1,\n    \"pageSize\": 20,\n    \"total\": 0,\n    \"totalPages\": 1\n  }\n}"
                 }
-              ]
+              ],
+              "description": "NOT IMPLEMENTED in current backend — do not use for mobile development. Kept in the collection as a roadmap item only."
             }
           ]
         },
@@ -7808,7 +8089,7 @@
           "name": "🏧 Withdrawals",
           "item": [
             {
-              "name": "Withdraw to Bank",
+              "name": "[NOT IMPLEMENTED] Withdraw to Bank",
               "event": [
                 {
                   "listen": "test",
@@ -8078,10 +8359,11 @@
                   ],
                   "body": "{\n  \"success\": false,\n  \"message\": \"Verify your identity with Nafath first.\",\n  \"data\": null,\n  \"errors\": [\n    {\n      \"code\": \"KYC_REQUIRED\",\n      \"message\": \"Verify your identity with Nafath first.\"\n    }\n  ]\n}"
                 }
-              ]
+              ],
+              "description": "NOT IMPLEMENTED in current backend — do not use for mobile development. Kept in the collection as a roadmap item only."
             },
             {
-              "name": "List Withdrawals",
+              "name": "[NOT IMPLEMENTED] List Withdrawals",
               "event": [
                 {
                   "listen": "test",
@@ -8156,7 +8438,8 @@
                   ],
                   "body": "{\n  \"success\": true,\n  \"message\": \"Success\",\n  \"data\": [\n    {\n      \"id\": 1,\n      \"amount\": 1000,\n      \"status\": \"pending\",\n      \"createdAt\": \"2026-11-24T12:00:00Z\"\n    },\n    {\n      \"id\": 2,\n      \"amount\": 5000,\n      \"status\": \"completed\",\n      \"createdAt\": \"2026-11-10T09:00:00Z\"\n    },\n    {\n      \"id\": 3,\n      \"amount\": 700,\n      \"status\": \"rejected\",\n      \"createdAt\": \"2026-11-02T09:00:00Z\"\n    }\n  ]\n}"
                 }
-              ]
+              ],
+              "description": "NOT IMPLEMENTED in current backend — do not use for mobile development. Kept in the collection as a roadmap item only."
             }
           ]
         },
@@ -8164,7 +8447,7 @@
           "name": "💳 Payment Gateway",
           "item": [
             {
-              "name": "[Proposed] Create Payment Intent",
+              "name": "[NOT IMPLEMENTED] Create Payment Intent",
               "event": [
                 {
                   "listen": "test",
@@ -8275,7 +8558,8 @@
                   ],
                   "body": "{\n  \"success\": true,\n  \"message\": \"Success\",\n  \"data\": {\n    \"intentId\": \"pi_mock_123\",\n    \"clientSecret\": \"pi_mock_123_secret_abc\",\n    \"amount\": 6200,\n    \"currency\": \"SAR\"\n  }\n}"
                 }
-              ]
+              ],
+              "description": "NOT IMPLEMENTED in current backend — do not use for mobile development. Kept in the collection as a roadmap item only."
             },
             {
               "name": "Payment Gateway Webhook (Backend Only)",
@@ -8634,13 +8918,15 @@
                   "path": [
                     "api",
                     "v1",
-                    "disputes"
+                    "deals",
+                    "{{dealId}}",
+                    "dispute"
                   ]
                 },
                 "description": "## Open a Dispute\n\n**Requires authentication. Buyer only.**\n\nFreezes the funds and sends the case to the admins for review.\n\n### Request Fields\n| Field | Type | Required | Rules |\n|---|---|---|---|\n| dealId | integer | ✅ | Deal id |\n| reasonId | integer | ✅ | From `/lookups/dispute-reasons` |\n| details | string | ✅ | Max 200 chars |\n| fileIds | string[] | No | Up to 5 ids from `/uploads` |\n| confirmed | boolean | ✅ | 'I confirm the information is correct' — must be `true` |\n\n### Business Rules\n- One open dispute per deal.\n- The case number looks like `D-45872` and starts as `under_review`.\n- The seller is notified.\n\n### Frontend Notes\n- Show the confirmation sheet before sending.",
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"dealId\": 1,\n  \"reasonId\": 1,\n  \"details\": \"The shipment was marked delivered but nothing arrived.\",\n  \"fileIds\": [\n    \"{{fileId}}\"\n  ],\n  \"confirmed\": true\n}",
+                  "raw": "{\n  \"reasonId\": 1,\n  \"details\": \"The shipment was marked delivered but nothing arrived.\"\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -8790,10 +9076,11 @@
                   ],
                   "body": "{\n  \"success\": false,\n  \"message\": \"This action is not allowed in the current deal state.\",\n  \"data\": null,\n  \"errors\": [\n    {\n      \"code\": \"INVALID_DEAL_STATE\",\n      \"message\": \"This action is not allowed in the current deal state.\"\n    }\n  ]\n}"
                 }
-              ]
+              ],
+              "description": "IMPLEMENTED: POST /deals/{id}/dispute, returns 201 {id, number (DSP-...), dealId, status}. No fileIds/confirmed in current code; no dispute messages or admin decision yet."
             },
             {
-              "name": "List My Disputes",
+              "name": "[NOT IMPLEMENTED] List My Disputes",
               "event": [
                 {
                   "listen": "test",
@@ -8886,10 +9173,11 @@
                   ],
                   "body": "{\n  \"success\": true,\n  \"message\": \"Success\",\n  \"data\": [\n    {\n      \"id\": 1,\n      \"number\": \"D-45872\",\n      \"dealId\": 1,\n      \"reason\": \"I did not receive the product\",\n      \"details\": \"The shipment was marked delivered but nothing arrived.\",\n      \"status\": \"under_review\",\n      \"files\": [\n        \"https://cdn.example.com/files/dispute-1.jpg\"\n      ],\n      \"resolution\": null,\n      \"createdAt\": \"2026-10-21T09:00:00Z\"\n    },\n    {\n      \"id\": 2,\n      \"number\": \"D-45860\",\n      \"dealId\": 1,\n      \"reason\": \"I did not receive the product\",\n      \"details\": \"The shipment was marked delivered but nothing arrived.\",\n      \"status\": \"resolved_buyer\",\n      \"files\": [\n        \"https://cdn.example.com/files/dispute-1.jpg\"\n      ],\n      \"resolution\": \"Refunded to the buyer\",\n      \"createdAt\": \"2026-10-21T09:00:00Z\"\n    }\n  ],\n  \"meta\": {\n    \"page\": 1,\n    \"pageSize\": 20,\n    \"total\": 2,\n    \"totalPages\": 1\n  }\n}"
                 }
-              ]
+              ],
+              "description": "NOT IMPLEMENTED in current backend — do not use for mobile development. Kept in the collection as a roadmap item only."
             },
             {
-              "name": "Get Dispute Details",
+              "name": "[NOT IMPLEMENTED] Get Dispute Details",
               "event": [
                 {
                   "listen": "test",
@@ -9104,10 +9392,11 @@
                   ],
                   "body": "{\n  \"success\": false,\n  \"message\": \"The requested resource was not found.\",\n  \"data\": null,\n  \"errors\": [\n    {\n      \"code\": \"NOT_FOUND\",\n      \"message\": \"The requested resource was not found.\"\n    }\n  ]\n}"
                 }
-              ]
+              ],
+              "description": "NOT IMPLEMENTED in current backend — do not use for mobile development. Kept in the collection as a roadmap item only."
             },
             {
-              "name": "Add Dispute Message",
+              "name": "[NOT IMPLEMENTED] Add Dispute Message",
               "event": [
                 {
                   "listen": "test",
@@ -9210,7 +9499,8 @@
                   ],
                   "body": "{\n  \"success\": true,\n  \"message\": \"Message sent.\",\n  \"data\": null\n}"
                 }
-              ]
+              ],
+              "description": "NOT IMPLEMENTED in current backend — do not use for mobile development. Kept in the collection as a roadmap item only."
             }
           ]
         },
@@ -9218,7 +9508,7 @@
           "name": "🎫 Support Tickets",
           "item": [
             {
-              "name": "Contact Us (Create Ticket)",
+              "name": "[NOT IMPLEMENTED] Contact Us (Create Ticket)",
               "event": [
                 {
                   "listen": "test",
@@ -9319,10 +9609,11 @@
                   ],
                   "body": "{\n  \"success\": true,\n  \"message\": \"Your request was sent. We will reply soon.\",\n  \"data\": null\n}"
                 }
-              ]
+              ],
+              "description": "NOT IMPLEMENTED in current backend — do not use for mobile development. Kept in the collection as a roadmap item only."
             },
             {
-              "name": "My Support Tickets",
+              "name": "[NOT IMPLEMENTED] My Support Tickets",
               "event": [
                 {
                   "listen": "test",
@@ -9417,10 +9708,11 @@
                   ],
                   "body": "{\n  \"success\": true,\n  \"message\": \"Success\",\n  \"data\": [\n    {\n      \"id\": 1,\n      \"number\": \"S-1021\",\n      \"subject\": \"Question about my deal\",\n      \"status\": \"open\",\n      \"createdAt\": \"2026-10-20T12:00:00Z\"\n    },\n    {\n      \"id\": 2,\n      \"number\": \"S-1015\",\n      \"subject\": \"Withdrawal delay\",\n      \"status\": \"closed\",\n      \"createdAt\": \"2026-10-10T09:00:00Z\"\n    }\n  ],\n  \"meta\": {\n    \"page\": 1,\n    \"pageSize\": 20,\n    \"total\": 2,\n    \"totalPages\": 1\n  }\n}"
                 }
-              ]
+              ],
+              "description": "NOT IMPLEMENTED in current backend — do not use for mobile development. Kept in the collection as a roadmap item only."
             },
             {
-              "name": "[Proposed] Get Ticket Details",
+              "name": "[NOT IMPLEMENTED] Get Ticket Details",
               "event": [
                 {
                   "listen": "test",
@@ -9497,7 +9789,8 @@
                   ],
                   "body": "{\n  \"success\": true,\n  \"message\": \"Success\",\n  \"data\": {\n    \"id\": 1,\n    \"number\": \"S-1021\",\n    \"subject\": \"Question about my deal\",\n    \"status\": \"in_review\",\n    \"createdAt\": \"2026-10-20T12:00:00Z\",\n    \"messages\": [\n      {\n        \"sender\": \"user\",\n        \"message\": \"I need help with deal #45872.\",\n        \"createdAt\": \"2026-10-20T12:00:00Z\"\n      },\n      {\n        \"sender\": \"support\",\n        \"message\": \"Hello, we are looking into it.\",\n        \"createdAt\": \"2026-10-20T13:30:00Z\"\n      }\n    ]\n  }\n}"
                 }
-              ]
+              ],
+              "description": "NOT IMPLEMENTED in current backend — do not use for mobile development. Kept in the collection as a roadmap item only."
             }
           ]
         },
@@ -9599,7 +9892,7 @@
           "name": "📊 Company Dashboard",
           "item": [
             {
-              "name": "Company Dashboard",
+              "name": "[NOT IMPLEMENTED] Company Dashboard",
               "event": [
                 {
                   "listen": "test",
@@ -9674,7 +9967,8 @@
                   ],
                   "body": "{\n  \"success\": true,\n  \"message\": \"Success\",\n  \"data\": {\n    \"activeDealsCount\": 6,\n    \"totalDues\": 2450000,\n    \"upcomingPaymentsCount\": 4,\n    \"upcomingPayments\": [\n      {\n        \"paymentId\": 3,\n        \"dealId\": 1,\n        \"counterpartyName\": \"Future Tech Company\",\n        \"amount\": 2450000,\n        \"dueDate\": \"2026-10-15\",\n        \"badge\": \"on_time\"\n      },\n      {\n        \"paymentId\": 4,\n        \"dealId\": 1,\n        \"counterpartyName\": \"Al-Nakheel Trading\",\n        \"amount\": 2450000,\n        \"dueDate\": \"2026-11-15\",\n        \"badge\": \"on_time\"\n      },\n      {\n        \"paymentId\": 5,\n        \"dealId\": 1,\n        \"counterpartyName\": \"Al-Tatweer Industrial\",\n        \"amount\": 2450000,\n        \"dueDate\": \"2026-12-15\",\n        \"badge\": \"near\"\n      },\n      {\n        \"paymentId\": 6,\n        \"dealId\": 1,\n        \"counterpartyName\": \"Al-Khaleej Contracting\",\n        \"amount\": 2450000,\n        \"dueDate\": \"2027-01-15\",\n        \"badge\": \"upcoming\"\n      }\n    ]\n  }\n}"
                 }
-              ]
+              ],
+              "description": "NOT IMPLEMENTED in current backend — do not use for mobile development. Kept in the collection as a roadmap item only."
             }
           ]
         },
@@ -9682,7 +9976,7 @@
           "name": "🧙 Create Deal Wizard",
           "item": [
             {
-              "name": "Step 1 — Deal Details (Create Draft)",
+              "name": "[NOT IMPLEMENTED] Step 1 — Deal Details (Create Draft)",
               "event": [
                 {
                   "listen": "test",
@@ -9835,10 +10129,11 @@
                   ],
                   "body": "{\n  \"success\": false,\n  \"message\": \"Validation failed.\",\n  \"data\": null,\n  \"errors\": [\n    {\n      \"code\": \"REQUIRED\",\n      \"field\": \"phone\",\n      \"message\": \"Phone number is required.\"\n    }\n  ]\n}"
                 }
-              ]
+              ],
+              "description": "NOT IMPLEMENTED in current backend — do not use for mobile development. Kept in the collection as a roadmap item only."
             },
             {
-              "name": "Step 1 — Update Draft Details",
+              "name": "[NOT IMPLEMENTED] Step 1 — Update Draft Details",
               "event": [
                 {
                   "listen": "test",
@@ -9993,10 +10288,11 @@
                   ],
                   "body": "{\n  \"success\": false,\n  \"message\": \"The requested resource was not found.\",\n  \"data\": null,\n  \"errors\": [\n    {\n      \"code\": \"NOT_FOUND\",\n      \"message\": \"The requested resource was not found.\"\n    }\n  ]\n}"
                 }
-              ]
+              ],
+              "description": "NOT IMPLEMENTED in current backend — do not use for mobile development. Kept in the collection as a roadmap item only."
             },
             {
-              "name": "Step 2 — Payment Schedule",
+              "name": "[NOT IMPLEMENTED] Step 2 — Payment Schedule",
               "event": [
                 {
                   "listen": "test",
@@ -10205,10 +10501,11 @@
                   ],
                   "body": "{\n  \"success\": false,\n  \"message\": \"A payment date is before the start date.\",\n  \"data\": null,\n  \"errors\": [\n    {\n      \"code\": \"PAYMENT_DATE_BEFORE_START\",\n      \"message\": \"A payment date is before the start date.\",\n      \"field\": \"payments\"\n    }\n  ]\n}"
                 }
-              ]
+              ],
+              "description": "NOT IMPLEMENTED in current backend — do not use for mobile development. Kept in the collection as a roadmap item only."
             },
             {
-              "name": "Step 3 — Approval Settings",
+              "name": "[NOT IMPLEMENTED] Step 3 — Approval Settings",
               "event": [
                 {
                   "listen": "test",
@@ -10315,10 +10612,11 @@
                   ],
                   "body": "{\n  \"success\": true,\n  \"message\": \"Approval settings saved.\",\n  \"data\": null\n}"
                 }
-              ]
+              ],
+              "description": "NOT IMPLEMENTED in current backend — do not use for mobile development. Kept in the collection as a roadmap item only."
             },
             {
-              "name": "Step 4 — Penalty Clause",
+              "name": "[NOT IMPLEMENTED] Step 4 — Penalty Clause",
               "event": [
                 {
                   "listen": "test",
@@ -10425,10 +10723,11 @@
                   ],
                   "body": "{\n  \"success\": true,\n  \"message\": \"Penalty clause saved.\",\n  \"data\": null\n}"
                 }
-              ]
+              ],
+              "description": "NOT IMPLEMENTED in current backend — do not use for mobile development. Kept in the collection as a roadmap item only."
             },
             {
-              "name": "Step 5 — Review",
+              "name": "[NOT IMPLEMENTED] Step 5 — Review",
               "event": [
                 {
                   "listen": "test",
@@ -10509,10 +10808,11 @@
                   ],
                   "body": "{\n  \"success\": true,\n  \"message\": \"Success\",\n  \"data\": {\n    \"id\": 1,\n    \"number\": \"45872\",\n    \"title\": \"Supply of IT equipment\",\n    \"counterpartyName\": \"Al-Nakheel Trading\",\n    \"totalAmount\": 2450000,\n    \"startDate\": \"2026-09-20\",\n    \"status\": \"draft\",\n    \"payments\": [\n      {\n        \"id\": 1,\n        \"order\": 1,\n        \"label\": \"First payment\",\n        \"amount\": 612500,\n        \"dueDate\": \"2026-11-15\",\n        \"status\": \"scheduled\",\n        \"dealNumber\": \"45872\",\n        \"dealTitle\": \"Supply of IT equipment\",\n        \"notes\": null,\n        \"availableActions\": []\n      },\n      {\n        \"id\": 2,\n        \"order\": 2,\n        \"label\": \"Second payment\",\n        \"amount\": 612500,\n        \"dueDate\": \"2026-12-15\",\n        \"status\": \"scheduled\",\n        \"dealNumber\": \"45872\",\n        \"dealTitle\": \"Supply of IT equipment\",\n        \"notes\": null,\n        \"availableActions\": []\n      },\n      {\n        \"id\": 3,\n        \"order\": 3,\n        \"label\": \"Third payment\",\n        \"amount\": 612500,\n        \"dueDate\": \"2027-01-15\",\n        \"status\": \"scheduled\",\n        \"dealNumber\": \"45872\",\n        \"dealTitle\": \"Supply of IT equipment\",\n        \"notes\": null,\n        \"availableActions\": []\n      },\n      {\n        \"id\": 4,\n        \"order\": 4,\n        \"label\": \"Fourth payment\",\n        \"amount\": 612500,\n        \"dueDate\": \"2027-02-15\",\n        \"status\": \"scheduled\",\n        \"dealNumber\": \"45872\",\n        \"dealTitle\": \"Supply of IT equipment\",\n        \"notes\": null,\n        \"availableActions\": []\n      }\n    ],\n    \"approvalSettings\": {\n      \"sendRequestDaysBefore\": 7,\n      \"responseDeadlineDays\": 3,\n      \"notes\": null\n    },\n    \"penalty\": {\n      \"percentage\": 5,\n      \"graceDays\": 30,\n      \"clauses\": \"5% of the total value applies automatically if the company delays any payment for more than 30 days after the due date.\"\n    },\n    \"hasContract\": true\n  }\n}"
                 }
-              ]
+              ],
+              "description": "NOT IMPLEMENTED in current backend — do not use for mobile development. Kept in the collection as a roadmap item only."
             },
             {
-              "name": "Submit Deal",
+              "name": "[NOT IMPLEMENTED] Submit Deal",
               "event": [
                 {
                   "listen": "test",
@@ -10631,7 +10931,8 @@
                   ],
                   "body": "{\n  \"success\": false,\n  \"message\": \"Complete all steps before submitting.\",\n  \"data\": null,\n  \"errors\": [\n    {\n      \"code\": \"WIZARD_INCOMPLETE\",\n      \"message\": \"Complete all steps before submitting.\"\n    }\n  ]\n}"
                 }
-              ]
+              ],
+              "description": "NOT IMPLEMENTED in current backend — do not use for mobile development. Kept in the collection as a roadmap item only."
             }
           ]
         },
@@ -10639,7 +10940,7 @@
           "name": "📋 Company Deals",
           "item": [
             {
-              "name": "List Company Deals",
+              "name": "[NOT IMPLEMENTED] List Company Deals",
               "event": [
                 {
                   "listen": "test",
@@ -10889,10 +11190,11 @@
                   ],
                   "body": "{\n  \"success\": true,\n  \"message\": \"Success\",\n  \"data\": [],\n  \"meta\": {\n    \"page\": 1,\n    \"pageSize\": 20,\n    \"total\": 0,\n    \"totalPages\": 1\n  }\n}"
                 }
-              ]
+              ],
+              "description": "NOT IMPLEMENTED in current backend — do not use for mobile development. Kept in the collection as a roadmap item only."
             },
             {
-              "name": "Get Company Deal Details",
+              "name": "[NOT IMPLEMENTED] Get Company Deal Details",
               "event": [
                 {
                   "listen": "test",
@@ -11041,10 +11343,11 @@
                   ],
                   "body": "{\n  \"success\": false,\n  \"message\": \"The requested resource was not found.\",\n  \"data\": null,\n  \"errors\": [\n    {\n      \"code\": \"NOT_FOUND\",\n      \"message\": \"The requested resource was not found.\"\n    }\n  ]\n}"
                 }
-              ]
+              ],
+              "description": "NOT IMPLEMENTED in current backend — do not use for mobile development. Kept in the collection as a roadmap item only."
             },
             {
-              "name": "Accept Company Deal",
+              "name": "[NOT IMPLEMENTED] Accept Company Deal",
               "event": [
                 {
                   "listen": "test",
@@ -11160,10 +11463,11 @@
                   ],
                   "body": "{\n  \"success\": false,\n  \"message\": \"This deal cannot be accepted now.\",\n  \"data\": null,\n  \"errors\": [\n    {\n      \"code\": \"INVALID_DEAL_STATE\",\n      \"message\": \"This deal cannot be accepted now.\"\n    }\n  ]\n}"
                 }
-              ]
+              ],
+              "description": "NOT IMPLEMENTED in current backend — do not use for mobile development. Kept in the collection as a roadmap item only."
             },
             {
-              "name": "Reject Company Deal",
+              "name": "[NOT IMPLEMENTED] Reject Company Deal",
               "event": [
                 {
                   "listen": "test",
@@ -11268,10 +11572,11 @@
                   ],
                   "body": "{\n  \"success\": true,\n  \"message\": \"Deal rejected.\",\n  \"data\": null\n}"
                 }
-              ]
+              ],
+              "description": "NOT IMPLEMENTED in current backend — do not use for mobile development. Kept in the collection as a roadmap item only."
             },
             {
-              "name": "Get Contract Link",
+              "name": "[NOT IMPLEMENTED] Get Contract Link",
               "event": [
                 {
                   "listen": "test",
@@ -11387,7 +11692,8 @@
                   ],
                   "body": "{\n  \"success\": false,\n  \"message\": \"This deal has no contract.\",\n  \"data\": null,\n  \"errors\": [\n    {\n      \"code\": \"CONTRACT_NOT_FOUND\",\n      \"message\": \"This deal has no contract.\"\n    }\n  ]\n}"
                 }
-              ]
+              ],
+              "description": "NOT IMPLEMENTED in current backend — do not use for mobile development. Kept in the collection as a roadmap item only."
             }
           ]
         },
@@ -11395,7 +11701,7 @@
           "name": "💵 Installments & Approvals",
           "item": [
             {
-              "name": "Upcoming Payments",
+              "name": "[NOT IMPLEMENTED] Upcoming Payments",
               "event": [
                 {
                   "listen": "test",
@@ -11538,10 +11844,11 @@
                   ],
                   "body": "{\n  \"success\": true,\n  \"message\": \"Success\",\n  \"data\": [],\n  \"meta\": {\n    \"page\": 1,\n    \"pageSize\": 20,\n    \"total\": 0,\n    \"totalPages\": 1\n  }\n}"
                 }
-              ]
+              ],
+              "description": "NOT IMPLEMENTED in current backend — do not use for mobile development. Kept in the collection as a roadmap item only."
             },
             {
-              "name": "Get Payment Details",
+              "name": "[NOT IMPLEMENTED] Get Payment Details",
               "event": [
                 {
                   "listen": "test",
@@ -11726,10 +12033,11 @@
                   ],
                   "body": "{\n  \"success\": false,\n  \"message\": \"The requested resource was not found.\",\n  \"data\": null,\n  \"errors\": [\n    {\n      \"code\": \"NOT_FOUND\",\n      \"message\": \"The requested resource was not found.\"\n    }\n  ]\n}"
                 }
-              ]
+              ],
+              "description": "NOT IMPLEMENTED in current backend — do not use for mobile development. Kept in the collection as a roadmap item only."
             },
             {
-              "name": "Approve Payment",
+              "name": "[NOT IMPLEMENTED] Approve Payment",
               "event": [
                 {
                   "listen": "test",
@@ -11845,10 +12153,11 @@
                   ],
                   "body": "{\n  \"success\": false,\n  \"message\": \"This payment cannot be approved now.\",\n  \"data\": null,\n  \"errors\": [\n    {\n      \"code\": \"INVALID_PAYMENT_STATE\",\n      \"message\": \"This payment cannot be approved now.\"\n    }\n  ]\n}"
                 }
-              ]
+              ],
+              "description": "NOT IMPLEMENTED in current backend — do not use for mobile development. Kept in the collection as a roadmap item only."
             },
             {
-              "name": "Reject Payment",
+              "name": "[NOT IMPLEMENTED] Reject Payment",
               "event": [
                 {
                   "listen": "test",
@@ -12003,7 +12312,8 @@
                   ],
                   "body": "{\n  \"success\": false,\n  \"message\": \"A reason is required.\",\n  \"data\": null,\n  \"errors\": [\n    {\n      \"code\": \"REQUIRED\",\n      \"message\": \"A reason is required.\",\n      \"field\": \"reason\"\n    }\n  ]\n}"
                 }
-              ]
+              ],
+              "description": "NOT IMPLEMENTED in current backend — do not use for mobile development. Kept in the collection as a roadmap item only."
             }
           ]
         }

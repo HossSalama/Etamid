@@ -99,5 +99,12 @@
   "IDEMPOTENCY_KEY_REUSED": "This idempotency key was already used for a different request.",
   "WEBHOOK_SIGNATURE_INVALID": "The webhook signature is invalid.",
   "WEBHOOK_PAYLOAD_INVALID": "The webhook payload is invalid.",
-  "LEDGER_UNBALANCED": "The ledger entry is not balanced."
+  "LEDGER_UNBALANCED": "The ledger entry is not balanced.",
+  "DEAL_CANCELLED": "Deal cancelled.",
+  "DEAL_EDIT_PROPOSED": "Edit proposal sent to the other party.",
+  "DEAL_EDIT_APPROVED": "Edit approved and deal terms updated.",
+  "DEAL_EDIT_REJECTED": "Edit proposal rejected.",
+  "DEAL_EDIT_CANCELLED": "Edit proposal cancelled.",
+  "DEAL_EDIT_ALREADY_PENDING": "There is already a pending edit proposal for this deal.",
+  "DEAL_EDIT_NOT_FOUND": "No pending edit proposal was found."
 }

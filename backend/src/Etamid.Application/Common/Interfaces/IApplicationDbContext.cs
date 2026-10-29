@@ -36,6 +36,7 @@ public interface IApplicationDbContext
 
     // Deals and escrow
     DbSet<Deal> Deals { get; }
+    DbSet<DealEditRequest> DealEditRequests { get; }
     DbSet<DealStatusHistory> DealStatusHistory { get; }
     DbSet<Payment> Payments { get; }
     DbSet<PaymentWebhookEvent> PaymentWebhookEvents { get; }

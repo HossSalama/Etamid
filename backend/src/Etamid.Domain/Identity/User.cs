@@ -109,7 +109,17 @@ public sealed class User : AuditableEntity<long>
     public void UpdateProfile(string? name, string? email)
     {
         if (!string.IsNullOrWhiteSpace(name)) Name = name.Trim();
-        if (!string.IsNullOrWhiteSpace(email)) Email = email.Trim().ToLowerInvariant();
+        if (!string.IsNullOrWhiteSpace(email))
+        {
+            var normalized = email.Trim().ToLowerInvariant();
+            // Changing the address must never inherit the old address's verification:
+            // the new address is unverified until its own OTP is confirmed.
+            if (!string.Equals(normalized, Email, StringComparison.Ordinal))
+            {
+                Email = normalized;
+                EmailVerifiedAt = null;
+            }
+        }
     }
 
     public void ChangeLanguage(Language language) => Language = language;

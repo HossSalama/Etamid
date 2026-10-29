@@ -99,5 +99,12 @@
   "IDEMPOTENCY_KEY_REUSED": "تم استخدام مفتاح منع التكرار هذا مسبقاً لطلب مختلف.",
   "WEBHOOK_SIGNATURE_INVALID": "توقيع الإشعار غير صحيح.",
   "WEBHOOK_PAYLOAD_INVALID": "محتوى الإشعار غير صالح.",
-  "LEDGER_UNBALANCED": "قيد دفتر الأستاذ غير متوازن."
+  "LEDGER_UNBALANCED": "قيد دفتر الأستاذ غير متوازن.",
+  "DEAL_CANCELLED": "تم إلغاء المعاملة.",
+  "DEAL_EDIT_PROPOSED": "تم إرسال اقتراح التعديل إلى الطرف الآخر.",
+  "DEAL_EDIT_APPROVED": "تمت الموافقة على التعديل وتحديث شروط المعاملة.",
+  "DEAL_EDIT_REJECTED": "تم رفض اقتراح التعديل.",
+  "DEAL_EDIT_CANCELLED": "تم إلغاء اقتراح التعديل.",
+  "DEAL_EDIT_ALREADY_PENDING": "يوجد اقتراح تعديل معلق بالفعل لهذه المعاملة.",
+  "DEAL_EDIT_NOT_FOUND": "لم يتم العثور على اقتراح تعديل معلق."
 }

@@ -38,6 +38,26 @@ public sealed class DealsController : BaseApiController
     public async Task<IActionResult> Reject(long id, RejectDealCommand command, CancellationToken ct)
         => Respond(await Sender.Send(command with { DealId = id }, ct), "DEAL_REJECTED");
 
+    [HttpPost("{id:long}/cancel")]
+    public async Task<IActionResult> Cancel(long id, CancellationToken ct)
+        => Respond(await Sender.Send(new CancelDealCommand(id), ct), "DEAL_CANCELLED");
+
+    [HttpPost("{id:long}/edits")]
+    public async Task<IActionResult> ProposeEdit(long id, ProposeDealEditCommand command, CancellationToken ct)
+        => Respond(await Sender.Send(command with { DealId = id }, ct), "DEAL_EDIT_PROPOSED", StatusCodes.Status201Created);
+
+    [HttpPost("{id:long}/edits/{editId:long}/approve")]
+    public async Task<IActionResult> ApproveEdit(long id, long editId, CancellationToken ct)
+        => Respond(await Sender.Send(new RespondDealEditCommand(id, editId, Approve: true), ct), "DEAL_EDIT_APPROVED");
+
+    [HttpPost("{id:long}/edits/{editId:long}/reject")]
+    public async Task<IActionResult> RejectEdit(long id, long editId, CancellationToken ct)
+        => Respond(await Sender.Send(new RespondDealEditCommand(id, editId, Approve: false), ct), "DEAL_EDIT_REJECTED");
+
+    [HttpPost("{id:long}/edits/{editId:long}/cancel")]
+    public async Task<IActionResult> CancelEdit(long id, long editId, CancellationToken ct)
+        => Respond(await Sender.Send(new CancelDealEditCommand(id, editId), ct), "DEAL_EDIT_CANCELLED");
+
     [HttpPost("{id:long}/fund")]
     public async Task<IActionResult> Fund(long id, CancellationToken ct)
         => Respond(await Sender.Send(new FundDealCommand(id, IdempotencyKey), ct), "DEAL_FUNDING_STARTED");

@@ -13,6 +13,7 @@ import {
   ResetPasswordRequest,
   ResetTokenResponse,
   UpdateProfileRequest,
+  UpdateProfileResponse,
   VerifyResetCodeRequest,
   UserProfile,
   VerifyOtpRequest,
@@ -82,15 +83,18 @@ export class AuthService {
     );
   }
 
-  updateProfile(request: UpdateProfileRequest): Observable<ApiResponse<null>> {
-    return this.http.put<ApiResponse<null>>('/api/v1/me', request).pipe(
+  updateProfile(request: UpdateProfileRequest): Observable<ApiResponse<UpdateProfileResponse | null>> {
+    return this.http.put<ApiResponse<UpdateProfileResponse | null>>('/api/v1/me', request).pipe(
       tap((res) => {
         const user = this._currentUser();
         if (res.success && user) {
+          // A changed email is unverified until its own OTP is confirmed
+          // (see backend User.UpdateProfile); don't keep the old verified flag.
           this.saveCurrentUser({
             ...user,
             name: request.username.trim(),
             email: request.email.trim().toLowerCase(),
+            emailVerified: res.data?.emailVerificationRequired ? false : user.emailVerified,
           });
         }
       })

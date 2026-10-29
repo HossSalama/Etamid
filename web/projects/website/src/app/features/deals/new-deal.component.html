@@ -57,7 +57,27 @@
                 [placeholder]="lang.t('deal_counterparty_placeholder')"
                 autocomplete="off"
                 maxlength="50"
+                (input)="sellerPreview.set(null); sellerLookupError.set(false)"
               />
+              <button type="button" class="choice-button" [disabled]="isLookingUpSeller() || !dealForm.controls.sellerPhoneOrCode.value?.trim()" (click)="lookupSeller()">
+                {{ lang.t(isLookingUpSeller() ? 'deal_lookup_checking' : 'deal_lookup_seller') }}
+              </button>
+              @if (sellerPreview(); as seller) {
+                <div class="seller-preview" role="status">
+                  <strong>{{ seller.name }}</strong>
+                  <span dir="ltr">{{ seller.code }}</span>
+                  @if (seller.storeName) {
+                    <span>{{ seller.storeName }}</span>
+                  }
+                  <span>{{ lang.t('deal_lookup_rating') }}: {{ seller.rating }} · {{ seller.successfulDeals }} {{ lang.t('deal_lookup_deals') }}</span>
+                  @if (seller.emailVerified || seller.nafathVerified) {
+                    <span>{{ seller.emailVerified ? '✓ ' + lang.t('deal_lookup_email_verified') : '' }} {{ seller.nafathVerified ? '✓ ' + lang.t('deal_lookup_nafath_verified') : '' }}</span>
+                  }
+                </div>
+              }
+              @if (sellerLookupError()) {
+                <small class="field-error" role="alert">{{ lang.t('deal_error_seller_not_found') }}</small>
+              }
               @if (dealForm.controls.sellerPhoneOrCode.touched && dealForm.controls.sellerPhoneOrCode.invalid) {
                 <small class="field-error">{{ lang.t('deal_counterparty_error') }}</small>
               }

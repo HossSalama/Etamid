@@ -62,6 +62,12 @@ export interface UpdateProfileRequest {
   email: string;
 }
 
+export interface UpdateProfileResponse {
+  emailChanged: boolean;
+  emailVerificationRequired: boolean;
+  otpSent: boolean;
+}
+
 export interface AuthTokens {
   accessToken: string;
   refreshToken: string;

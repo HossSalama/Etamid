@@ -97,6 +97,10 @@ public sealed class AcceptDealHandler(IApplicationDbContext db, ICurrentUser cur
         var deal = await db.Deals.FirstOrDefaultAsync(d => d.Id == r.DealId, ct);
         if (deal is null || !deal.IsParticipant(userId)) return DealErrors.NotFound;
 
+        // Accepting the original terms must not silently bypass an open edit proposal.
+        if (await db.DealEditRequests.AnyAsync(e => e.DealId == deal.Id && e.Status == EditStatus.Pending, ct))
+            return DealErrors.InvalidState;
+
         var settings = await DealSettings.LoadAsync(db, ct);
         var now = clock.UtcNow;
 
@@ -139,6 +143,17 @@ public sealed class RejectDealHandler(IApplicationDbContext db, ICurrentUser cur
         var now = clock.UtcNow;
         var rejected = deal.Reject(userId, r.ReasonId, r.Note, now);
         if (rejected.IsFailure) return rejected.Error;
+
+        // A rejected deal has no open proposals left.
+        var pending = await db.DealEditRequests
+            .Where(e => e.DealId == deal.Id && e.Status == EditStatus.Pending)
+            .ToListAsync(ct);
+        foreach (var edit in pending)
+        {
+            edit.Status = EditStatus.Cancelled;
+            edit.RespondedAt = now;
+            edit.RespondedById = userId;
+        }
 
         var saved = await db.SaveGuardedAsync(ct);
         if (saved.IsFailure) return saved.Error;

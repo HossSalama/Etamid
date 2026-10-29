@@ -2,7 +2,7 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
-import { DealSummary, DealsService } from '../../core/services/deals.service';
+import { DealEdit, DealSummary, DealsService, LookupItem } from '../../core/services/deals.service';
 import { LanguageService } from '../../core/services/language.service';
 
 export interface DealItem {
@@ -17,6 +17,7 @@ export interface DealItem {
   status: 'pending' | 'in_progress' | 'completed' | 'declined';
   statusText: string;
   availableActions: string[];
+  pendingEdit: DealEdit | null;
 }
 
 @Component({
@@ -446,6 +447,157 @@ export interface DealItem {
                       >
                         {{ lang.t(isProcessingDeal() === deal.id ? 'home_deal_releasing' : 'home_deal_release') }}
                       </button>
+                    </div>
+                  }
+                  @if (deal.pendingEdit; as edit) {
+                    <div class="pending-edit-banner">
+                      <strong>{{ lang.t('home_deal_pending_edit') }}</strong>
+                      @if (edit.newAmount !== null) {
+                        <span>{{ edit.prevAmount.toLocaleString() }} → {{ edit.newAmount.toLocaleString() }} {{ lang.t('home_sar') }}</span>
+                      }
+                      @if (edit.newDurationValue !== null) {
+                        <span>{{ edit.prevDurationValue }} {{ edit.prevDurationUnit }} → {{ edit.newDurationValue }} {{ edit.newDurationUnit }}</span>
+                      }
+                      @if (edit.newDescription !== null) {
+                        <span>{{ edit.prevDescription }} → {{ edit.newDescription }}</span>
+                      }
+                    </div>
+                  }
+                  @if (deal.availableActions.includes('reject')) {
+                    <div class="deal-actions-row">
+                      <button
+                        (click)="openRejectPanel(deal.id)"
+                        class="btn btn-outline-coral btn-deal-decline"
+                        [disabled]="isProcessingDeal() === deal.id"
+                      >
+                        {{ lang.t('home_deal_decline') }}
+                      </button>
+                    </div>
+                  }
+                  @if (deal.availableActions.includes('cancel')) {
+                    <div class="deal-actions-row">
+                      <button
+                        (click)="cancelDeal(deal.id)"
+                        class="btn btn-outline-coral btn-deal-decline"
+                        [disabled]="isProcessingDeal() === deal.id"
+                      >
+                        {{ lang.t('home_deal_cancel') }}
+                      </button>
+                    </div>
+                  }
+                  @if (deal.availableActions.includes('propose_edit')) {
+                    <div class="deal-actions-row">
+                      <button
+                        (click)="openEditPanel(deal.id)"
+                        class="btn btn-outline-coral btn-deal-decline"
+                        [disabled]="isProcessingDeal() === deal.id"
+                      >
+                        {{ lang.t('home_deal_propose_edit') }}
+                      </button>
+                    </div>
+                  }
+                  @if (deal.availableActions.includes('approve_edit') || deal.availableActions.includes('reject_edit') || deal.availableActions.includes('cancel_edit')) {
+                    <div class="deal-actions-row">
+                      @if (deal.availableActions.includes('approve_edit')) {
+                        <button
+                          (click)="respondToEdit(deal.id, 'approve')"
+                          class="btn btn-black btn-deal-accept"
+                          [disabled]="isProcessingDeal() === deal.id"
+                        >
+                          {{ lang.t('home_deal_approve_edit') }}
+                        </button>
+                      }
+                      @if (deal.availableActions.includes('reject_edit')) {
+                        <button
+                          (click)="respondToEdit(deal.id, 'reject')"
+                          class="btn btn-outline-coral btn-deal-decline"
+                          [disabled]="isProcessingDeal() === deal.id"
+                        >
+                          {{ lang.t('home_deal_reject_edit') }}
+                        </button>
+                      }
+                      @if (deal.availableActions.includes('cancel_edit')) {
+                        <button
+                          (click)="respondToEdit(deal.id, 'cancel')"
+                          class="btn btn-outline-coral btn-deal-decline"
+                          [disabled]="isProcessingDeal() === deal.id"
+                        >
+                          {{ lang.t('home_deal_cancel_edit') }}
+                        </button>
+                      }
+                    </div>
+                  }
+                  @if (deal.availableActions.includes('dispute')) {
+                    <div class="deal-actions-row">
+                      <button
+                        (click)="openDisputePanel(deal.id)"
+                        class="btn btn-outline-coral btn-deal-decline"
+                        [disabled]="isProcessingDeal() === deal.id"
+                      >
+                        {{ lang.t('home_deal_dispute') }}
+                      </button>
+                    </div>
+                  }
+                  @if (activeRejectDealId() === deal.id) {
+                    <div class="deal-inline-panel">
+                      <form [formGroup]="rejectForm" (ngSubmit)="submitReject(deal.id)">
+                        <label>{{ lang.t('home_deal_reject_reason') }}</label>
+                        <select formControlName="reasonId" class="modal-input">
+                          <option [ngValue]="null">{{ lang.t('home_deal_choose_reason') }}</option>
+                          @for (reason of rejectReasons(); track reason.id) {
+                            <option [ngValue]="reason.id">{{ reason.name }}</option>
+                          }
+                        </select>
+                        <input formControlName="note" class="modal-input" maxlength="200" [placeholder]="lang.t('home_deal_reject_note')" />
+                        <div class="deal-actions-row">
+                          <button type="submit" class="btn btn-black btn-deal-accept" [disabled]="isProcessingDeal() === deal.id">{{ lang.t('home_deal_decline') }}</button>
+                          <button type="button" class="btn btn-outline-coral btn-deal-decline" (click)="closePanels()">{{ lang.t('profile_cancel') }}</button>
+                        </div>
+                      </form>
+                    </div>
+                  }
+                  @if (activeDisputeDealId() === deal.id) {
+                    <div class="deal-inline-panel">
+                      <form [formGroup]="disputeForm" (ngSubmit)="submitDispute(deal.id)">
+                        <label>{{ lang.t('home_deal_dispute_reason') }}</label>
+                        <select formControlName="reasonId" class="modal-input">
+                          <option [ngValue]="null">{{ lang.t('home_deal_choose_reason') }}</option>
+                          @for (reason of disputeReasons(); track reason.id) {
+                            <option [ngValue]="reason.id">{{ reason.name }}</option>
+                          }
+                        </select>
+                        <textarea formControlName="details" class="modal-input" rows="3" maxlength="1000" [placeholder]="lang.t('home_deal_dispute_details')"></textarea>
+                        <div class="deal-actions-row">
+                          <button type="submit" class="btn btn-black btn-deal-accept" [disabled]="isProcessingDeal() === deal.id">{{ lang.t('home_deal_dispute') }}</button>
+                          <button type="button" class="btn btn-outline-coral btn-deal-decline" (click)="closePanels()">{{ lang.t('profile_cancel') }}</button>
+                        </div>
+                      </form>
+                    </div>
+                  }
+                  @if (activeEditDealId() === deal.id) {
+                    <div class="deal-inline-panel">
+                      <form [formGroup]="editForm" (ngSubmit)="submitEdit(deal.id)">
+                        <p class="fake-payment-hint">{{ lang.t('home_deal_edit_hint') }}</p>
+                        <label>{{ lang.t('home_deal_edit_amount') }}</label>
+                        <input type="number" formControlName="amount" class="modal-input" min="0.01" max="10000000" step="0.01" />
+                        <label>{{ lang.t('home_deal_edit_duration') }}</label>
+                        <div class="duration-control" dir="ltr">
+                          <input type="number" formControlName="durationValue" class="modal-input" min="1" max="365" step="1" />
+                          <select formControlName="durationUnit" class="modal-input">
+                            <option value="hour">{{ lang.t('deal_duration_hours') }}</option>
+                            <option value="day">{{ lang.t('deal_duration_days') }}</option>
+                          </select>
+                        </div>
+                        <label>{{ lang.t('home_deal_edit_description') }}</label>
+                        <textarea formControlName="description" class="modal-input" rows="3" maxlength="200"></textarea>
+                        @if (editPanelError()) {
+                          <p class="error-text" role="alert">{{ lang.t(editPanelError()!) }}</p>
+                        }
+                        <div class="deal-actions-row">
+                          <button type="submit" class="btn btn-black btn-deal-accept" [disabled]="isProcessingDeal() === deal.id">{{ lang.t('home_deal_propose_edit') }}</button>
+                          <button type="button" class="btn btn-outline-coral btn-deal-decline" (click)="closePanels()">{{ lang.t('profile_cancel') }}</button>
+                        </div>
+                      </form>
                     </div>
                   }
                 </div>
@@ -1217,6 +1369,62 @@ export interface DealItem {
       }
     }
 
+    .pending-edit-banner {
+      display: flex;
+      flex-direction: column;
+      gap: 0.2rem;
+      background: #fff7ed;
+      border: 1px solid #fed7aa;
+      border-radius: 12px;
+      padding: 0.75rem 1rem;
+      font-size: 0.85rem;
+      color: #7c2d12;
+    }
+
+    .deal-inline-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+      padding-top: 0.75rem;
+      border-top: 1px solid #f1f5f9;
+
+      label {
+        font-size: 0.85rem;
+        font-weight: 700;
+        color: #374151;
+      }
+
+      .modal-input {
+        width: 100%;
+        border: 1.5px solid #e5e7eb;
+        border-radius: 12px;
+        padding: 0.75rem 1rem;
+        font-size: 0.95rem;
+        outline: none;
+
+        &:focus {
+          border-color: #eb5757;
+        }
+      }
+
+      .duration-control {
+        display: flex;
+        gap: 0.5rem;
+      }
+
+      .error-text {
+        color: #eb5757;
+        font-size: 0.75rem;
+        font-weight: 600;
+      }
+
+      .deal-actions-row {
+        border-top: none;
+        padding-top: 0;
+        margin-top: 0;
+      }
+    }
+
     .deal-actions-row {
       display: flex;
       flex-wrap: wrap;
@@ -1463,6 +1671,29 @@ export class HomeComponent {
   readonly isProcessingDeal = signal<string | null>(null);
   readonly fakePaymentDealId = signal<string | null>(null);
   readonly dealActionError = signal<string | null>(null);
+  readonly activeRejectDealId = signal<string | null>(null);
+  readonly activeDisputeDealId = signal<string | null>(null);
+  readonly activeEditDealId = signal<string | null>(null);
+  readonly rejectReasons = signal<LookupItem[]>([]);
+  readonly disputeReasons = signal<LookupItem[]>([]);
+  readonly editPanelError = signal<string | null>(null);
+
+  readonly rejectForm = this.fb.group({
+    reasonId: [null as number | null, Validators.required],
+    note: [''],
+  });
+
+  readonly disputeForm = this.fb.group({
+    reasonId: [null as number | null, Validators.required],
+    details: ['', [Validators.required, Validators.maxLength(1000)]],
+  });
+
+  readonly editForm = this.fb.group({
+    amount: [null as number | null, [Validators.min(0.01), Validators.max(10_000_000)]],
+    durationValue: [null as number | null, [Validators.min(1), Validators.max(365)]],
+    durationUnit: ['day' as 'hour' | 'day'],
+    description: ['', Validators.maxLength(200)],
+  });
 
   readonly deals = signal<DealItem[]>([]);
   readonly availableBalance = signal<number>(0.0);
@@ -1500,12 +1731,29 @@ export class HomeComponent {
           return;
         }
         this.deals.set(response.data.map((deal) => this.toDealItem(deal)));
+        this.loadPendingEdits();
       },
       error: () => {
         this.isLoadingDeals.set(false);
         this.dealLoadError.set(true);
       },
     });
+  }
+
+  private loadPendingEdits(): void {
+    // The list endpoint does not carry pendingEdit, so fetch the detail only
+    // for deals that actually have an edit action — the rest need no extra call.
+    for (const deal of this.deals()) {
+      if (!deal.availableActions.some((a) => ['approve_edit', 'reject_edit', 'cancel_edit'].includes(a))) continue;
+      this.dealsApi.getDealDetail(Number(deal.id)).subscribe({
+        next: (response) => {
+          if (!response.success || !response.data?.pendingEdit) return;
+          const edit = response.data.pendingEdit;
+          this.deals.update((current) => current.map((d) => (d.id === deal.id ? { ...d, pendingEdit: edit } : d)));
+        },
+        error: () => {},
+      });
+    }
   }
 
   private toDealItem(deal: DealSummary): DealItem {
@@ -1522,6 +1770,7 @@ export class HomeComponent {
       status: this.displayCategory(deal.status),
       statusText: this.lang.t(`home_deal_status_${displayStatus}`),
       availableActions: deal.availableActions ?? [],
+      pendingEdit: null,
     };
   }
 
@@ -1709,6 +1958,7 @@ export class HomeComponent {
       status: 'pending',
       statusText: this.lang.isAr() ? 'في انتظار موافقة الطرف الآخر' : 'Awaiting counterparty acceptance',
       availableActions: [],
+      pendingEdit: null,
     };
 
     this.deals.update((current) => [newDeal, ...current]);
@@ -1819,6 +2069,198 @@ export class HomeComponent {
           return;
         }
         this.selectedTab.set('completed');
+        this.loadDeals();
+      },
+      error: () => {
+        this.isProcessingDeal.set(null);
+        this.dealActionError.set('home_deal_action_error');
+      },
+    });
+  }
+
+  closePanels(): void {
+    this.activeRejectDealId.set(null);
+    this.activeDisputeDealId.set(null);
+    this.activeEditDealId.set(null);
+    this.editPanelError.set(null);
+  }
+
+  openRejectPanel(id: string): void {
+    this.closePanels();
+    this.rejectForm.reset({ reasonId: null, note: '' });
+    this.activeRejectDealId.set(id);
+    if (!this.rejectReasons().length) {
+      this.dealsApi.getLookups('reject-reasons').subscribe({
+        next: (response) => this.rejectReasons.set(response.success ? response.data ?? [] : []),
+        error: () => {},
+      });
+    }
+  }
+
+  submitReject(id: string): void {
+    if (this.isProcessingDeal() || this.rejectForm.invalid) {
+      this.rejectForm.markAllAsTouched();
+      return;
+    }
+    const value = this.rejectForm.getRawValue();
+    if (value.reasonId === null) return;
+    this.isProcessingDeal.set(id);
+    this.dealActionError.set(null);
+    this.dealsApi.rejectDeal(Number(id), value.reasonId, value.note?.trim() || undefined).subscribe({
+      next: (response) => {
+        this.isProcessingDeal.set(null);
+        if (!response.success) {
+          this.dealActionError.set('home_deal_action_error');
+          return;
+        }
+        this.closePanels();
+        this.loadDeals();
+      },
+      error: () => {
+        this.isProcessingDeal.set(null);
+        this.dealActionError.set('home_deal_action_error');
+      },
+    });
+  }
+
+  cancelDeal(id: string): void {
+    if (this.isProcessingDeal() || !globalThis.confirm(this.lang.t('home_deal_cancel_confirm'))) return;
+    this.isProcessingDeal.set(id);
+    this.dealActionError.set(null);
+    this.dealsApi.cancelDeal(Number(id)).subscribe({
+      next: (response) => {
+        this.isProcessingDeal.set(null);
+        if (!response.success) {
+          this.dealActionError.set('home_deal_action_error');
+          return;
+        }
+        this.loadDeals();
+      },
+      error: () => {
+        this.isProcessingDeal.set(null);
+        this.dealActionError.set('home_deal_action_error');
+      },
+    });
+  }
+
+  openEditPanel(id: string): void {
+    this.closePanels();
+    this.editForm.reset({ amount: null, durationValue: null, durationUnit: 'day', description: '' });
+    this.activeEditDealId.set(id);
+  }
+
+  submitEdit(id: string): void {
+    if (this.isProcessingDeal()) return;
+    const value = this.editForm.getRawValue();
+    const hasChange =
+      value.amount !== null ||
+      value.durationValue !== null ||
+      (value.description?.trim() ?? '') !== '';
+    if (!hasChange || this.editForm.invalid) {
+      this.editPanelError.set('home_deal_edit_required');
+      this.editForm.markAllAsTouched();
+      return;
+    }
+    this.isProcessingDeal.set(id);
+    this.dealActionError.set(null);
+    this.editPanelError.set(null);
+    this.dealsApi
+      .proposeEdit(Number(id), {
+        amount: value.amount,
+        durationValue: value.durationValue,
+        durationUnit: value.durationValue !== null ? value.durationUnit : null,
+        description: value.description?.trim() || null,
+      })
+      .subscribe({
+        next: (response) => {
+          this.isProcessingDeal.set(null);
+          if (!response.success) {
+            this.dealActionError.set('home_deal_action_error');
+            return;
+          }
+          this.closePanels();
+          this.loadDeals();
+        },
+        error: () => {
+          this.isProcessingDeal.set(null);
+          this.dealActionError.set('home_deal_action_error');
+        },
+      });
+  }
+
+  respondToEdit(id: string, action: 'approve' | 'reject' | 'cancel'): void {
+    if (this.isProcessingDeal()) return;
+    const deal = this.deals().find((d) => d.id === id);
+    const run = (editId: number): void => {
+      this.isProcessingDeal.set(id);
+      this.dealActionError.set(null);
+      const call =
+        action === 'approve'
+          ? this.dealsApi.approveEdit(Number(id), editId)
+          : action === 'reject'
+            ? this.dealsApi.rejectEdit(Number(id), editId)
+            : this.dealsApi.cancelEdit(Number(id), editId);
+      call.subscribe({
+        next: (response) => {
+          this.isProcessingDeal.set(null);
+          if (!response.success) {
+            this.dealActionError.set('home_deal_action_error');
+            return;
+          }
+          this.loadDeals();
+        },
+        error: () => {
+          this.isProcessingDeal.set(null);
+          this.dealActionError.set('home_deal_action_error');
+        },
+      });
+    };
+    if (deal?.pendingEdit) {
+      run(deal.pendingEdit.id);
+      return;
+    }
+    // Edit id was not loaded yet (e.g. list was refreshed): fetch the detail first.
+    this.dealsApi.getDealDetail(Number(id)).subscribe({
+      next: (response) => {
+        if (!response.success || !response.data?.pendingEdit) {
+          this.dealActionError.set('home_deal_action_error');
+          return;
+        }
+        run(response.data.pendingEdit.id);
+      },
+      error: () => this.dealActionError.set('home_deal_action_error'),
+    });
+  }
+
+  openDisputePanel(id: string): void {
+    this.closePanels();
+    this.disputeForm.reset({ reasonId: null, details: '' });
+    this.activeDisputeDealId.set(id);
+    if (!this.disputeReasons().length) {
+      this.dealsApi.getLookups('dispute-reasons').subscribe({
+        next: (response) => this.disputeReasons.set(response.success ? response.data ?? [] : []),
+        error: () => {},
+      });
+    }
+  }
+
+  submitDispute(id: string): void {
+    if (this.isProcessingDeal() || this.disputeForm.invalid) {
+      this.disputeForm.markAllAsTouched();
+      return;
+    }
+    const value = this.disputeForm.getRawValue();
+    if (value.reasonId === null || !value.details?.trim()) return;
+    this.isProcessingDeal.set(id);
+    this.dealActionError.set(null);
+    this.dealsApi.openDispute(Number(id), value.reasonId, value.details.trim()).subscribe({
+      next: (response) => {
+        this.isProcessingDeal.set(null);
+        if (!response.success) {
+          this.dealActionError.set('home_deal_action_error');
+          return;
+        }
+        this.closePanels();
         this.loadDeals();
       },
       error: () => {

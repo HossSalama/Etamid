@@ -41,6 +41,14 @@ internal static class DealMapper
             .Select(h => new DealTimelineItemDto(h.FromStatus is null ? null : ApiNames.Snake(h.FromStatus), ApiNames.Snake(h.ToStatus), ApiNames.Of(h.ActorType), h.CreatedAt, h.Note))
             .ToList();
 
+        // A pending edit only matters while the deal can still be edited.
+        var pendingEdit = d.Status == DealStatus.PendingAcceptance
+            ? await db.DealEditRequests.AsNoTracking()
+                .Where(e => e.DealId == d.Id && e.Status == EditStatus.Pending)
+                .OrderByDescending(e => e.CreatedAt).ThenByDescending(e => e.Id)
+                .FirstOrDefaultAsync(ct)
+            : null;
+
         return new DealDetailDto(
             d.Id, d.Number, d.Title, d.Description, d.Amount, d.Currency, ApiNames.Of(d.Status),
             RoleOf(d, viewerId), other?.Name ?? string.Empty, other?.Code ?? string.Empty,
@@ -48,8 +56,15 @@ internal static class DealMapper
             d.FeeAmount, d.SellerNetAmount, d.IsDisputed,
             d.CreatedAt, d.RespondDeadlineAt, d.AcceptedAt, d.FundedAt, d.DeliveredAt,
             d.InspectionEndsAt, d.CompletedAt, d.ExpiresAt,
-            d.ContractHash, DealActions.For(d, viewerId, now), timeline);
+            d.ContractHash, pendingEdit is null ? null : MapEdit(pendingEdit, d),
+            DealActions.For(d, viewerId, now, pendingEdit), timeline);
     }
+
+    public static DealEditDto MapEdit(DealEditRequest e, Deal d) => new(
+        e.Id, e.DealId, e.ProposedById == d.BuyerId ? "buyer" : "seller", ApiNames.Of(e.Status),
+        e.PrevAmount, e.PrevDurationValue, e.PrevDurationUnit, e.PrevDescription,
+        e.NewAmount, e.NewDurationValue, e.NewDurationUnit, e.NewDescription,
+        e.CreatedAt, e.RespondedAt);
 
     public static string RoleOf(Deal d, long viewerId) => viewerId == d.BuyerId ? "buyer" : "seller";
 }

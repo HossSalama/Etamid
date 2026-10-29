@@ -51,14 +51,20 @@ public sealed class GetMyDealsHandler(IApplicationDbContext db, ICurrentUser cur
             .ToDictionaryAsync(u => u.Id, ct);
 
         var now = clock.UtcNow;
+        var dealIds = deals.Select(d => d.Id).ToList();
+        var pendingEdits = await db.DealEditRequests.AsNoTracking()
+            .Where(e => dealIds.Contains(e.DealId) && e.Status == EditStatus.Pending)
+            .ToDictionaryAsync(e => e.DealId, ct);
+
         IReadOnlyList<DealSummaryDto> items = deals.Select(d =>
         {
             var otherId = d.BuyerId == userId ? d.SellerId : d.BuyerId;
             others.TryGetValue(otherId, out var other);
+            pendingEdits.TryGetValue(d.Id, out var pendingEdit);
             return new DealSummaryDto(
                 d.Id, d.Number, d.Title, d.Amount, d.Currency, ApiNames.Of(d.Status),
                 DealMapper.RoleOf(d, userId), other?.Name ?? string.Empty, other?.Code ?? string.Empty,
-                d.CreatedAt, DealActions.For(d, userId, now));
+                d.CreatedAt, DealActions.For(d, userId, now, pendingEdit));
         }).ToList();
 
         return new PagedResult<DealSummaryDto>(items, page, pageSize, total);

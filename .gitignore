@@ -6,4 +6,14 @@ obj/
 *.suo
 TestResults/
 .env
+.env.*
+!.env.example
 appsettings.*.local.json
+appsettings.Local.json
+appsettings.*.Local.json
+# Local runtime uploads (avatars, deal files, etc.) — never commit user data.
+backend/src/Etamid.Api/storage/
+storage/
+# Local secrets / generated keys — use user-secrets or environment variables.
+*.pem
+*.key

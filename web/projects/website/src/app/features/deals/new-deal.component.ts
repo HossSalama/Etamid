@@ -3,7 +3,7 @@ import { Component, OnInit, inject, signal } from '@angular/core';
 import { AbstractControl, FormBuilder, ReactiveFormsModule, ValidationErrors, ValidatorFn, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
-import { DealsService, CreatedDeal, LookupItem, UserAddress } from '../../core/services/deals.service';
+import { DealsService, Counterparty, CreatedDeal, LookupItem, UserAddress } from '../../core/services/deals.service';
 import { LanguageService } from '../../core/services/language.service';
 
 const twoDecimalPlaces: ValidatorFn = (control: AbstractControl): ValidationErrors | null => {
@@ -35,6 +35,31 @@ export class NewDealComponent implements OnInit {
   readonly createdDeal = signal<CreatedDeal | null>(null);
   readonly shippingCompanies = signal<LookupItem[]>([]);
   readonly addresses = signal<UserAddress[]>([]);
+  readonly sellerPreview = signal<Counterparty | null>(null);
+  readonly isLookingUpSeller = signal(false);
+  readonly sellerLookupError = signal(false);
+
+  lookupSeller(): void {
+    const q = (this.dealForm.controls.sellerPhoneOrCode.value ?? '').trim();
+    if (!q || this.isLookingUpSeller()) return;
+    this.isLookingUpSeller.set(true);
+    this.sellerLookupError.set(false);
+    this.sellerPreview.set(null);
+    this.dealsApi.lookupSeller(q).subscribe({
+      next: (response) => {
+        this.isLookingUpSeller.set(false);
+        if (!response.success || !response.data) {
+          this.sellerLookupError.set(true);
+          return;
+        }
+        this.sellerPreview.set(response.data);
+      },
+      error: () => {
+        this.isLookingUpSeller.set(false);
+        this.sellerLookupError.set(true);
+      },
+    });
+  }
 
   readonly dealForm = this.fb.group({
     sellerPhoneOrCode: ['', [Validators.required, Validators.maxLength(50)]],

@@ -172,6 +172,26 @@ public sealed class Deal : AuditableEntity<long>
         return Result.Success();
     }
 
+    /// <summary>
+    /// Applies an approved edit. Edits are only possible before acceptance, because
+    /// acceptance freezes the terms into the contract snapshot + hash; changing terms
+    /// afterwards would break <see cref="IsContractIntact"/>. Fee/SellerNet are still
+    /// null at this stage, so nothing needs recomputing. OriginalAmount is kept as
+    /// the amount the deal was created with, for audit.
+    /// </summary>
+    public Result ApplyEdit(decimal? amount, int? durationValue, DurationUnit? durationUnit, string? description)
+    {
+        if (Status != DealStatus.PendingAcceptance) return DealErrors.InvalidState;
+        if (amount is { } a && (a <= 0 || decimal.Round(a, 2) != a)) return DealErrors.AmountInvalid;
+        if (durationValue is { } dv && dv <= 0) return DealErrors.DurationInvalid;
+
+        if (amount is { } newAmount) Amount = newAmount;
+        if (durationValue is { } newDuration) DurationValue = newDuration;
+        if (durationUnit is { } newUnit) DurationUnit = newUnit;
+        if (description is not null) Description = description.Trim();
+        return Result.Success();
+    }
+
     /// <summary>System sweep for deals nobody answered / funded in time.</summary>
     public Result Expire(DateTime now)
     {

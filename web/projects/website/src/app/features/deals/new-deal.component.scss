@@ -244,6 +244,18 @@
   font-weight: 650;
 }
 
+.seller-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 12px;
+  padding: 12px 14px;
+  font-size: 0.9rem;
+  color: #14532d;
+}
+
 .field-meta {
   display: flex;
   align-items: flex-start;

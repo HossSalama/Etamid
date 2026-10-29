@@ -32,6 +32,15 @@ public sealed record DealSettings(decimal PlatformFee, TimeSpan RespondWindow, T
 public static class DealActions
 {
     public static IReadOnlyList<string> For(Deal deal, long userId, DateTime now)
+        => For(deal, userId, now, pendingEdit: null);
+
+    /// <summary>
+    /// Actions for the current user. <paramref name="pendingEdit"/> is the deal's
+    /// open edit proposal, if any (null = none): the proposer may cancel it, the
+    /// other party may approve/reject it, and nobody may propose another while
+    /// one is open. Cancel is available to either party before any money moves.
+    /// </summary>
+    public static IReadOnlyList<string> For(Deal deal, long userId, DateTime now, DealEditRequest? pendingEdit)
     {
         var actions = new List<string>();
         var isBuyer = userId == deal.BuyerId;
@@ -39,12 +48,30 @@ public static class DealActions
 
         switch (deal.Status)
         {
-            case DealStatus.PendingAcceptance when isSeller:
-                actions.Add("accept");
-                actions.Add("reject");
+            case DealStatus.PendingAcceptance:
+                if (pendingEdit is null)
+                {
+                    if (isSeller)
+                    {
+                        actions.Add("accept");
+                        actions.Add("reject");
+                    }
+                    actions.Add("propose_edit");
+                }
+                else if (pendingEdit.ProposedById == userId)
+                {
+                    actions.Add("cancel_edit");
+                }
+                else
+                {
+                    actions.Add("approve_edit");
+                    actions.Add("reject_edit");
+                }
+                actions.Add("cancel");
                 break;
-            case DealStatus.AwaitingFunding when isBuyer:
-                actions.Add("fund");
+            case DealStatus.AwaitingFunding:
+                if (isBuyer) actions.Add("fund");
+                actions.Add("cancel");
                 break;
             case DealStatus.Funded when isSeller:
                 actions.Add("deliver");

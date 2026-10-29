@@ -68,6 +68,52 @@ export interface LookupItem {
   iconUrl: string | null;
 }
 
+export interface DealEdit {
+  id: number;
+  dealId: number;
+  proposedBy: string;
+  status: string;
+  prevAmount: number;
+  prevDurationValue: number;
+  prevDurationUnit: string;
+  prevDescription: string;
+  newAmount: number | null;
+  newDurationValue: number | null;
+  newDurationUnit: string | null;
+  newDescription: string | null;
+  createdAt: string;
+  respondedAt: string | null;
+}
+
+export interface DealDetail {
+  id: number;
+  status: string;
+  amount: number;
+  durationValue: number;
+  durationUnit: string;
+  description: string;
+  availableActions: string[];
+  pendingEdit: DealEdit | null;
+}
+
+export interface Counterparty {
+  name: string;
+  code: string;
+  storeName: string | null;
+  avatarUrl: string | null;
+  emailVerified: boolean;
+  nafathVerified: boolean;
+  rating: number;
+  successfulDeals: number;
+}
+
+export interface ProposeEditRequest {
+  amount?: number | null;
+  durationValue?: number | null;
+  durationUnit?: 'hour' | 'day' | null;
+  description?: string | null;
+}
+
 export interface UserAddress {
   id: number;
   label: string | null;
@@ -97,6 +143,49 @@ export class DealsService {
 
   acceptDeal(id: number): Observable<ApiResponse<unknown>> {
     return this.http.post<ApiResponse<unknown>>(`${this.baseUrl}/deals/${id}/accept`, { acceptTerms: true });
+  }
+
+  rejectDeal(id: number, reasonId: number, note?: string): Observable<ApiResponse<unknown>> {
+    return this.http.post<ApiResponse<unknown>>(`${this.baseUrl}/deals/${id}/reject`, {
+      reasonId,
+      ...(note ? { note } : {}),
+    });
+  }
+
+  cancelDeal(id: number): Observable<ApiResponse<unknown>> {
+    return this.http.post<ApiResponse<unknown>>(`${this.baseUrl}/deals/${id}/cancel`, null);
+  }
+
+  proposeEdit(id: number, request: ProposeEditRequest): Observable<ApiResponse<DealEdit>> {
+    return this.http.post<ApiResponse<DealEdit>>(`${this.baseUrl}/deals/${id}/edits`, request);
+  }
+
+  approveEdit(id: number, editId: number): Observable<ApiResponse<unknown>> {
+    return this.http.post<ApiResponse<unknown>>(`${this.baseUrl}/deals/${id}/edits/${editId}/approve`, null);
+  }
+
+  rejectEdit(id: number, editId: number): Observable<ApiResponse<unknown>> {
+    return this.http.post<ApiResponse<unknown>>(`${this.baseUrl}/deals/${id}/edits/${editId}/reject`, null);
+  }
+
+  cancelEdit(id: number, editId: number): Observable<ApiResponse<unknown>> {
+    return this.http.post<ApiResponse<unknown>>(`${this.baseUrl}/deals/${id}/edits/${editId}/cancel`, null);
+  }
+
+  openDispute(id: number, reasonId: number, details: string): Observable<ApiResponse<unknown>> {
+    return this.http.post<ApiResponse<unknown>>(`${this.baseUrl}/deals/${id}/dispute`, { reasonId, details });
+  }
+
+  getDealDetail(id: number): Observable<ApiResponse<DealDetail>> {
+    return this.http.get<ApiResponse<DealDetail>>(`${this.baseUrl}/deals/${id}`);
+  }
+
+  lookupSeller(q: string): Observable<ApiResponse<Counterparty>> {
+    return this.http.get<ApiResponse<Counterparty>>(`${this.baseUrl}/users/lookup`, { params: { q } });
+  }
+
+  getLookups(type: string): Observable<ApiResponse<LookupItem[]>> {
+    return this.http.get<ApiResponse<LookupItem[]>>(`${this.baseUrl}/lookups/${type}`);
   }
 
   fundDeal(id: number): Observable<ApiResponse<FundSession>> {
