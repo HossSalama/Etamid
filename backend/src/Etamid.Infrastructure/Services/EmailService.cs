@@ -3,18 +3,21 @@ using System.Net.Mail;
 using System.Text;
 using Etamid.Application.Common.Interfaces;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
 namespace Etamid.Infrastructure.Services;
 
 public sealed class EmailService(
     IConfiguration configuration,
+    IHostEnvironment environment,
     ILogger<EmailService> logger) : IEmailService
 {
     public async Task SendOtpEmailAsync(
         string toEmail,
         string recipientName,
         string otpCode,
+        OtpEmailKind kind,
         CancellationToken cancellationToken = default)
     {
         var host = configuration["Smtp:Host"] ?? "smtp.gmail.com";
@@ -25,7 +28,14 @@ public sealed class EmailService(
 
         if (string.IsNullOrWhiteSpace(senderEmail) || string.IsNullOrWhiteSpace(appPassword))
         {
-            logger.LogWarning("Email sending skipped: Smtp:SenderEmail or Smtp:AppPassword is not configured. OTP for {Email} is {Otp}", toEmail, otpCode);
+            // Development helper only. The environment guard prevents logging secrets in production.
+            if (environment.IsDevelopment() && configuration.GetValue<bool>("Smtp:LogCodeWhenDisabled"))
+                logger.LogWarning("Email sending skipped (SMTP not configured). OTP for {Email} is {Otp}", toEmail, otpCode);
+            else
+            {
+                logger.LogError("Email sending failed because SMTP credentials are not configured.");
+                throw new InvalidOperationException("SMTP sender email and app password must be configured to send OTP emails.");
+            }
             return;
         }
 
@@ -39,6 +49,11 @@ public sealed class EmailService(
                 DeliveryMethod = SmtpDeliveryMethod.Network
             };
 
+            var isReset = kind == OtpEmailKind.PasswordReset;
+            var introText = isReset
+                ? "وصلنا طلب لاستعادة كلمة المرور الخاصة بحسابك في منصة <strong>«اعْتَمِدْ»</strong>. أدخل رمز التحقق (OTP) التالي لإكمال العملية، وتجاهل هذه الرسالة إن لم تكن أنت من طلبها:"
+                : "شكراً لتسجيلك في منصة <strong>«اعْتَمِدْ»</strong>. لتأكيد وتفعيل بريدك الإلكتروني والبدء في إجراء المعاملات المالية المضمونة، يرجى إدخال رمز التحقق (OTP) التالي:";
+            var badgeText = isReset ? "استعادة الحساب" : "توثيق الحساب";
             var cleanName = string.IsNullOrWhiteSpace(recipientName) ? "مستخدم اعْتَمِدْ" : recipientName.Trim();
             var initial = cleanName.Length > 0 ? cleanName[0].ToString() : "ع";
 
@@ -92,7 +107,7 @@ public sealed class EmailService(
                   <tr>
                     <td width=""48"" style=""vertical-align: middle;"">
                       <div style=""width: 46px; height: 46px; border-radius: 50%; background: linear-gradient(135deg, #0d9488, #047857); color: #ffffff; font-size: 20px; font-weight: 800; line-height: 46px; text-align: center; border: 2px solid #ffffff; box-shadow: 0 3px 8px rgba(13, 148, 136, 0.25);"">
-                        {initial}
+                        {WebUtility.HtmlEncode(initial)}
                       </div>
                     </td>
                     <td style=""vertical-align: middle; padding-right: 12px; text-align: right;"">
@@ -100,12 +115,12 @@ public sealed class EmailService(
                         مرحباً، {WebUtility.HtmlEncode(cleanName)} 👋
                       </div>
                       <div style=""color: #0f766e; font-size: 12px; margin-top: 2px; font-weight: 600;"" dir=""ltr"">
-                        {toEmail}
+                        {WebUtility.HtmlEncode(toEmail)}
                       </div>
                     </td>
                     <td style=""vertical-align: middle; text-align: left;"">
                       <span style=""display: inline-block; background: #dcfce7; color: #15803d; border: 1px solid #86efac; border-radius: 20px; padding: 4px 10px; font-size: 11px; font-weight: 700;"">
-                        توثيق الحساب ✓
+                        {badgeText} ✓
                       </span>
                     </td>
                   </tr>
@@ -118,7 +133,7 @@ public sealed class EmailService(
           <tr>
             <td style=""padding: 24px 30px; text-align: right;"">
               <p style=""color: #334155; font-size: 15px; line-height: 1.7; margin: 0 0 18px;"">
-                شكراً لتسجيلك في منصة <strong>«اعْتَمِدْ»</strong>. لتأكيد وتفعيل بريدك الإلكتروني والبدء في إجراء المعاملات المالية المضمونة، يرجى إدخال رمز التحقق (OTP) التالي:
+                {introText}
               </p>
 
               <!-- OTP Digits Box -->
@@ -173,7 +188,7 @@ public sealed class EmailService(
             using var message = new MailMessage
             {
                 From = new MailAddress(senderEmail, senderName),
-                Subject = $"رمز التحقق لمنصة اعْتَمِدْ: {otpCode}",
+                Subject = isReset ? "استعادة كلمة المرور - منصة اعْتَمِدْ" : "تفعيل الحساب - منصة اعْتَمِدْ",
                 BodyEncoding = Encoding.UTF8,
                 SubjectEncoding = Encoding.UTF8
             };
@@ -183,11 +198,7 @@ public sealed class EmailService(
 
             var logoCandidates = new[]
             {
-                Path.Combine(AppContext.BaseDirectory, "Resources", "logo.png"),
-                Path.Combine(AppContext.BaseDirectory, "logo.png"),
-                @"D:\etamid\backend\src\Etamid.Api\Resources\logo.png",
-                @"D:\etamid\backend\src\Etamid.Infrastructure\Services\logo.png",
-                @"D:\etamid\web\projects\website\public\logo.png"
+                Path.Combine(AppContext.BaseDirectory, "Resources", "logo.png")
             };
 
             var logoPath = logoCandidates.FirstOrDefault(File.Exists);
@@ -208,7 +219,8 @@ public sealed class EmailService(
         }
         catch (Exception ex)
         {
-            logger.LogWarning(ex, "Failed to send OTP email to {Email}", toEmail);
+            logger.LogError(ex, "Failed to send OTP email to {Email}", toEmail);
+            throw;
         }
     }
 }

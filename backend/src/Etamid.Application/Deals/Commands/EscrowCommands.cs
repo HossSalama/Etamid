@@ -40,7 +40,11 @@ public sealed class FundDealHandler(
         var requestHash = Hashing.Sha256Hex($"fund:{r.DealId}");
         var replay = await idempotency.FindAsync(userId, r.IdempotencyKey, requestHash, ct);
         if (replay.KeyReusedForOtherRequest) return DealErrors.IdempotencyKeyReused;
-        if (replay.IsReplay) return JsonSerializer.Deserialize<FundSessionDto>(replay.ResponseBody!)!;
+        if (replay.IsReplay)
+        {
+            var replayed = JsonSerializer.Deserialize<FundSessionDto>(replay.ResponseBody!)!;
+            return replayed with { Provider = string.IsNullOrWhiteSpace(replayed.Provider) ? gateway.Name : replayed.Provider };
+        }
 
         var deal = await db.Deals.FirstOrDefaultAsync(d => d.Id == r.DealId, ct);
         if (deal is null || !deal.IsParticipant(userId)) return DealErrors.NotFound;
@@ -84,7 +88,7 @@ public sealed class FundDealHandler(
 
         var dto = new FundSessionDto(
             payment.PublicId, deal.Id, ApiNames.Of(payment.Status), payment.Amount, payment.Currency,
-            payment.ProviderPaymentId ?? string.Empty, redirectUrl);
+            payment.Provider, payment.ProviderPaymentId ?? string.Empty, redirectUrl);
 
         idempotency.Stage(userId, r.IdempotencyKey, "POST /deals/{id}/fund", requestHash, 200, JsonSerializer.Serialize(dto));
 

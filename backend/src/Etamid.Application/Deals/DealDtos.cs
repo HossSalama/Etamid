@@ -18,7 +18,7 @@ public sealed record DealDetailDto(
 
 public sealed record FundSessionDto(
     Guid PaymentId, long DealId, string Status, decimal Amount, string Currency,
-    string ProviderPaymentId, string RedirectUrl);
+    string Provider, string ProviderPaymentId, string RedirectUrl);
 
 public sealed record ReleaseResultDto(
     long DealId, string Status, decimal Amount, decimal FeeAmount, decimal SellerNetAmount);

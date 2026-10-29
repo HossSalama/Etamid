@@ -9,7 +9,6 @@ namespace Etamid.Api.Controllers;
 [EnableRateLimiting("auth")]
 public sealed class AuthController : BaseApiController
 {
-    /// <summary>Step 1 of registration. After this the app verifies the phone with Firebase.</summary>
     [AllowAnonymous]
     [HttpPost("register/individual")]
     public async Task<IActionResult> RegisterIndividual(RegisterIndividualCommand command, CancellationToken ct)
@@ -20,23 +19,22 @@ public sealed class AuthController : BaseApiController
     public async Task<IActionResult> RegisterCompany(RegisterCompanyCommand command, CancellationToken ct)
         => Respond(await Sender.Send(command, ct), "REGISTERED", StatusCodes.Status201Created);
 
-    /// <summary>Step 2: send the Firebase ID token obtained after the SMS check. Activates the account and signs in.</summary>
+    /// <summary>Verifies the six-digit code sent to the registered email and activates the account.</summary>
+    [AllowAnonymous]
+    [HttpPost("otp/verify")]
+    public async Task<IActionResult> VerifyEmail(VerifyEmailCommand command, CancellationToken ct)
+        => Respond(await Sender.Send(command, ct), "EMAIL_VERIFIED");
+
+    [AllowAnonymous]
+    [HttpPost("otp/resend")]
+    public async Task<IActionResult> ResendEmailCode(ResendEmailCodeCommand command, CancellationToken ct)
+        => Respond(await Sender.Send(command, ct), "OTP_SENT");
+
+    /// <summary>Legacy phone-verification endpoint. Phone verification no longer substitutes for email activation.</summary>
     [AllowAnonymous]
     [HttpPost("phone/verify")]
     public async Task<IActionResult> VerifyPhone(VerifyPhoneCommand command, CancellationToken ct)
         => Respond(await Sender.Send(command, ct), "PHONE_VERIFIED");
-
-    /// <summary>Step 2 (Email OTP): verify the 6-digit code sent to the email address.</summary>
-    [AllowAnonymous]
-    [HttpPost("otp/verify")]
-    public async Task<IActionResult> VerifyOtp(VerifyOtpCommand command, CancellationToken ct)
-        => Respond(await Sender.Send(command, ct), "PHONE_VERIFIED");
-
-    /// <summary>Resend 6-digit OTP code to email.</summary>
-    [AllowAnonymous]
-    [HttpPost("otp/resend")]
-    public async Task<IActionResult> ResendOtp(ResendOtpCommand command, CancellationToken ct)
-        => Respond(await Sender.Send(command, ct), "OTP_SENT");
 
     [AllowAnonymous]
     [HttpPost("login")]
@@ -59,7 +57,16 @@ public sealed class AuthController : BaseApiController
     public async Task<IActionResult> LogoutAll(CancellationToken ct)
         => Respond(await Sender.Send(new LogoutAllCommand(), ct), "LOGGED_OUT");
 
-    /// <summary>Forgot password: send the Firebase ID token for the phone together with the new password.</summary>
+    [AllowAnonymous]
+    [HttpPost("password/forgot")]
+    public async Task<IActionResult> ForgotPassword(ForgotPasswordCommand command, CancellationToken ct)
+        => Respond(await Sender.Send(command, ct), "PASSWORD_RESET_CODE_SENT");
+
+    [AllowAnonymous]
+    [HttpPost("password/verify-otp")]
+    public async Task<IActionResult> VerifyResetCode(VerifyResetCodeCommand command, CancellationToken ct)
+        => Respond(await Sender.Send(command, ct), "RESET_CODE_VERIFIED");
+
     [AllowAnonymous]
     [HttpPost("password/reset")]
     public async Task<IActionResult> ResetPassword(ResetPasswordCommand command, CancellationToken ct)

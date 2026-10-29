@@ -3,6 +3,7 @@ using Etamid.Application.Common.Interfaces;
 using Etamid.Application.Identity.Dtos;
 using Etamid.Application.Identity.Errors;
 using Etamid.Domain.Identity;
+using Etamid.Domain.Identity.Services;
 using Etamid.Domain.Identity.ValueObjects;
 using Etamid.SharedKernel;
 using Microsoft.EntityFrameworkCore;
@@ -11,14 +12,14 @@ namespace Etamid.Application.Identity.Services;
 
 public sealed record CompanyRegistration(string CommercialRegNo, string? TaxNo);
 
-/// <summary>Creates (or refreshes) an unverified account. The phone is verified afterwards with Firebase.</summary>
+/// <summary>Creates (or refreshes) a pending account and sends its activation code to the email address.</summary>
 public sealed class RegistrationService(
     IApplicationDbContext db,
     IPasswordHasher hasher,
     UserCodeGenerator codes,
     AuthAuditService audit,
     IRequestContext request,
-    IOtpService otp)
+    EmailOtpService otps)
 {
     public async Task<Result<RegisterResultDto>> RegisterAsync(
         UserType type, string name, string phoneInput, string emailInput, string password,
@@ -28,16 +29,15 @@ public sealed class RegistrationService(
             return IdentityErrors.InvalidPhone;
 
         var email = emailInput.Trim().ToLowerInvariant();
-
         var existing = await db.Users
             .Include(u => u.CompanyProfile)
             .FirstOrDefaultAsync(u => u.PhoneNormalized == phone.E164 && u.DeletedAt == null, ct);
 
-        // A number that already finished verification (or switches account type) is taken.
         if (existing is not null && (existing.Status != AccountStatus.PendingVerification || existing.Type != type))
             return IdentityErrors.PhoneExists;
 
         var existingId = existing?.Id ?? 0;
+        var emailChanged = existing is not null && !string.Equals(existing.Email, email, StringComparison.OrdinalIgnoreCase);
 
         if (await db.Users.AnyAsync(u => u.Email == email && u.DeletedAt == null && u.Id != existingId, ct))
             return IdentityErrors.EmailExists;
@@ -49,9 +49,15 @@ public sealed class RegistrationService(
                 return IdentityErrors.CommercialRegExists;
         }
 
+        // Never retarget a still-valid code to a different email during the resend cooldown.
+        if (emailChanged && existing is not null)
+        {
+            var wait = await otps.CooldownSecondsAsync(existing.Id, OtpPurpose.Registration, ct);
+            if (wait > 0) return IdentityErrors.OtpCooldown(wait);
+        }
+
         var hash = hasher.Hash(password);
         User user;
-
         if (existing is not null)
         {
             user = existing;
@@ -78,7 +84,6 @@ public sealed class RegistrationService(
         }
         catch (DbUpdateException)
         {
-            // Lost a race against another registration with the same phone/email/commercial number.
             return IdentityErrors.PhoneExists;
         }
 
@@ -86,7 +91,6 @@ public sealed class RegistrationService(
             .Where(t => t.Type == TermsType.Platform && t.IsActive)
             .OrderByDescending(t => t.PublishedAt)
             .FirstOrDefaultAsync(ct);
-
         if (terms is not null)
         {
             db.TermsAcceptances.Add(new TermsAcceptance
@@ -101,8 +105,10 @@ public sealed class RegistrationService(
         audit.Record(AuthEvent.Registered, user.Id, user.PhoneNormalized);
         await db.SaveChangesAsync(ct);
 
-        await otp.GenerateAndSendOtpAsync(phone.E164, user.Email, user.Name, ct);
+        var issued = await otps.IssueAsync(user, OtpPurpose.Registration, ct);
+        // Same-email retry inside cooldown reuses the code already delivered. Changed-email retries fail closed.
+        if (issued.IsFailure && emailChanged) return issued.Error;
 
-        return new RegisterResultDto(phone.Local, true);
+        return new RegisterResultDto(phone.Local, user.Email, "email", true);
     }
 }

@@ -224,3 +224,15 @@ public sealed class AuthAuditLogConfiguration : IEntityTypeConfiguration<AuthAud
         b.HasIndex(x => new { x.Ip, x.CreatedAt });
     }
 }
+
+public sealed class EmailOtpConfiguration : IEntityTypeConfiguration<EmailOtp>
+{
+    public void Configure(EntityTypeBuilder<EmailOtp> b)
+    {
+        b.Property(x => x.CodeHash).HasMaxLength(64);
+        b.Property(x => x.ResetTokenHash).HasMaxLength(64);
+        b.HasIndex(x => new { x.UserId, x.Purpose, x.CreatedAt });
+        b.HasIndex(x => x.ResetTokenHash).IsUnique().HasFilter("[ResetTokenHash] IS NOT NULL");
+        b.ForeignKey<EmailOtp, User>(x => x.UserId);
+    }
+}

@@ -27,4 +27,16 @@ public static class IdentityErrors
     public static readonly Error WrongCurrentPassword = Error.Validation("INVALID_CREDENTIALS", "currentPassword");
     public static readonly Error TermsNotFound = Error.NotFound("TERMS_NOT_FOUND");
     public static readonly Error InvalidTermsType = Error.Validation("INVALID_VALUE", "type");
+
+    // ---- Email one-time codes
+    public static readonly Error OtpInvalid = Error.Validation("OTP_INVALID", "code");
+    public static readonly Error OtpExpired = Error.Validation("OTP_EXPIRED", "code");
+
+    public static readonly Error OtpAttemptsExceeded = Error.TooManyRequests("OTP_ATTEMPTS_EXCEEDED");
+
+    public static Error OtpCooldown(int retryAfterSeconds)
+        => Error.TooManyRequests("OTP_COOLDOWN", new Dictionary<string, object?> { ["retryAfterSeconds"] = retryAfterSeconds });
+
+    public static readonly Error ResetTokenInvalid = Error.Failure("RESET_TOKEN_INVALID", "resetToken");
+    public static readonly Error AccountAlreadyVerified = Error.Conflict("ACCOUNT_ALREADY_VERIFIED", "email");
 }

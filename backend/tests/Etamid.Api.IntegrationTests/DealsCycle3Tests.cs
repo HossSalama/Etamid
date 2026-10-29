@@ -36,11 +36,14 @@ public class DealsCycle3Tests(EtamidFactory factory) : IClassFixture<EtamidFacto
     {
         var n = Interlocked.Increment(ref _counter);
         var local = $"05033{n:D5}";
-        var e164 = $"+9665033{n:D5}";
+        var email = $"c3.{n}@example.com";
 
-        await _anon.PostAsJsonAsync("/api/v1/auth/register/individual",
-            new { username = "Deal User " + n, phone = local, email = $"c3.{n}@example.com", password = Password, acceptTerms = true });
-        var verify = await _anon.PostAsJsonAsync("/api/v1/auth/phone/verify", new { phone = local, firebaseIdToken = "fake:" + e164 });
+        var registration = await _anon.PostAsJsonAsync("/api/v1/auth/register/individual",
+            new { username = "Deal User " + n, phone = local, email, password = Password, acceptTerms = true });
+        registration.StatusCode.Should().Be(HttpStatusCode.Created, await registration.Content.ReadAsStringAsync());
+        var code = factory.Emails.CodeFor(email);
+        var verify = await _anon.PostAsJsonAsync("/api/v1/auth/otp/verify", new { phone = local, code });
+        verify.StatusCode.Should().Be(HttpStatusCode.OK, await verify.Content.ReadAsStringAsync());
         var token = (await Json(verify)).GetProperty("data").GetProperty("accessToken").GetString()!;
 
         var client = factory.CreateClient();
@@ -463,6 +466,72 @@ public class DealsCycle3Tests(EtamidFactory factory) : IClassFixture<EtamidFacto
             durationValue = 1, durationUnit = "day", needShipping = false, acceptTerms = true
         });
         unknownSeller.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task Create_with_shipping_uses_an_active_company_and_persists_the_selection()
+    {
+        var buyer = await NewUser();
+        var seller = await NewUser();
+
+        var lookup = await Json(await buyer.Client.GetAsync("/api/v1/lookups/shipping-companies"));
+        var companies = lookup.GetProperty("data");
+        companies.GetArrayLength().Should().BeGreaterThan(0);
+        var shippingCompanyId = companies[0].GetProperty("id").GetInt64();
+
+        var response = await Post(buyer.Client, "/api/v1/deals", new
+        {
+            title = "Shipped item", sellerPhoneOrCode = seller.Phone, description = "Delivery to buyer address",
+            amount = 250m, durationValue = 3, durationUnit = "day", needShipping = true,
+            shippingCompanyId, acceptTerms = true
+        });
+
+        response.StatusCode.Should().Be(HttpStatusCode.Created, await response.Content.ReadAsStringAsync());
+        var created = (await Json(response)).GetProperty("data");
+        created.GetProperty("needShipping").GetBoolean().Should().BeTrue();
+        created.GetProperty("shippingCompanyId").GetInt64().Should().Be(shippingCompanyId);
+        created.GetProperty("shippingAddressId").ValueKind.Should().Be(JsonValueKind.Null);
+    }
+
+    [Fact]
+    public async Task Created_deal_is_visible_in_the_sellers_deal_list()
+    {
+        var buyer = await NewUser();
+        var seller = await NewUser();
+        var dealId = await CreateDeal(buyer, seller);
+
+        var response = await seller.Client.GetAsync("/api/v1/deals?page=1&pageSize=50");
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var deals = (await Json(response)).GetProperty("data").EnumerateArray();
+        var deal = deals.Single(item => item.GetProperty("id").GetInt64() == dealId);
+        deal.GetProperty("status").GetString().Should().Be("pending_acceptance");
+        deal.GetProperty("role").GetString().Should().Be("seller");
+    }
+
+    [Fact]
+    public async Task Buyer_can_complete_a_fake_payment_and_fund_the_deal_in_development()
+    {
+        var buyer = await NewUser();
+        var seller = await NewUser();
+        var dealId = await CreateDeal(buyer, seller);
+        await Accept(seller, dealId);
+        await StartFunding(buyer, dealId);
+
+        var completed = await Post(buyer.Client, $"/api/v1/payments/dev/deals/{dealId}/complete");
+
+        completed.StatusCode.Should().Be(HttpStatusCode.OK, await completed.Content.ReadAsStringAsync());
+        (await StatusOf(buyer, dealId)).Should().Be("funded");
+
+        var sellerCannotSimulate = await Post(seller.Client, $"/api/v1/payments/dev/deals/{dealId}/complete");
+        sellerCannotSimulate.StatusCode.Should().Be(HttpStatusCode.NotFound);
+
+        var delivered = await Post(seller.Client, $"/api/v1/deals/{dealId}/deliver");
+        delivered.StatusCode.Should().Be(HttpStatusCode.OK, await delivered.Content.ReadAsStringAsync());
+        (await StatusOf(buyer, dealId)).Should().Be("inspection");
+
+        var released = await Post(buyer.Client, $"/api/v1/deals/{dealId}/release", null, Key());
+        released.StatusCode.Should().Be(HttpStatusCode.OK, await released.Content.ReadAsStringAsync());
+        (await StatusOf(buyer, dealId)).Should().Be("released");
     }
 
     // ------------------------------------------------------------------ 4. dispute freezes release

@@ -125,7 +125,7 @@ import { LanguageService } from '../../../core/services/language.service';
               </div>
             }
 
-            <form (ngSubmit)="onStep2Submit()" class="step-form">
+        <form (submit)="$event.preventDefault(); onStep2Submit()" class="step-form">
               <!-- 6-Box OTP Inputs -->
               <div class="otp-boxes-row" dir="ltr">
                 @for (digit of digits(); track $index) {
@@ -723,6 +723,7 @@ import { LanguageService } from '../../../core/services/language.service';
 export class ForgotPasswordComponent implements OnInit, OnDestroy {
   private readonly fb = inject(FormBuilder);
   private readonly router = inject(Router);
+  private readonly authService = inject(AuthService);
   readonly lang = inject(LanguageService);
 
   readonly currentStep = signal<1 | 2 | 3>(1);
@@ -730,10 +731,11 @@ export class ForgotPasswordComponent implements OnInit, OnDestroy {
   readonly errorMessage = signal<string | null>(null);
   readonly isSuccess = signal(false);
   readonly showPass = signal(false);
+  private readonly resetToken = signal<string | null>(null);
 
   // OTP 6 digits
   readonly digits = signal<string[]>(['', '', '', '', '', '']);
-  readonly countdown = signal(50);
+  readonly countdown = signal(60);
   private timerRef: any = null;
 
   // Form 1: Phone
@@ -744,7 +746,7 @@ export class ForgotPasswordComponent implements OnInit, OnDestroy {
   // Form 3: Password
   readonly passwordForm = this.fb.group(
     {
-      newPassword: ['', [Validators.required, Validators.minLength(6), Validators.pattern(/[^a-zA-Z0-9]/)]],
+      newPassword: ['', [Validators.required, Validators.minLength(6), Validators.maxLength(64), Validators.pattern(/[^a-zA-Z0-9]/), Validators.pattern(/^\S+$/)]],
       confirmPassword: ['', [Validators.required]],
     },
     {
@@ -776,16 +778,23 @@ export class ForgotPasswordComponent implements OnInit, OnDestroy {
   onStep1Submit(): void {
     if (this.phoneForm.invalid) return;
 
+    const phone = this.phoneForm.get('phone')?.value;
+    if (!phone) return;
+
     this.isLoading.set(true);
     this.errorMessage.set(null);
-
-    // Simulate sending OTP SMS to phone
-    setTimeout(() => {
-      this.isLoading.set(false);
-      this.currentStep.set(2);
-      this.startCountdown();
-      setTimeout(() => this.focusBox(0), 100);
-    }, 600);
+    this.authService.forgotPassword({ phone }).subscribe({
+      next: () => {
+        this.isLoading.set(false);
+        this.currentStep.set(2);
+        this.startCountdown();
+        setTimeout(() => this.focusBox(0), 100);
+      },
+      error: (err) => {
+        this.isLoading.set(false);
+        this.errorMessage.set(this.apiError(err));
+      },
+    });
   }
 
   isOtpComplete(): boolean {
@@ -795,26 +804,56 @@ export class ForgotPasswordComponent implements OnInit, OnDestroy {
   onStep2Submit(): void {
     if (!this.isOtpComplete()) return;
 
+    const phone = this.phoneForm.get('phone')?.value;
+    if (!phone) return;
+
     this.isLoading.set(true);
     this.errorMessage.set(null);
-
-    setTimeout(() => {
-      this.isLoading.set(false);
-      this.currentStep.set(3);
-      this.clearCountdown();
-    }, 500);
+    this.authService.verifyResetCode({ phone, code: this.digits().join('') }).subscribe({
+      next: (res) => {
+        this.isLoading.set(false);
+        const token = res.data?.resetToken;
+        if (!token) {
+          this.errorMessage.set(this.lang.t('forgot_api_error'));
+          return;
+        }
+        this.resetToken.set(token);
+        this.currentStep.set(3);
+        this.clearCountdown();
+      },
+      error: (err) => {
+        this.isLoading.set(false);
+        this.errorMessage.set(this.apiError(err));
+      },
+    });
   }
 
   onStep3Submit(): void {
     if (this.passwordForm.invalid) return;
 
+    const resetToken = this.resetToken();
+    const values = this.passwordForm.getRawValue();
+    if (!resetToken || !values.newPassword || !values.confirmPassword) {
+      this.errorMessage.set(this.lang.t('forgot_api_error'));
+      return;
+    }
+
     this.isLoading.set(true);
     this.errorMessage.set(null);
-
-    setTimeout(() => {
-      this.isLoading.set(false);
-      this.isSuccess.set(true);
-    }, 600);
+    this.authService.resetPassword({
+      resetToken,
+      newPassword: values.newPassword,
+      confirmPassword: values.confirmPassword,
+    }).subscribe({
+      next: () => {
+        this.isLoading.set(false);
+        this.isSuccess.set(true);
+      },
+      error: (err) => {
+        this.isLoading.set(false);
+        this.errorMessage.set(this.apiError(err));
+      },
+    });
   }
 
   onDigitInput(index: number, event: Event): void {
@@ -868,7 +907,7 @@ export class ForgotPasswordComponent implements OnInit, OnDestroy {
   }
 
   startCountdown(): void {
-    this.countdown.set(50);
+    this.countdown.set(60);
     this.clearCountdown();
     this.timerRef = setInterval(() => {
       if (this.countdown() > 0) {
@@ -887,6 +926,29 @@ export class ForgotPasswordComponent implements OnInit, OnDestroy {
   }
 
   resendCode(): void {
-    this.startCountdown();
+    const phone = this.phoneForm.get('phone')?.value;
+    if (!phone || this.isLoading()) return;
+
+    this.isLoading.set(true);
+    this.errorMessage.set(null);
+    this.authService.forgotPassword({ phone }).subscribe({
+      next: () => {
+        this.isLoading.set(false);
+        this.digits.set(['', '', '', '', '', '']);
+        this.startCountdown();
+      },
+      error: (err) => {
+        this.isLoading.set(false);
+        this.errorMessage.set(this.apiError(err));
+      },
+    });
+  }
+
+  private apiError(err: any): string {
+    const errors = err?.error?.errors;
+    if (Array.isArray(errors) && errors.length > 0) {
+      return errors.map((e: any) => e.message || e.code).join(' • ');
+    }
+    return err?.error?.message || this.lang.t('forgot_api_error');
   }
 }

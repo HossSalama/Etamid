@@ -23,7 +23,6 @@ public static class DependencyInjection
         services.AddScoped<AuditableEntitySaveChangesInterceptor>();
 
         services.AddSingleton<IEmailService, EmailService>();
-        services.AddSingleton<IOtpService, InMemoryOtpService>();
 
         AddPersistence(services, configuration, environment);
         AddIdentity(services, configuration, environment);

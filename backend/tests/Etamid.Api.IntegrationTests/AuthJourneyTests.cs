@@ -15,9 +15,10 @@ public class AuthJourneyTests(EtamidFactory factory) : IClassFixture<EtamidFacto
 
     private static string Code(JsonElement body) => body.GetProperty("errors")[0].GetProperty("code").GetString()!;
 
-    private Task<HttpResponseMessage> Post(string url, object body, string? bearer = null)
+    private Task<HttpResponseMessage> Post(string url, object? body, string? bearer = null)
     {
-        var req = new HttpRequestMessage(HttpMethod.Post, url) { Content = JsonContent.Create(body) };
+        var req = new HttpRequestMessage(HttpMethod.Post, url);
+        if (body is not null) req.Content = JsonContent.Create(body);
         if (bearer is not null) req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", bearer);
         return _client.SendAsync(req);
     }
@@ -26,52 +27,75 @@ public class AuthJourneyTests(EtamidFactory factory) : IClassFixture<EtamidFacto
         => Post("/api/v1/auth/register/individual",
             new { username = "Ahmed", phone = local, email, password = Password, acceptTerms = true });
 
-    private static string FakeToken(string e164) => $"fake:{e164}";
+    private Task<HttpResponseMessage> VerifyEmail(string local, string code)
+        => Post("/api/v1/auth/otp/verify", new { phone = local, code });
+
+    /// <summary>Registers and activates an account with the emailed code.</summary>
+    private async Task<JsonElement> RegisterAndVerify(string local, string email)
+    {
+        (await Register(local, email)).StatusCode.Should().Be(HttpStatusCode.Created);
+        var verify = await VerifyEmail(local, factory.Emails.CodeFor(email));
+        verify.StatusCode.Should().Be(HttpStatusCode.OK);
+        return (await Json(verify)).GetProperty("data");
+    }
+
+    private static string WrongCode(string real) => real == "000000" ? "111111" : "000000";
 
     [Fact]
-    public async Task Full_journey_register_verify_me_refresh_and_reuse_detection()
+    public async Task Full_journey_register_verify_email_me_refresh_and_reuse_detection()
     {
         var reg = await Register("0501110001", "a1@example.com");
         reg.StatusCode.Should().Be(HttpStatusCode.Created);
+        var regData = (await Json(reg)).GetProperty("data");
+        regData.GetProperty("verificationMethod").GetString().Should().Be("email");
+        regData.GetProperty("verificationRequired").GetBoolean().Should().BeTrue();
 
-        // Not verified yet
+        // Not activated yet
         var early = await Post("/api/v1/auth/login", new { phone = "0501110001", password = Password });
         early.StatusCode.Should().Be(HttpStatusCode.Forbidden);
         Code(await Json(early)).Should().Be("ACCOUNT_NOT_VERIFIED");
 
-        // Verify with Firebase (fake)
-        var verify = await Post("/api/v1/auth/phone/verify",
-            new { phone = "0501110001", firebaseIdToken = FakeToken("+966501110001") });
+        var real = factory.Emails.CodeFor("a1@example.com");
+        var wrong = await VerifyEmail("0501110001", WrongCode(real));
+        wrong.StatusCode.Should().Be(HttpStatusCode.UnprocessableEntity);
+        Code(await Json(wrong)).Should().Be("OTP_INVALID");
+
+        var verify = await VerifyEmail("0501110001", real);
         verify.StatusCode.Should().Be(HttpStatusCode.OK);
         var data = (await Json(verify)).GetProperty("data");
         var access = data.GetProperty("accessToken").GetString()!;
         var refresh = data.GetProperty("refreshToken").GetString()!;
+        data.GetProperty("user").GetProperty("emailVerified").GetBoolean().Should().BeTrue();
 
-        // /me
         var meReq = new HttpRequestMessage(HttpMethod.Get, "/api/v1/me");
         meReq.Headers.Authorization = new AuthenticationHeaderValue("Bearer", access);
-        var me = await _client.SendAsync(meReq);
-        me.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await _client.SendAsync(meReq)).StatusCode.Should().Be(HttpStatusCode.OK);
 
-        // Refresh rotates
-        var rotated = await Post("/api/v1/auth/refresh", new { refreshToken = refresh });
-        rotated.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await Post("/api/v1/auth/refresh", new { refreshToken = refresh })).StatusCode.Should().Be(HttpStatusCode.OK);
 
-        // Re-using the old refresh token is theft: rejected
         var reused = await Post("/api/v1/auth/refresh", new { refreshToken = refresh });
         reused.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
         Code(await Json(reused)).Should().Be("REFRESH_REUSED");
 
-        // Normal login now works
-        var login = await Post("/api/v1/auth/login", new { phone = "0501110001", password = Password });
-        login.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await Post("/api/v1/auth/login", new { phone = "0501110001", password = Password })).StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task A_code_works_once()
+    {
+        await Register("0501110008", "h1@example.com");
+        var code = factory.Emails.CodeFor("h1@example.com");
+
+        (await VerifyEmail("0501110008", code)).StatusCode.Should().Be(HttpStatusCode.OK);
+        var again = await VerifyEmail("0501110008", code);
+        again.StatusCode.Should().Be(HttpStatusCode.Conflict);
+        Code(await Json(again)).Should().Be("ACCOUNT_ALREADY_VERIFIED");
     }
 
     [Fact]
     public async Task Duplicate_verified_phone_is_a_409()
     {
-        (await Register("0501110002", "b1@example.com")).StatusCode.Should().Be(HttpStatusCode.Created);
-        await Post("/api/v1/auth/phone/verify", new { phone = "0501110002", firebaseIdToken = FakeToken("+966501110002") });
+        await RegisterAndVerify("0501110002", "b1@example.com");
 
         var dup = await Register("0501110002", "b2@example.com");
         dup.StatusCode.Should().Be(HttpStatusCode.Conflict);
@@ -79,20 +103,57 @@ public class AuthJourneyTests(EtamidFactory factory) : IClassFixture<EtamidFacto
     }
 
     [Fact]
-    public async Task Registering_again_before_verifying_is_allowed()
+    public async Task Changing_email_before_resend_cooldown_is_rejected_and_original_code_remains_valid()
     {
         (await Register("0501110007", "g1@example.com")).StatusCode.Should().Be(HttpStatusCode.Created);
-        (await Register("0501110007", "g2@example.com")).StatusCode.Should().Be(HttpStatusCode.Created);
+        var retry = await Register("0501110007", "g2@example.com");
+        retry.StatusCode.Should().Be(HttpStatusCode.TooManyRequests);
+        Code(await Json(retry)).Should().Be("OTP_COOLDOWN");
+
+        var verify = await VerifyEmail("0501110007", factory.Emails.CodeFor("g1@example.com"));
+        verify.StatusCode.Should().Be(HttpStatusCode.OK);
     }
 
     [Fact]
-    public async Task Verifying_with_another_phones_token_is_rejected()
+    public async Task Resending_during_cooldown_returns_generic_success_without_sending()
     {
-        await Register("0501110003", "c1@example.com");
-        var r = await Post("/api/v1/auth/phone/verify",
-            new { phone = "0501110003", firebaseIdToken = FakeToken("+966509999999") });
-        r.StatusCode.Should().Be(HttpStatusCode.BadRequest);
-        Code(await Json(r)).Should().Be("PHONE_TOKEN_INVALID");
+        await Register("0501110009", "i1@example.com");
+        var before = factory.Emails.SentCount;
+
+        var resend = await Post("/api/v1/auth/otp/resend", new { phone = "0501110009" });
+        resend.StatusCode.Should().Be(HttpStatusCode.OK);
+        factory.Emails.SentCount.Should().Be(before);
+    }
+
+    [Fact]
+    public async Task Resend_for_an_unknown_phone_looks_like_success()
+    {
+        var before = factory.Emails.SentCount;
+        (await Post("/api/v1/auth/otp/resend", new { phone = "0501119999" })).StatusCode.Should().Be(HttpStatusCode.OK);
+        factory.Emails.SentCount.Should().Be(before);
+    }
+
+    [Fact]
+    public async Task Five_wrong_codes_kill_the_code_even_for_the_right_one()
+    {
+        await Register("0501110010", "j1@example.com");
+        var real = factory.Emails.CodeFor("j1@example.com");
+
+        for (var i = 0; i < 5; i++)
+            (await VerifyEmail("0501110010", WrongCode(real))).StatusCode.Should().Be(HttpStatusCode.UnprocessableEntity);
+
+        var locked = await VerifyEmail("0501110010", real);
+        locked.StatusCode.Should().Be(HttpStatusCode.TooManyRequests);
+        Code(await Json(locked)).Should().Be("OTP_ATTEMPTS_EXCEEDED");
+    }
+
+    [Fact]
+    public async Task Malformed_code_is_a_422()
+    {
+        await Register("0501110011", "k1@example.com");
+        var r = await VerifyEmail("0501110011", "12ab");
+        r.StatusCode.Should().Be(HttpStatusCode.UnprocessableEntity);
+        Code(await Json(r)).Should().Be("OTP_INVALID");
     }
 
     [Fact]
@@ -109,8 +170,7 @@ public class AuthJourneyTests(EtamidFactory factory) : IClassFixture<EtamidFacto
     [Fact]
     public async Task Five_wrong_passwords_lock_the_account()
     {
-        await Register("0501110005", "e1@example.com");
-        await Post("/api/v1/auth/phone/verify", new { phone = "0501110005", firebaseIdToken = FakeToken("+966501110005") });
+        await RegisterAndVerify("0501110005", "e1@example.com");
 
         for (var i = 0; i < 5; i++)
             await Post("/api/v1/auth/login", new { phone = "0501110005", password = "Wrong#999" });
@@ -122,23 +182,50 @@ public class AuthJourneyTests(EtamidFactory factory) : IClassFixture<EtamidFacto
     }
 
     [Fact]
-    public async Task Reset_password_with_a_fresh_firebase_token()
+    public async Task Forgot_password_three_steps_then_login_with_the_new_password()
     {
-        await Register("0501110006", "f1@example.com");
-        await Post("/api/v1/auth/phone/verify", new { phone = "0501110006", firebaseIdToken = FakeToken("+966501110006") });
-        await Task.Delay(1100); // fake auth_time must be newer than the one used for verification
+        await RegisterAndVerify("0501110006", "f1@example.com");
 
-        var reset = await Post("/api/v1/auth/password/reset", new
-        {
-            phone = "0501110006",
-            firebaseIdToken = FakeToken("+966501110006"),
-            newPassword = "New#4567",
-            confirmPassword = "New#4567"
-        });
+        (await Post("/api/v1/auth/password/forgot", new { phone = "0501110006" })).StatusCode.Should().Be(HttpStatusCode.OK);
+        var code = factory.Emails.CodeFor("f1@example.com");
+
+        var wrong = await Post("/api/v1/auth/password/verify-otp", new { phone = "0501110006", code = WrongCode(code) });
+        wrong.StatusCode.Should().Be(HttpStatusCode.UnprocessableEntity);
+
+        var verified = await Post("/api/v1/auth/password/verify-otp", new { phone = "0501110006", code });
+        verified.StatusCode.Should().Be(HttpStatusCode.OK);
+        var token = (await Json(verified)).GetProperty("data").GetProperty("resetToken").GetString()!;
+
+        var reset = await Post("/api/v1/auth/password/reset",
+            new { resetToken = token, newPassword = "New#4567", confirmPassword = "New#4567" });
         reset.StatusCode.Should().Be(HttpStatusCode.OK);
 
-        (await Post("/api/v1/auth/login", new { phone = "0501110006", password = "New#4567" }))
-            .StatusCode.Should().Be(HttpStatusCode.OK);
+        (await Post("/api/v1/auth/login", new { phone = "0501110006", password = "New#4567" })).StatusCode.Should().Be(HttpStatusCode.OK);
+        (await Post("/api/v1/auth/login", new { phone = "0501110006", password = Password })).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+
+        // The token is single-use.
+        var again = await Post("/api/v1/auth/password/reset",
+            new { resetToken = token, newPassword = "Other#4567", confirmPassword = "Other#4567" });
+        again.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        Code(await Json(again)).Should().Be("RESET_TOKEN_INVALID");
+    }
+
+    [Fact]
+    public async Task Forgot_password_never_reveals_whether_the_phone_exists()
+    {
+        var before = factory.Emails.SentCount;
+        var r = await Post("/api/v1/auth/password/forgot", new { phone = "0501118888" });
+        r.StatusCode.Should().Be(HttpStatusCode.OK);
+        factory.Emails.SentCount.Should().Be(before);
+    }
+
+    [Fact]
+    public async Task Reset_with_a_made_up_token_is_rejected()
+    {
+        var r = await Post("/api/v1/auth/password/reset",
+            new { resetToken = "not-a-real-token", newPassword = "New#4567", confirmPassword = "New#4567" });
+        r.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        Code(await Json(r)).Should().Be("RESET_TOKEN_INVALID");
     }
 
     [Fact]
@@ -147,26 +234,5 @@ public class AuthJourneyTests(EtamidFactory factory) : IClassFixture<EtamidFacto
         var r = await _client.GetAsync("/api/v1/me");
         r.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
         Code(await Json(r)).Should().Be("UNAUTHORIZED");
-    }
-
-    [Fact]
-    public async Task Verify_with_otp_endpoint_succeeds_and_allows_login()
-    {
-        var reg = await Register("0501110099", "otp1@example.com");
-        reg.StatusCode.Should().Be(HttpStatusCode.Created);
-
-        var verify = await Post("/api/v1/auth/otp/verify", new { phone = "0501110099", code = "123456" });
-        verify.StatusCode.Should().Be(HttpStatusCode.OK);
-
-        var login = await Post("/api/v1/auth/login", new { phone = "0501110099", password = Password });
-        login.StatusCode.Should().Be(HttpStatusCode.OK);
-    }
-
-    [Fact]
-    public async Task Resend_otp_endpoint_returns_ok()
-    {
-        await Register("0501110098", "otp2@example.com");
-        var resend = await Post("/api/v1/auth/otp/resend", new { phone = "0501110098", purpose = "register" });
-        resend.StatusCode.Should().Be(HttpStatusCode.OK);
     }
 }

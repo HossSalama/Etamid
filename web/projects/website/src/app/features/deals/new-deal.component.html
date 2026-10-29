@@ -1,0 +1,228 @@
+<main class="deal-create-page" [attr.dir]="lang.isAr() ? 'rtl' : 'ltr'">
+  <div class="page-shell">
+    <header class="page-header">
+      <button type="button" class="back-button" (click)="goHome()" [attr.aria-label]="lang.t('back')">
+        <span aria-hidden="true">{{ lang.isAr() ? '→' : '←' }}</span>
+        {{ lang.t('back') }}
+      </button>
+      <button type="button" class="language-button" (click)="lang.toggleLanguage()">
+        {{ lang.langLabel() }}
+      </button>
+    </header>
+
+    @if (createdDeal(); as deal) {
+      <section class="success-card" aria-live="polite">
+        <div class="success-mark" aria-hidden="true">✓</div>
+        <p class="eyebrow">{{ lang.t('deal_created_eyebrow') }}</p>
+        <h1>{{ lang.t('deal_created_title') }}</h1>
+        <p class="success-copy">{{ lang.t('deal_created_copy') }}</p>
+        <div class="deal-reference">
+          <span>{{ lang.t('deal_reference') }}</span>
+          <strong dir="ltr">#{{ deal.number }}</strong>
+        </div>
+        <div class="created-summary">
+          <span>{{ deal.title }}</span>
+          <strong dir="ltr">{{ deal.amount | number: '1.2-2' }} {{ lang.t('home_sar') }}</strong>
+        </div>
+        <button type="button" class="primary-button" (click)="goHome()">
+          {{ lang.t('deal_back_home') }}
+        </button>
+      </section>
+    } @else {
+      <section class="intro">
+        <div>
+          <p class="eyebrow">{{ lang.t('deal_new_eyebrow') }}</p>
+          <h1>{{ lang.t('deal_new_title') }}</h1>
+          <p class="intro-copy">{{ lang.t('deal_new_subtitle') }}</p>
+        </div>
+        <div class="step-pill"><span>1</span>{{ lang.t('deal_step_details') }}</div>
+      </section>
+
+      <form [formGroup]="dealForm" (ngSubmit)="onSubmit()" class="deal-form" novalidate>
+        <section class="form-section">
+          <div class="section-heading">
+            <span class="section-number">01</span>
+            <div>
+              <h2>{{ lang.t('deal_section_parties') }}</h2>
+              <p>{{ lang.t('deal_party_hint') }}</p>
+            </div>
+          </div>
+          <div class="field-grid">
+            <div class="field full-width">
+              <label for="sellerPhoneOrCode">{{ lang.t('deal_counterparty') }} <span class="required">*</span></label>
+              <input
+                id="sellerPhoneOrCode"
+                type="text"
+                formControlName="sellerPhoneOrCode"
+                [placeholder]="lang.t('deal_counterparty_placeholder')"
+                autocomplete="off"
+                maxlength="50"
+              />
+              @if (dealForm.controls.sellerPhoneOrCode.touched && dealForm.controls.sellerPhoneOrCode.invalid) {
+                <small class="field-error">{{ lang.t('deal_counterparty_error') }}</small>
+              }
+            </div>
+          </div>
+        </section>
+
+        <section class="form-section">
+          <div class="section-heading">
+            <span class="section-number">02</span>
+            <div>
+              <h2>{{ lang.t('deal_section_item') }}</h2>
+              <p>{{ lang.t('deal_item_hint') }}</p>
+            </div>
+          </div>
+          <div class="field-grid">
+            <div class="field full-width">
+              <label for="title">{{ lang.t('deal_item_title') }} <span class="required">*</span></label>
+              <input id="title" type="text" formControlName="title" [placeholder]="lang.t('deal_item_placeholder')" maxlength="150" />
+              @if (dealForm.controls.title.touched && dealForm.controls.title.invalid) {
+                <small class="field-error">{{ lang.t('deal_item_error') }}</small>
+              }
+            </div>
+            <div class="field full-width">
+              <label for="description">{{ lang.t('deal_description') }} <span class="required">*</span></label>
+              <textarea
+                id="description"
+                formControlName="description"
+                rows="4"
+                maxlength="200"
+                [placeholder]="lang.t('deal_description_placeholder')"
+              ></textarea>
+              <div class="field-meta">
+                @if (dealForm.controls.description.touched && dealForm.controls.description.invalid) {
+                  <small class="field-error">{{ lang.t('deal_description_error') }}</small>
+                } @else {
+                  <small>{{ lang.t('deal_description_hint') }}</small>
+                }
+                <small dir="ltr">{{ dealForm.controls.description.value?.length ?? 0 }}/200</small>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="form-section">
+          <div class="section-heading">
+            <span class="section-number">03</span>
+            <div>
+              <h2>{{ lang.t('deal_section_value') }}</h2>
+              <p>{{ lang.t('deal_value_hint') }}</p>
+            </div>
+          </div>
+          <div class="field-grid two-columns">
+            <div class="field">
+              <label for="amount">{{ lang.t('deal_amount') }} <span class="required">*</span></label>
+              <div class="input-with-unit" dir="ltr">
+                <input id="amount" type="number" inputmode="decimal" min="0.01" max="10000000" step="0.01" formControlName="amount" placeholder="0.00" />
+                <span>{{ lang.t('home_sar') }}</span>
+              </div>
+              @if (dealForm.controls.amount.touched && dealForm.controls.amount.invalid) {
+                <small class="field-error">{{ lang.t('deal_amount_error') }}</small>
+              }
+            </div>
+            <div class="field">
+              <label for="durationValue">{{ lang.t('deal_duration') }} <span class="required">*</span></label>
+              <div class="duration-control" dir="ltr">
+                <input id="durationValue" type="number" min="1" max="365" step="1" formControlName="durationValue" />
+                <select id="durationUnit" formControlName="durationUnit" [attr.aria-label]="lang.t('deal_duration_unit')">
+                  <option value="hour">{{ lang.t('deal_duration_hours') }}</option>
+                  <option value="day">{{ lang.t('deal_duration_days') }}</option>
+                </select>
+              </div>
+              @if (dealForm.controls.durationValue.touched && dealForm.controls.durationValue.invalid) {
+                <small class="field-error">{{ lang.t('deal_duration_error') }}</small>
+              }
+            </div>
+          </div>
+        </section>
+
+        <section class="form-section">
+          <div class="section-heading">
+            <span class="section-number">04</span>
+            <div>
+              <h2>{{ lang.t('deal_section_shipping') }}</h2>
+              <p>{{ lang.t('deal_shipping_hint') }}</p>
+            </div>
+          </div>
+          <div class="field">
+            <span class="field-label">{{ lang.t('deal_shipping_question') }}</span>
+            <div class="choice-row" role="group" [attr.aria-label]="lang.t('deal_shipping_question')">
+              <button type="button" class="choice-button" [class.selected]="!dealForm.controls.needShipping.value" [attr.aria-pressed]="!dealForm.controls.needShipping.value" (click)="setShipping(false)">
+                {{ lang.t('deal_shipping_no') }}
+              </button>
+              <button type="button" class="choice-button" [class.selected]="dealForm.controls.needShipping.value" [attr.aria-pressed]="dealForm.controls.needShipping.value" (click)="setShipping(true)">
+                {{ lang.t('deal_shipping_yes') }}
+              </button>
+            </div>
+          </div>
+
+          @if (dealForm.controls.needShipping.value) {
+            <div class="field-grid two-columns shipping-fields">
+              <div class="field">
+                <label for="shippingCompanyId">{{ lang.t('deal_shipping_company') }} <span class="required">*</span></label>
+                <select id="shippingCompanyId" formControlName="shippingCompanyId">
+                  <option [ngValue]="null">{{ lang.t('deal_shipping_company_placeholder') }}</option>
+                  @for (company of shippingCompanies(); track company.id) {
+                    <option [ngValue]="company.id">{{ company.name }}</option>
+                  }
+                </select>
+                @if (isLoadingCompanies()) {
+                  <small>{{ lang.t('deal_loading_options') }}</small>
+                } @else if (companiesError()) {
+                  <small class="field-error">{{ lang.t('deal_shipping_load_error') }}</small>
+                } @else if (!shippingCompanies().length) {
+                  <small class="field-error">{{ lang.t('deal_shipping_unavailable') }}</small>
+                } @else if (dealForm.controls.shippingCompanyId.touched && dealForm.controls.shippingCompanyId.invalid) {
+                  <small class="field-error">{{ lang.t('deal_shipping_company_error') }}</small>
+                }
+              </div>
+              <div class="field">
+                <label for="shippingAddressId">{{ lang.t('deal_shipping_address') }}</label>
+                <select id="shippingAddressId" formControlName="shippingAddressId">
+                  <option [ngValue]="null">{{ lang.t('deal_shipping_address_optional') }}</option>
+                  @for (address of addresses(); track address.id) {
+                    <option [ngValue]="address.id">{{ addressLabel(address) }}</option>
+                  }
+                </select>
+                @if (!isLoadingAddresses() && !addresses().length) {
+                  <small>{{ lang.t('deal_no_saved_addresses') }}</small>
+                }
+              </div>
+            </div>
+          }
+        </section>
+
+        <section class="terms-card">
+          <div class="terms-icon" aria-hidden="true">✓</div>
+          <div class="terms-content">
+            <h2>{{ lang.t('deal_terms_title') }}</h2>
+            <p>{{ lang.t('deal_terms_copy') }}</p>
+            <label class="terms-check" for="acceptTerms">
+              <input id="acceptTerms" type="checkbox" formControlName="acceptTerms" />
+              <span>{{ lang.t('deal_terms_accept') }}</span>
+            </label>
+            @if (dealForm.controls.acceptTerms.touched && dealForm.controls.acceptTerms.invalid) {
+              <small class="field-error">{{ lang.t('deal_terms_error') }}</small>
+            }
+          </div>
+        </section>
+
+        @if (submitError()) {
+          <div class="submit-error" role="alert">{{ submitError() }}</div>
+        }
+
+        <div class="submit-area">
+          <p>{{ lang.t('deal_no_charge_note') }}</p>
+          <button type="submit" class="primary-button" [disabled]="isSubmitting() || (dealForm.controls.needShipping.value && !shippingCompanies().length)">
+            @if (isSubmitting()) {
+              <span class="spinner" aria-hidden="true"></span>{{ lang.t('deal_submitting') }}
+            } @else {
+              {{ lang.t('deal_submit') }}
+            }
+          </button>
+        </div>
+      </form>
+    }
+  </div>
+</main>

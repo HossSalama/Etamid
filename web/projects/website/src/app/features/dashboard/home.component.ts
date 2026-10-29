@@ -2,6 +2,7 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
+import { DealSummary, DealsService } from '../../core/services/deals.service';
 import { LanguageService } from '../../core/services/language.service';
 
 export interface DealItem {
@@ -15,6 +16,7 @@ export interface DealItem {
   date: string;
   status: 'pending' | 'in_progress' | 'completed' | 'declined';
   statusText: string;
+  availableActions: string[];
 }
 
 @Component({
@@ -313,7 +315,18 @@ export interface DealItem {
           <section class="deals-section">
             <div class="section-title-row">
               <h2 class="section-title">{{ lang.t('home_deals_title') }}</h2>
+              <button
+                type="button"
+                class="btn btn-outline-coral"
+                (click)="loadDeals()"
+                [disabled]="isLoadingDeals()"
+              >
+                {{ lang.t(isLoadingDeals() ? 'home_deals_loading' : 'home_deals_refresh') }}
+              </button>
             </div>
+            @if (dealActionError()) {
+              <p class="deal-load-error" role="alert">{{ lang.t(dealActionError()!) }}</p>
+            }
 
             <!-- Real Tabs Navigation with Real Dynamic Counts -->
             <div class="deals-tabs">
@@ -380,27 +393,76 @@ export interface DealItem {
                     </div>
                   </div>
 
-                  <!-- Deal Actions: ONLY show for pending requests -->
-                  @if (deal.status === 'pending') {
+                  @if (deal.availableActions.includes('accept')) {
                     <div class="deal-actions-row">
-                      <button (click)="acceptDeal(deal.id)" class="btn btn-black btn-deal-accept">
-                        {{ lang.t('home_deal_accept') }}
-                      </button>
-                      <button (click)="declineDeal(deal.id)" class="btn btn-outline-coral btn-deal-decline">
-                        {{ lang.t('home_deal_decline') }}
+                      <button
+                        (click)="acceptDeal(deal.id)"
+                        class="btn btn-black btn-deal-accept"
+                        [disabled]="isAcceptingDeal() === deal.id"
+                      >
+                        {{ lang.t(isAcceptingDeal() === deal.id ? 'home_deal_accepting' : 'home_deal_accept') }}
                       </button>
                     </div>
-                  } @else if (deal.status === 'in_progress') {
+                  }
+                  @if (deal.availableActions.includes('fund')) {
                     <div class="deal-actions-row">
-                      <button (click)="completeDeal(deal.id)" class="btn btn-black btn-deal-accept">
-                        {{ lang.t('home_deal_complete') }}
+                      @if (fakePaymentDealId() === deal.id) {
+                        <button
+                          (click)="completeFakePayment(deal.id)"
+                          class="btn btn-black btn-deal-accept"
+                          [disabled]="isProcessingDeal() === deal.id"
+                        >
+                          {{ lang.t(isProcessingDeal() === deal.id ? 'home_deal_funding' : 'home_deal_fake_payment') }}
+                        </button>
+                        <p class="fake-payment-hint">{{ lang.t('home_deal_fake_payment_notice') }}</p>
+                      } @else {
+                        <button
+                          (click)="fundDeal(deal.id)"
+                          class="btn btn-black btn-deal-accept"
+                          [disabled]="isProcessingDeal() === deal.id"
+                        >
+                          {{ lang.t(isProcessingDeal() === deal.id ? 'home_deal_funding' : 'home_deal_fund') }}
+                        </button>
+                      }
+                    </div>
+                  }
+                  @if (deal.availableActions.includes('deliver')) {
+                    <div class="deal-actions-row">
+                      <button
+                        (click)="deliverDeal(deal.id)"
+                        class="btn btn-black btn-deal-accept"
+                        [disabled]="isProcessingDeal() === deal.id"
+                      >
+                        {{ lang.t(isProcessingDeal() === deal.id ? 'home_deal_delivering' : 'home_deal_deliver') }}
+                      </button>
+                    </div>
+                  }
+                  @if (deal.availableActions.includes('release')) {
+                    <div class="deal-actions-row">
+                      <button
+                        (click)="releaseDeal(deal.id)"
+                        class="btn btn-black btn-deal-accept"
+                        [disabled]="isProcessingDeal() === deal.id"
+                      >
+                        {{ lang.t(isProcessingDeal() === deal.id ? 'home_deal_releasing' : 'home_deal_release') }}
                       </button>
                     </div>
                   }
                 </div>
               }
 
-              @if (currentTabDeals().length === 0) {
+              @if (isLoadingDeals() && deals().length === 0) {
+                <div class="empty-deals-box" aria-live="polite">
+                  <p>{{ lang.t('home_deals_loading') }}</p>
+                </div>
+              } @else if (dealLoadError() && deals().length === 0) {
+                <div class="empty-deals-box" role="alert">
+                  <h4>{{ lang.t('home_deals_load_error') }}</h4>
+                  <button (click)="loadDeals()" class="btn btn-black btn-empty-cta">
+                    {{ lang.t('home_deals_refresh') }}
+                  </button>
+                </div>
+              } @else if (currentTabDeals().length === 0) {
                 <div class="empty-deals-box">
                   <span class="empty-icon">📂</span>
                   <h4>{{ lang.t('home_empty_deals_title') }}</h4>
@@ -1157,6 +1219,7 @@ export interface DealItem {
 
     .deal-actions-row {
       display: flex;
+      flex-wrap: wrap;
       gap: 0.75rem;
       margin-top: 0.5rem;
       padding-top: 0.75rem;
@@ -1172,6 +1235,14 @@ export interface DealItem {
         flex: 1;
         height: 44px;
         font-size: 0.9rem;
+      }
+
+      .fake-payment-hint {
+        flex-basis: 100%;
+        margin: 0;
+        color: #64748b;
+        font-size: 0.8rem;
+        line-height: 1.45;
       }
     }
 
@@ -1378,6 +1449,7 @@ export class HomeComponent {
   readonly authService = inject(AuthService);
   private readonly fb = inject(FormBuilder);
   private readonly router = inject(Router);
+  private readonly dealsApi = inject(DealsService);
   readonly lang = inject(LanguageService);
 
   readonly selectedTab = signal<'new' | 'in_progress' | 'completed'>('new');
@@ -1385,6 +1457,12 @@ export class HomeComponent {
   readonly showNewDealModal = signal(false);
   readonly isSubmittingDeal = signal(false);
   readonly unreadNotifications = signal(false);
+  readonly isLoadingDeals = signal(false);
+  readonly dealLoadError = signal(false);
+  readonly isAcceptingDeal = signal<string | null>(null);
+  readonly isProcessingDeal = signal<string | null>(null);
+  readonly fakePaymentDealId = signal<string | null>(null);
+  readonly dealActionError = signal<string | null>(null);
 
   readonly deals = signal<DealItem[]>([]);
   readonly availableBalance = signal<number>(0.0);
@@ -1406,7 +1484,60 @@ export class HomeComponent {
   constructor() {
     if (this.authService.isAuthenticated()) {
       this.authService.refreshProfile().subscribe({ error: () => {} });
+      this.loadDeals();
     }
+  }
+
+  loadDeals(): void {
+    if (!this.authService.isAuthenticated() || this.isLoadingDeals()) return;
+    this.isLoadingDeals.set(true);
+    this.dealLoadError.set(false);
+    this.dealsApi.getMyDeals().subscribe({
+      next: (response) => {
+        this.isLoadingDeals.set(false);
+        if (!response.success || !response.data) {
+          this.dealLoadError.set(true);
+          return;
+        }
+        this.deals.set(response.data.map((deal) => this.toDealItem(deal)));
+      },
+      error: () => {
+        this.isLoadingDeals.set(false);
+        this.dealLoadError.set(true);
+      },
+    });
+  }
+
+  private toDealItem(deal: DealSummary): DealItem {
+    const displayStatus = this.displayStatus(deal.status);
+    return {
+      id: String(deal.id),
+      code: String(deal.number),
+      counterParty: deal.counterpartyName || deal.counterpartyCode,
+      role: deal.role === 'seller' ? 'بائع' : 'مشتري',
+      title: deal.title,
+      description: '',
+      amount: Number(deal.amount),
+      date: new Date(deal.createdAt).toLocaleDateString(this.lang.isAr() ? 'ar-SA' : 'en-US'),
+      status: this.displayCategory(deal.status),
+      statusText: this.lang.t(`home_deal_status_${displayStatus}`),
+      availableActions: deal.availableActions ?? [],
+    };
+  }
+
+  private displayCategory(status: string): DealItem['status'] {
+    if (status === 'pending_acceptance' || status === 'awaiting_funding') return 'pending';
+    if (['funded', 'in_delivery', 'inspection', 'disputed', 'refund_pending'].includes(status)) return 'in_progress';
+    if (status === 'released' || status === 'refunded') return 'completed';
+    return 'declined';
+  }
+
+  private displayStatus(status: string): string {
+    const known = [
+      'pending_acceptance', 'awaiting_funding', 'funded', 'in_delivery', 'inspection',
+      'disputed', 'released', 'rejected', 'cancelled', 'expired', 'refund_pending', 'refunded',
+    ];
+    return known.includes(status) ? status : 'unknown';
   }
 
   startProfileEdit(): void {
@@ -1552,8 +1683,7 @@ export class HomeComponent {
     if (!this.authService.isAuthenticated()) {
       this.router.navigate(['/auth/login']);
     } else {
-      this.dealForm.reset();
-      this.showNewDealModal.set(true);
+      this.router.navigate(['/deals/new']);
     }
   }
 
@@ -1578,6 +1708,7 @@ export class HomeComponent {
       date: new Date().toLocaleTimeString(this.lang.isAr() ? 'ar-SA' : 'en-US', { hour: '2-digit', minute: '2-digit' }),
       status: 'pending',
       statusText: this.lang.isAr() ? 'في انتظار موافقة الطرف الآخر' : 'Awaiting counterparty acceptance',
+      availableActions: [],
     };
 
     this.deals.update((current) => [newDeal, ...current]);
@@ -1588,51 +1719,113 @@ export class HomeComponent {
   }
 
   acceptDeal(id: string): void {
-    this.deals.update((list) =>
-      list.map((d) =>
-        d.id === id
-          ? {
-              ...d,
-              status: 'in_progress' as const,
-              statusText: this.lang.isAr() ? 'قيد التنفيذ - الأموال محجوزة في الضمان' : 'In Progress - Funds Held in Escrow',
-            }
-          : d
-      )
-    );
+    if (this.isProcessingDeal()) return;
+    this.isAcceptingDeal.set(id);
+    this.isProcessingDeal.set(id);
+    this.dealActionError.set(null);
+    this.dealsApi.acceptDeal(Number(id)).subscribe({
+      next: (response) => {
+        this.isAcceptingDeal.set(null);
+        this.isProcessingDeal.set(null);
+        if (!response.success) {
+          this.dealActionError.set('home_deal_action_error');
+          return;
+        }
+        this.loadDeals();
+      },
+      error: () => {
+        this.isAcceptingDeal.set(null);
+        this.isProcessingDeal.set(null);
+        this.dealActionError.set('home_deal_action_error');
+      },
+    });
   }
 
-  declineDeal(id: string): void {
-    this.deals.update((list) =>
-      list.map((d) =>
-        d.id === id
-          ? {
-              ...d,
-              status: 'declined' as const,
-              statusText: this.lang.isAr() ? 'تم رفض المعاملة' : 'Deal Declined',
-            }
-          : d
-      )
-    );
+  fundDeal(id: string): void {
+    if (this.isProcessingDeal()) return;
+    this.isProcessingDeal.set(id);
+    this.dealActionError.set(null);
+    this.dealsApi.fundDeal(Number(id)).subscribe({
+      next: (response) => {
+        this.isProcessingDeal.set(null);
+        if (!response.success || !response.data) {
+          this.dealActionError.set('home_deal_action_error');
+          return;
+        }
+        if (response.data.provider?.toLowerCase() === 'fake') {
+          this.fakePaymentDealId.set(id);
+          return;
+        }
+        globalThis.location.assign(response.data.redirectUrl);
+      },
+      error: () => {
+        this.isProcessingDeal.set(null);
+        this.dealActionError.set('home_deal_action_error');
+      },
+    });
   }
 
-  completeDeal(id: string): void {
-    const deal = this.deals().find((d) => d.id === id);
-    if (!deal) return;
+  completeFakePayment(id: string): void {
+    if (this.isProcessingDeal()) return;
+    this.isProcessingDeal.set(id);
+    this.dealActionError.set(null);
+    this.dealsApi.completeFakePayment(Number(id)).subscribe({
+      next: (response) => {
+        this.isProcessingDeal.set(null);
+        if (!response.success) {
+          this.dealActionError.set('home_deal_action_error');
+          return;
+        }
+        this.fakePaymentDealId.set(null);
+        this.selectedTab.set('in_progress');
+        this.loadDeals();
+      },
+      error: () => {
+        this.isProcessingDeal.set(null);
+        this.dealActionError.set('home_deal_action_error');
+      },
+    });
+  }
 
-    this.availableBalance.update((b) => b + deal.amount);
+  deliverDeal(id: string): void {
+    if (this.isProcessingDeal()) return;
+    this.isProcessingDeal.set(id);
+    this.dealActionError.set(null);
+    this.dealsApi.deliverDeal(Number(id)).subscribe({
+      next: (response) => {
+        this.isProcessingDeal.set(null);
+        if (!response.success) {
+          this.dealActionError.set('home_deal_action_error');
+          return;
+        }
+        this.loadDeals();
+      },
+      error: () => {
+        this.isProcessingDeal.set(null);
+        this.dealActionError.set('home_deal_action_error');
+      },
+    });
+  }
 
-    this.deals.update((list) =>
-      list.map((d) =>
-        d.id === id
-          ? {
-              ...d,
-              status: 'completed' as const,
-              statusText: this.lang.isAr() ? 'مكتملة ✓ - تم تحرير الأموال' : 'Completed ✓ - Funds Released',
-            }
-          : d
-      )
-    );
-    this.selectedTab.set('completed');
+  releaseDeal(id: string): void {
+    if (this.isProcessingDeal() || !globalThis.confirm(this.lang.t('home_deal_release_confirm'))) return;
+    this.isProcessingDeal.set(id);
+    this.dealActionError.set(null);
+    this.dealsApi.releaseEscrow(Number(id)).subscribe({
+      next: (response) => {
+        this.isProcessingDeal.set(null);
+        if (!response.success) {
+          this.dealActionError.set('home_deal_action_error');
+          return;
+        }
+        this.selectedTab.set('completed');
+        this.loadDeals();
+      },
+      error: () => {
+        this.isProcessingDeal.set(null);
+        this.dealActionError.set('home_deal_action_error');
+      },
+    });
   }
 
   onWithdrawClick(): void {

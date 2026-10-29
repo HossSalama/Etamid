@@ -441,17 +441,20 @@ export class VerifyOtpComponent implements OnInit, OnDestroy {
   }
 
   onResend(): void {
-    const emailVal = this.email();
-    if (!emailVal) return;
+    const phoneVal = this.phone();
+    if (!phoneVal) {
+      this.errorMessage.set(this.lang.t('verify_code_error'));
+      return;
+    }
 
     this.isResending.set(true);
     this.errorMessage.set(null);
     this.successMessage.set(null);
 
-    this.authService.resendOtp({ email: emailVal }).subscribe({
+    this.authService.resendOtp({ phone: phoneVal }).subscribe({
       next: (res) => {
         this.isResending.set(false);
-        this.successMessage.set('تم إرسال رمز جديد بنجاح إلى بريدك الإلكتروني.');
+        this.successMessage.set(this.lang.t('verify_resend_success'));
         this.startCountdown();
       },
       error: (err) => {
@@ -465,10 +468,9 @@ export class VerifyOtpComponent implements OnInit, OnDestroy {
     if (this.form.invalid) return;
 
     const otpCode = this.form.get('otp')?.value;
-    const emailVal = this.email();
     const phoneVal = this.phone();
 
-    if (!otpCode || !emailVal) {
+    if (!otpCode || !phoneVal) {
       this.errorMessage.set('بيانات التحقق غير مكتملة.');
       return;
     }
@@ -477,8 +479,7 @@ export class VerifyOtpComponent implements OnInit, OnDestroy {
     this.errorMessage.set(null);
 
     this.authService.verifyOtp({
-      email: emailVal,
-      phone: phoneVal || undefined,
+      phone: phoneVal,
       code: otpCode,
     }).subscribe({
       next: (res) => {
@@ -491,7 +492,7 @@ export class VerifyOtpComponent implements OnInit, OnDestroy {
         if (Array.isArray(errs) && errs.length > 0) {
           this.errorMessage.set(errs.map((e: any) => e.message || e.code).join(' • '));
         } else {
-          this.errorMessage.set(err.error?.message || 'كود التحقق غير صحيح أو منتهي الصلاحية.');
+          this.errorMessage.set(err.error?.message || this.lang.t('verify_code_error'));
         }
       },
     });

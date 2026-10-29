@@ -89,6 +89,14 @@ public sealed class User : AuditableEntity<long>
             Status = AccountStatus.Active;
     }
 
+    /// <summary>Registration is confirmed by a code sent to the email address.</summary>
+    public void VerifyEmail(DateTime now)
+    {
+        EmailVerifiedAt = now;
+        if (Status == AccountStatus.PendingVerification)
+            Status = AccountStatus.Active;
+    }
+
     public void AcceptPhoneAuth(DateTime phoneAuthTime) => LastPhoneAuthAt = phoneAuthTime;
 
     public void ChangePassword(string passwordHash)

@@ -47,7 +47,7 @@ namespace Etamid.Infrastructure.Migrations
                     b.HasIndex("Code")
                         .IsUnique();
 
-                    b.ToTable("AdminPermissions", (string)null);
+                    b.ToTable("AdminPermissions");
                 });
 
             modelBuilder.Entity("Etamid.Domain.Admin.AdminRole", b =>
@@ -72,7 +72,7 @@ namespace Etamid.Infrastructure.Migrations
                     b.HasIndex("Name")
                         .IsUnique();
 
-                    b.ToTable("AdminRoles", (string)null);
+                    b.ToTable("AdminRoles");
                 });
 
             modelBuilder.Entity("Etamid.Domain.Admin.AdminRolePermission", b =>
@@ -87,7 +87,7 @@ namespace Etamid.Infrastructure.Migrations
 
                     b.HasIndex("PermissionId");
 
-                    b.ToTable("AdminRolePermissions", (string)null);
+                    b.ToTable("AdminRolePermissions");
                 });
 
             modelBuilder.Entity("Etamid.Domain.Admin.AdminUser", b =>
@@ -145,7 +145,7 @@ namespace Etamid.Infrastructure.Migrations
                     b.HasIndex("Email")
                         .IsUnique();
 
-                    b.ToTable("AdminUsers", (string)null);
+                    b.ToTable("AdminUsers");
                 });
 
             modelBuilder.Entity("Etamid.Domain.Admin.AdminUserRole", b =>
@@ -160,7 +160,7 @@ namespace Etamid.Infrastructure.Migrations
 
                     b.HasIndex("RoleId");
 
-                    b.ToTable("AdminUserRoles", (string)null);
+                    b.ToTable("AdminUserRoles");
                 });
 
             modelBuilder.Entity("Etamid.Domain.Admin.AuditLog", b =>
@@ -213,7 +213,7 @@ namespace Etamid.Infrastructure.Migrations
 
                     b.HasIndex("ActorType", "ActorId", "CreatedAt");
 
-                    b.ToTable("AuditLogs", (string)null);
+                    b.ToTable("AuditLogs");
                 });
 
             modelBuilder.Entity("Etamid.Domain.Admin.OutboxMessage", b =>
@@ -259,7 +259,7 @@ namespace Etamid.Infrastructure.Migrations
 
                     b.HasIndex("Status", "NextAttemptAt");
 
-                    b.ToTable("OutboxMessages", (string)null);
+                    b.ToTable("OutboxMessages");
                 });
 
             modelBuilder.Entity("Etamid.Domain.CompanyDeals.CompanyDeal", b =>
@@ -386,7 +386,7 @@ namespace Etamid.Infrastructure.Migrations
 
                     b.HasIndex("CreatorUserId", "Status");
 
-                    b.ToTable("CompanyDeals", (string)null);
+                    b.ToTable("CompanyDeals");
                 });
 
             modelBuilder.Entity("Etamid.Domain.CompanyDeals.CompanyDealStatusHistory", b =>
@@ -430,7 +430,7 @@ namespace Etamid.Infrastructure.Migrations
 
                     b.HasIndex("CompanyDealId", "CreatedAt");
 
-                    b.ToTable("CompanyDealStatusHistory", (string)null);
+                    b.ToTable("CompanyDealStatusHistory");
                 });
 
             modelBuilder.Entity("Etamid.Domain.CompanyDeals.InstallmentApproval", b =>
@@ -465,7 +465,7 @@ namespace Etamid.Infrastructure.Migrations
 
                     b.HasIndex("InstallmentId");
 
-                    b.ToTable("InstallmentApprovals", (string)null);
+                    b.ToTable("InstallmentApprovals");
                 });
 
             modelBuilder.Entity("Etamid.Domain.CompanyDeals.PaymentInstallment", b =>
@@ -538,7 +538,7 @@ namespace Etamid.Infrastructure.Migrations
 
                     b.HasIndex("Status", "DueDate");
 
-                    b.ToTable("PaymentInstallments", null, t =>
+                    b.ToTable("PaymentInstallments", t =>
                         {
                             t.HasCheckConstraint("CK_PaymentInstallments_Amount", "[Amount] > 0");
                         });
@@ -602,7 +602,7 @@ namespace Etamid.Infrastructure.Migrations
 
                     b.HasIndex("WaivedByAdminId");
 
-                    b.ToTable("PenaltyCharges", (string)null);
+                    b.ToTable("PenaltyCharges");
                 });
 
             modelBuilder.Entity("Etamid.Domain.Config.AppSetting", b =>
@@ -633,7 +633,7 @@ namespace Etamid.Infrastructure.Migrations
 
                     b.HasKey("Key");
 
-                    b.ToTable("AppSettings", (string)null);
+                    b.ToTable("AppSettings");
 
                     b.HasData(
                         new
@@ -733,7 +733,7 @@ namespace Etamid.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Faqs", (string)null);
+                    b.ToTable("Faqs");
 
                     b.HasData(
                         new
@@ -826,7 +826,7 @@ namespace Etamid.Infrastructure.Migrations
                     b.HasIndex("Type", "Code")
                         .IsUnique();
 
-                    b.ToTable("Lookups", (string)null);
+                    b.ToTable("Lookups");
 
                     b.HasData(
                         new
@@ -1125,7 +1125,7 @@ namespace Etamid.Infrastructure.Migrations
 
                     b.HasIndex("LogoFileId");
 
-                    b.ToTable("ShippingCompanies", (string)null);
+                    b.ToTable("ShippingCompanies");
 
                     b.HasData(
                         new
@@ -1304,7 +1304,7 @@ namespace Etamid.Infrastructure.Migrations
 
                     b.HasIndex("Status", "InspectionEndsAt");
 
-                    b.ToTable("Deals", null, t =>
+                    b.ToTable("Deals", t =>
                         {
                             t.HasCheckConstraint("CK_Deals_DifferentParties", "[BuyerId] <> [SellerId]");
                         });
@@ -1380,7 +1380,7 @@ namespace Etamid.Infrastructure.Migrations
 
                     b.HasIndex("RespondedById");
 
-                    b.ToTable("DealEditRequests", (string)null);
+                    b.ToTable("DealEditRequests");
                 });
 
             modelBuilder.Entity("Etamid.Domain.Deals.DealStatusHistory", b =>
@@ -1424,7 +1424,7 @@ namespace Etamid.Infrastructure.Migrations
 
                     b.HasIndex("DealId", "CreatedAt");
 
-                    b.ToTable("DealStatusHistory", (string)null);
+                    b.ToTable("DealStatusHistory");
                 });
 
             modelBuilder.Entity("Etamid.Domain.Deals.Rating", b =>
@@ -1466,7 +1466,7 @@ namespace Etamid.Infrastructure.Migrations
 
                     b.HasIndex("SellerId", "CreatedAt");
 
-                    b.ToTable("Ratings", null, t =>
+                    b.ToTable("Ratings", t =>
                         {
                             t.HasCheckConstraint("CK_Ratings_Stars", "[Stars] BETWEEN 1 AND 5");
                         });
@@ -1520,7 +1520,7 @@ namespace Etamid.Infrastructure.Migrations
 
                     b.HasIndex("WaybillFileId");
 
-                    b.ToTable("Shipments", (string)null);
+                    b.ToTable("Shipments");
                 });
 
             modelBuilder.Entity("Etamid.Domain.Deals.ShipmentEvent", b =>
@@ -1556,7 +1556,7 @@ namespace Etamid.Infrastructure.Migrations
                     b.HasIndex("ShipmentId", "EventAt", "Code")
                         .IsUnique();
 
-                    b.ToTable("ShipmentEvents", (string)null);
+                    b.ToTable("ShipmentEvents");
                 });
 
             modelBuilder.Entity("Etamid.Domain.Disputes.Dispute", b =>
@@ -1643,7 +1643,7 @@ namespace Etamid.Infrastructure.Migrations
 
                     b.HasIndex("ResolvedByAdminId");
 
-                    b.ToTable("Disputes", (string)null);
+                    b.ToTable("Disputes");
                 });
 
             modelBuilder.Entity("Etamid.Domain.Disputes.DisputeAttachment", b =>
@@ -1679,7 +1679,7 @@ namespace Etamid.Infrastructure.Migrations
 
                     b.HasIndex("UploadedByUserId");
 
-                    b.ToTable("DisputeAttachments", (string)null);
+                    b.ToTable("DisputeAttachments");
                 });
 
             modelBuilder.Entity("Etamid.Domain.Disputes.DisputeMessage", b =>
@@ -1722,7 +1722,7 @@ namespace Etamid.Infrastructure.Migrations
 
                     b.HasIndex("DisputeId", "CreatedAt");
 
-                    b.ToTable("DisputeMessages", (string)null);
+                    b.ToTable("DisputeMessages");
                 });
 
             modelBuilder.Entity("Etamid.Domain.Files.StoredFile", b =>
@@ -1781,7 +1781,7 @@ namespace Etamid.Infrastructure.Migrations
                     b.HasIndex("PublicId")
                         .IsUnique();
 
-                    b.ToTable("Files", (string)null);
+                    b.ToTable("Files");
                 });
 
             modelBuilder.Entity("Etamid.Domain.Identity.Address", b =>
@@ -1863,7 +1863,7 @@ namespace Etamid.Infrastructure.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("Addresses", (string)null);
+                    b.ToTable("Addresses");
                 });
 
             modelBuilder.Entity("Etamid.Domain.Identity.AuthAuditLog", b =>
@@ -1912,7 +1912,7 @@ namespace Etamid.Infrastructure.Migrations
 
                     b.HasIndex("UserId", "CreatedAt");
 
-                    b.ToTable("AuthAuditLogs", (string)null);
+                    b.ToTable("AuthAuditLogs");
                 });
 
             modelBuilder.Entity("Etamid.Domain.Identity.Bank", b =>
@@ -1951,7 +1951,7 @@ namespace Etamid.Infrastructure.Migrations
 
                     b.HasIndex("LogoFileId");
 
-                    b.ToTable("Banks", (string)null);
+                    b.ToTable("Banks");
 
                     b.HasData(
                         new
@@ -2086,7 +2086,7 @@ namespace Etamid.Infrastructure.Migrations
                     b.HasIndex("UserId")
                         .IsUnique();
 
-                    b.ToTable("BankAccounts", (string)null);
+                    b.ToTable("BankAccounts");
                 });
 
             modelBuilder.Entity("Etamid.Domain.Identity.CompanyProfile", b =>
@@ -2118,7 +2118,7 @@ namespace Etamid.Infrastructure.Migrations
                     b.HasIndex("CommercialRegNo")
                         .IsUnique();
 
-                    b.ToTable("CompanyProfiles", (string)null);
+                    b.ToTable("CompanyProfiles");
                 });
 
             modelBuilder.Entity("Etamid.Domain.Identity.Device", b =>
@@ -2163,7 +2163,61 @@ namespace Etamid.Infrastructure.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("Devices", (string)null);
+                    b.ToTable("Devices");
+                });
+
+            modelBuilder.Entity("Etamid.Domain.Identity.EmailOtp", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<int>("Attempts")
+                        .HasColumnType("int");
+
+                    b.Property<string>("CodeHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<DateTime?>("ConsumedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Purpose")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<DateTime?>("ResetTokenExpiresAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ResetTokenHash")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<DateTime?>("ResetTokenUsedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<long>("UserId")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ResetTokenHash")
+                        .IsUnique()
+                        .HasFilter("[ResetTokenHash] IS NOT NULL");
+
+                    b.HasIndex("UserId", "Purpose", "CreatedAt");
+
+                    b.ToTable("EmailOtps");
                 });
 
             modelBuilder.Entity("Etamid.Domain.Identity.NafathVerification", b =>
@@ -2216,7 +2270,7 @@ namespace Etamid.Infrastructure.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("NafathVerifications", (string)null);
+                    b.ToTable("NafathVerifications");
                 });
 
             modelBuilder.Entity("Etamid.Domain.Identity.RefreshToken", b =>
@@ -2282,7 +2336,7 @@ namespace Etamid.Infrastructure.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("RefreshTokens", (string)null);
+                    b.ToTable("RefreshTokens");
                 });
 
             modelBuilder.Entity("Etamid.Domain.Identity.StoreProfile", b =>
@@ -2317,7 +2371,7 @@ namespace Etamid.Infrastructure.Migrations
 
                     b.HasIndex("CategoryId");
 
-                    b.ToTable("StoreProfiles", (string)null);
+                    b.ToTable("StoreProfiles");
                 });
 
             modelBuilder.Entity("Etamid.Domain.Identity.TermsAcceptance", b =>
@@ -2362,7 +2416,7 @@ namespace Etamid.Infrastructure.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("TermsAcceptances", (string)null);
+                    b.ToTable("TermsAcceptances");
                 });
 
             modelBuilder.Entity("Etamid.Domain.Identity.TermsVersion", b =>
@@ -2414,7 +2468,7 @@ namespace Etamid.Infrastructure.Migrations
                     b.HasIndex("Type", "Version")
                         .IsUnique();
 
-                    b.ToTable("TermsVersions", (string)null);
+                    b.ToTable("TermsVersions");
 
                     b.HasData(
                         new
@@ -2559,7 +2613,7 @@ namespace Etamid.Infrastructure.Migrations
 
                     b.HasIndex("Status");
 
-                    b.ToTable("Users", (string)null);
+                    b.ToTable("Users");
                 });
 
             modelBuilder.Entity("Etamid.Domain.Money.EscrowHold", b =>
@@ -2625,7 +2679,7 @@ namespace Etamid.Infrastructure.Migrations
 
                     b.HasIndex("SellerId");
 
-                    b.ToTable("EscrowHolds", (string)null);
+                    b.ToTable("EscrowHolds");
                 });
 
             modelBuilder.Entity("Etamid.Domain.Money.IdempotencyRecord", b =>
@@ -2665,7 +2719,7 @@ namespace Etamid.Infrastructure.Migrations
 
                     b.HasIndex("ExpiresAt");
 
-                    b.ToTable("IdempotencyKeys", (string)null);
+                    b.ToTable("IdempotencyKeys");
                 });
 
             modelBuilder.Entity("Etamid.Domain.Money.LedgerAccount", b =>
@@ -2697,7 +2751,7 @@ namespace Etamid.Infrastructure.Migrations
                         .IsUnique()
                         .HasFilter("[OwnerUserId] IS NULL");
 
-                    b.ToTable("LedgerAccounts", (string)null);
+                    b.ToTable("LedgerAccounts");
                 });
 
             modelBuilder.Entity("Etamid.Domain.Money.LedgerEntry", b =>
@@ -2736,7 +2790,7 @@ namespace Etamid.Infrastructure.Migrations
 
                     b.HasIndex("AccountId", "CreatedAt");
 
-                    b.ToTable("LedgerEntries", null, t =>
+                    b.ToTable("LedgerEntries", t =>
                         {
                             t.HasCheckConstraint("CK_LedgerEntries_Amount", "[Amount] > 0");
                         });
@@ -2812,7 +2866,7 @@ namespace Etamid.Infrastructure.Migrations
 
                     b.HasIndex("WithdrawalId");
 
-                    b.ToTable("LedgerTransactions", (string)null);
+                    b.ToTable("LedgerTransactions");
                 });
 
             modelBuilder.Entity("Etamid.Domain.Money.Payment", b =>
@@ -2921,7 +2975,7 @@ namespace Etamid.Infrastructure.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("Payments", (string)null);
+                    b.ToTable("Payments");
                 });
 
             modelBuilder.Entity("Etamid.Domain.Money.PaymentWebhookEvent", b =>
@@ -2978,7 +3032,7 @@ namespace Etamid.Infrastructure.Migrations
                     b.HasIndex("Provider", "ProviderEventId")
                         .IsUnique();
 
-                    b.ToTable("PaymentWebhookEvents", (string)null);
+                    b.ToTable("PaymentWebhookEvents");
                 });
 
             modelBuilder.Entity("Etamid.Domain.Money.Wallet", b =>
@@ -3024,7 +3078,7 @@ namespace Etamid.Infrastructure.Migrations
                     b.HasIndex("UserId")
                         .IsUnique();
 
-                    b.ToTable("Wallets", null, t =>
+                    b.ToTable("Wallets", t =>
                         {
                             t.HasCheckConstraint("CK_Wallets_Balance", "[AvailableBalance] >= 0");
                         });
@@ -3103,7 +3157,7 @@ namespace Etamid.Infrastructure.Migrations
 
                     b.HasIndex("UserId", "CreatedAt");
 
-                    b.ToTable("WithdrawalRequests", (string)null);
+                    b.ToTable("WithdrawalRequests");
                 });
 
             modelBuilder.Entity("Etamid.Domain.Notifications.BroadcastCampaign", b =>
@@ -3162,7 +3216,7 @@ namespace Etamid.Infrastructure.Migrations
 
                     b.HasIndex("CreatedByAdminId");
 
-                    b.ToTable("BroadcastCampaigns", (string)null);
+                    b.ToTable("BroadcastCampaigns");
                 });
 
             modelBuilder.Entity("Etamid.Domain.Notifications.Notification", b =>
@@ -3233,7 +3287,7 @@ namespace Etamid.Infrastructure.Migrations
 
                     b.HasIndex("UserId", "IsRead", "CreatedAt");
 
-                    b.ToTable("Notifications", (string)null);
+                    b.ToTable("Notifications");
                 });
 
             modelBuilder.Entity("Etamid.Domain.Notifications.NotificationTemplate", b =>
@@ -3285,7 +3339,7 @@ namespace Etamid.Infrastructure.Migrations
                     b.HasIndex("Code")
                         .IsUnique();
 
-                    b.ToTable("NotificationTemplates", (string)null);
+                    b.ToTable("NotificationTemplates");
                 });
 
             modelBuilder.Entity("Etamid.Domain.Support.SupportTicket", b =>
@@ -3350,7 +3404,7 @@ namespace Etamid.Infrastructure.Migrations
 
                     b.HasIndex("UserId", "CreatedAt");
 
-                    b.ToTable("SupportTickets", (string)null);
+                    b.ToTable("SupportTickets");
                 });
 
             modelBuilder.Entity("Etamid.Domain.Support.SupportTicketMessage", b =>
@@ -3396,7 +3450,7 @@ namespace Etamid.Infrastructure.Migrations
 
                     b.HasIndex("TicketId", "CreatedAt");
 
-                    b.ToTable("SupportTicketMessages", (string)null);
+                    b.ToTable("SupportTicketMessages");
                 });
 
             modelBuilder.Entity("Etamid.Domain.Admin.AdminRolePermission", b =>
@@ -3787,6 +3841,15 @@ namespace Etamid.Infrastructure.Migrations
                 });
 
             modelBuilder.Entity("Etamid.Domain.Identity.Device", b =>
+                {
+                    b.HasOne("Etamid.Domain.Identity.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Etamid.Domain.Identity.EmailOtp", b =>
                 {
                     b.HasOne("Etamid.Domain.Identity.User", null)
                         .WithMany()
