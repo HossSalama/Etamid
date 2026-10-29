@@ -31,7 +31,7 @@ public sealed class UserProfileService(IApplicationDbContext db, IFileUrlResolve
 
         return new UserDto(
             user.Id, user.Code, user.Type, user.Name, user.Phone, user.Email, avatarUrl, user.Language,
-            user.PhoneVerifiedAt is not null, user.NafathVerified, walletActivated, bankDto, company);
+            user.PhoneVerifiedAt is not null, user.EmailVerifiedAt is not null, user.NafathVerified, walletActivated, bankDto, company);
     }
 
     public async Task<BankAccountDto?> BuildBankAccountAsync(long userId, CancellationToken ct)

@@ -2,13 +2,10 @@ using Etamid.Domain.Identity;
 
 namespace Etamid.Application.Identity.Dtos;
 
-public sealed record RegisterResultDto(
-    string Phone,
-    bool PhoneVerificationRequired,
-    int ResendAfterSeconds = 60,
-    int ExpiresInSeconds = 300);
+/// <summary>Registration creates the account; it is activated after the code sent to <paramref name="Email"/> is verified.</summary>
+public sealed record RegisterResultDto(string Phone, string Email, string VerificationMethod, bool VerificationRequired);
 
-public sealed record ResendOtpResultDto(int ResendAfterSeconds = 60);
+public sealed record ResetTokenDto(string ResetToken, int ExpiresInSeconds);
 
 public sealed record BankAccountDto(string HolderName, string IbanMasked, string BankName, string? BankLogoUrl);
 
@@ -24,6 +21,7 @@ public sealed record UserDto(
     string? AvatarUrl,
     Language Language,
     bool PhoneVerified,
+    bool EmailVerified,
     bool NafathVerified,
     bool WalletActivated,
     BankAccountDto? BankAccount,

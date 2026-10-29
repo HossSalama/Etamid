@@ -13,10 +13,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Etamid.Application.Identity.Commands;
 
-/// <summary>
-/// Step 2 of registration. The app first completes the SMS check with Firebase, then sends
-/// the resulting Firebase ID token here. A valid token proves the user owns the phone.
-/// </summary>
+/// <summary>Supplemental phone verification. Email activation must happen first.</summary>
 public sealed record VerifyPhoneCommand(string Phone, string FirebaseIdToken) : IRequest<Result<AuthResultDto>>;
 
 public sealed class VerifyPhoneValidator : AbstractValidator<VerifyPhoneCommand>
@@ -31,7 +28,6 @@ public sealed class VerifyPhoneValidator : AbstractValidator<VerifyPhoneCommand>
 public sealed class VerifyPhoneHandler(
     IApplicationDbContext db,
     IPhoneVerifier verifier,
-    IOtpService otp,
     IClock clock,
     SessionService sessions,
     UserProfileService profiles,
@@ -46,13 +42,13 @@ public sealed class VerifyPhoneHandler(
         if (user is null)
             return IdentityErrors.PhoneTokenInvalid;
 
+        if (user.Status != AccountStatus.Active || user.EmailVerifiedAt is null)
+            return IdentityErrors.AccountNotVerified;
+        if (user.PhoneVerifiedAt is not null)
+            return IdentityErrors.PhoneAlreadyVerified;
+
         var verified = await verifier.VerifyAsync(r.FirebaseIdToken, ct);
         var now = clock.UtcNow;
-
-        if (verified.IsFailure && otp.ValidateOtp(phone.E164, r.FirebaseIdToken))
-        {
-            verified = Result<VerifiedPhone>.Success(new VerifiedPhone(phone.E164, now));
-        }
 
         if (verified.IsFailure
             || verified.Value.PhoneE164 != phone.E164
@@ -64,13 +60,10 @@ public sealed class VerifyPhoneHandler(
             return IdentityErrors.PhoneTokenInvalid;
         }
 
-        if (user.Status != AccountStatus.PendingVerification)
-            return IdentityErrors.PhoneAlreadyVerified;
-
         user.VerifyPhone(now, verified.Value.AuthTimeUtc);
         audit.Record(AuthEvent.PhoneVerified, user.Id, user.PhoneNormalized);
 
-        var pair = await sessions.StartSessionAsync(user, ct);   // saves everything above
+        var pair = await sessions.StartSessionAsync(user, ct);
         return await profiles.ToAuthResultAsync(pair, ct);
     }
 }

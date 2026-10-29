@@ -56,6 +56,13 @@ export const routes: Routes = [
       ),
   },
   {
+    path: 'deals/new',
+    loadComponent: () =>
+      import('./features/deals/new-deal.component').then(
+        (m) => m.NewDealComponent
+      ),
+  },
+  {
     path: '**',
     redirectTo: 'home',
   },

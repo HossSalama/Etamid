@@ -1,23 +1,23 @@
+using System.Collections.Concurrent;
+using Etamid.Application.Common.Interfaces;
 using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.TestHost;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Etamid.Application.Common.Interfaces;
 
 namespace Etamid.Api.IntegrationTests;
 
-/// <summary>Runs the real pipeline with an in-memory database and the fake phone verifier.</summary>
+/// <summary>Runs the real pipeline with an in-memory database and deterministic external-service fakes.</summary>
 public sealed class EtamidFactory : WebApplicationFactory<Program>
 {
     public const string WebhookSecret = "integration-tests-webhook-secret-0123456789";
 
-    /// <summary>Controllable clock (offset from real time); zero offset behaves exactly like the system clock.</summary>
     public TestClock Clock { get; } = new();
+    public CapturingEmailService Emails { get; } = new();
 
     public EtamidFactory()
     {
-        // Environment variables are read before Program.cs evaluates configuration, so they are reliable here.
         Environment.SetEnvironmentVariable("Persistence__UseInMemory", "true");
         Environment.SetEnvironmentVariable("Persistence__InMemoryName", "etamid-" + Guid.NewGuid());
         Environment.SetEnvironmentVariable("Auth__PhoneVerifier", "Fake");
@@ -28,7 +28,6 @@ public sealed class EtamidFactory : WebApplicationFactory<Program>
         Environment.SetEnvironmentVariable("Storage__PublicBaseUrl", "http://localhost/files");
         Environment.SetEnvironmentVariable("Nafath__FakeApproveAfterSeconds", "0");
         Environment.SetEnvironmentVariable("Payments__WebhookSecret", WebhookSecret);
-        // The background sweep would race the tests that move the clock: they call the same handlers explicitly.
         Environment.SetEnvironmentVariable("Escrow__MaintenanceEnabled", "false");
     }
 
@@ -39,6 +38,9 @@ public sealed class EtamidFactory : WebApplicationFactory<Program>
         {
             foreach (var d in services.Where(d => d.ServiceType == typeof(IClock)).ToList()) services.Remove(d);
             services.AddSingleton<IClock>(Clock);
+
+            foreach (var d in services.Where(d => d.ServiceType == typeof(IEmailService)).ToList()) services.Remove(d);
+            services.AddSingleton<IEmailService>(Emails);
         });
         builder.ConfigureAppConfiguration((ctx, config) =>
         {
@@ -49,6 +51,28 @@ public sealed class EtamidFactory : WebApplicationFactory<Program>
             });
         });
     }
+}
+
+public sealed class CapturingEmailService : IEmailService
+{
+    private readonly ConcurrentDictionary<string, string> _codes = new(StringComparer.OrdinalIgnoreCase);
+    private int _sentCount;
+
+    public int SentCount => Volatile.Read(ref _sentCount);
+
+    public Task SendOtpEmailAsync(
+        string toEmail, string recipientName, string otpCode, OtpEmailKind kind,
+        CancellationToken cancellationToken = default)
+    {
+        _codes[toEmail.Trim()] = otpCode;
+        Interlocked.Increment(ref _sentCount);
+        return Task.CompletedTask;
+    }
+
+    public string CodeFor(string email)
+        => _codes.TryGetValue(email.Trim(), out var code)
+            ? code
+            : throw new InvalidOperationException($"No OTP email was captured for {email}.");
 }
 
 public sealed class TestClock : IClock

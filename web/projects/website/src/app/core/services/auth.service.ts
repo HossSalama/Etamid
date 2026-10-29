@@ -4,12 +4,16 @@ import { Observable, tap } from 'rxjs';
 import { ApiResponse } from '../models/api-response.model';
 import {
   AuthTokens,
+  ForgotPasswordRequest,
   LoginRequest,
   LoginResponse,
   RegisterCompanyRequest,
   RegisterIndividualRequest,
   RegisterResponse,
+  ResetPasswordRequest,
+  ResetTokenResponse,
   UpdateProfileRequest,
+  VerifyResetCodeRequest,
   UserProfile,
   VerifyOtpRequest,
   ResendOtpRequest,
@@ -44,8 +48,20 @@ export class AuthService {
     );
   }
 
-  resendOtp(req: ResendOtpRequest): Observable<ApiResponse<{ resendAfterSeconds: number }>> {
-    return this.http.post<ApiResponse<{ resendAfterSeconds: number }>>(`${this.baseUrl}/otp/resend`, req);
+  resendOtp(req: ResendOtpRequest): Observable<ApiResponse<null>> {
+    return this.http.post<ApiResponse<null>>(`${this.baseUrl}/otp/resend`, req);
+  }
+
+  forgotPassword(req: ForgotPasswordRequest): Observable<ApiResponse<null>> {
+    return this.http.post<ApiResponse<null>>(`${this.baseUrl}/password/forgot`, req);
+  }
+
+  verifyResetCode(req: VerifyResetCodeRequest): Observable<ApiResponse<ResetTokenResponse>> {
+    return this.http.post<ApiResponse<ResetTokenResponse>>(`${this.baseUrl}/password/verify-otp`, req);
+  }
+
+  resetPassword(req: ResetPasswordRequest): Observable<ApiResponse<null>> {
+    return this.http.post<ApiResponse<null>>(`${this.baseUrl}/password/reset`, req);
   }
 
   login(req: LoginRequest): Observable<ApiResponse<LoginResponse>> {

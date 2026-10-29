@@ -27,11 +27,11 @@ public class Cycle2Tests(EtamidFactory factory) : IClassFixture<EtamidFactory>
     {
         var n = Interlocked.Increment(ref _counter);
         var local = $"05022{n:D5}";
-        var e164 = $"+9665022{n:D5}";
+        var email = $"c2.{n}@example.com";
 
         await _anon.PostAsJsonAsync("/api/v1/auth/register/individual",
-            new { username = "User " + n, phone = local, email = $"c2.{n}@example.com", password = Password, acceptTerms = true });
-        var verify = await _anon.PostAsJsonAsync("/api/v1/auth/phone/verify", new { phone = local, firebaseIdToken = "fake:" + e164 });
+            new { username = "User " + n, phone = local, email, password = Password, acceptTerms = true });
+        var verify = await _anon.PostAsJsonAsync("/api/v1/auth/otp/verify", new { phone = local, code = factory.Emails.CodeFor(email) });
         var token = (await Json(verify)).GetProperty("data").GetProperty("accessToken").GetString()!;
 
         var client = factory.CreateClient();

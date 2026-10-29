@@ -18,20 +18,38 @@ export interface RegisterCompanyRequest {
 
 export interface RegisterResponse {
   phone: string;
-  resendAfterSeconds: number;
-  expiresInSeconds: number;
+  email: string;
+  verificationMethod: string;
+  verificationRequired: boolean;
 }
 
 export interface VerifyOtpRequest {
-  phone?: string;
-  email?: string;
+  phone: string;
   code: string;
 }
 
 export interface ResendOtpRequest {
-  phone?: string;
-  email?: string;
-  purpose?: 'register' | 'password_reset' | 'login';
+  phone: string;
+}
+
+export interface ForgotPasswordRequest {
+  phone: string;
+}
+
+export interface VerifyResetCodeRequest {
+  phone: string;
+  code: string;
+}
+
+export interface ResetPasswordRequest {
+  resetToken: string;
+  newPassword: string;
+  confirmPassword: string;
+}
+
+export interface ResetTokenResponse {
+  resetToken: string;
+  expiresInSeconds: number;
 }
 
 export interface LoginRequest {
@@ -59,6 +77,7 @@ export interface UserProfile {
   type: 'individual' | 'company';
   language: string;
   phoneVerified: boolean;
+  emailVerified?: boolean;
   nafathVerified: boolean;
   avatarUrl?: string;
 }

@@ -30,6 +30,7 @@ public static class DependencyInjection
         services.AddScoped<SessionService>();
         services.AddScoped<UserProfileService>();
         services.AddScoped<RegistrationService>();
+        services.AddScoped<EmailOtpService>();
 
         // Deals and escrow
         services.AddScoped<Etamid.Application.Deals.Services.EscrowLedgerService>();

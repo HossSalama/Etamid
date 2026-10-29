@@ -94,3 +94,23 @@ public class IbanPolicyTests
         IbanPolicy.Last4(iban).Should().Be("7519");
     }
 }
+
+public class EmailOtpPolicyTests
+{
+    [Fact]
+    public void New_codes_are_six_digits()
+    {
+        for (var i = 0; i < 200; i++)
+            EmailOtpPolicy.IsWellFormed(EmailOtpPolicy.NewCode()).Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData("123456", true)]
+    [InlineData("000123", true)]
+    [InlineData("12345", false)]
+    [InlineData("1234567", false)]
+    [InlineData("12ab56", false)]
+    [InlineData("", false)]
+    [InlineData(null, false)]
+    public void Well_formed_check(string? code, bool expected) => EmailOtpPolicy.IsWellFormed(code).Should().Be(expected);
+}

@@ -23,6 +23,7 @@ public interface IApplicationDbContext
     DbSet<TermsVersion> TermsVersions { get; }
     DbSet<TermsAcceptance> TermsAcceptances { get; }
     DbSet<AuthAuditLog> AuthAuditLogs { get; }
+    DbSet<EmailOtp> EmailOtps { get; }
     DbSet<StoredFile> Files { get; }
     DbSet<Wallet> Wallets { get; }
     DbSet<AppSetting> AppSettings { get; }

@@ -31,6 +31,7 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
     public DbSet<TermsVersion> TermsVersions => Set<TermsVersion>();
     public DbSet<TermsAcceptance> TermsAcceptances => Set<TermsAcceptance>();
     public DbSet<AuthAuditLog> AuthAuditLogs => Set<AuthAuditLog>();
+    public DbSet<EmailOtp> EmailOtps => Set<EmailOtp>();
 
     // B: Config, C: Files
     public DbSet<AppSetting> AppSettings => Set<AppSetting>();
