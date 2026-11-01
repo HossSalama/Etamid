@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Etamid (اعتمد) Mobile API
-  version: 1.2.0
+  version: 1.2.1
   description: |
     عقد الـ API بين الـ Backend (.NET) وتطبيق الموبايل.
     - كل الردود بصيغة موحدة: { success, message, data, errors, meta }
@@ -739,6 +739,7 @@ paths:
                 shippingCompanyId: { type: integer, nullable: true, description: مطلوب إذا needShipping=true }
                 shippingAddressId: { type: integer, nullable: true }
                 acceptTerms: { type: boolean }
+                imagePublicId: { type: string, format: uuid, nullable: true, description: 'المعرّف العام للصورة المرفوعة عبر POST /uploads بقيمة deal_image (اختياري). يجب أن تكون الصورة ملك المشتري ونوعها deal_image، وإلا فشل الإنشاء بـ INVALID_VALUE.' }
       responses:
         "201":
           description: تم الإرسال (شاشة deal sent)
@@ -1931,7 +1932,7 @@ components:
         remainingSeconds: { type: integer }
     DealSummary:
       type: object
-      description: كما يرجعه DealSummaryDto الفعلي. لا يوجد imageUrl ولا badge في الرد الفعلي.
+      description: كما يرجعه DealSummaryDto الفعلي. imageUrl هو رابط صورة المنتج أو null عند عدم وجود صورة.
       properties:
         id: { type: integer }
         number: { type: integer, example: 45872 }
@@ -1944,11 +1945,12 @@ components:
         counterpartyCode: { type: string }
         createdAt: { type: string, format: date-time }
         availableActions: { type: array, items: { $ref: '#/components/schemas/DealAction' } }
+        imageUrl: { type: string, nullable: true, description: رابط صورة المنتج، أو null }
     Deal:
       type: object
       description: |
         كما يرجعه DealDetailDto الفعلي (مسطح، وليس متداخلا). لا يوجد counterparty
-        ككائن ولا shipping ككائن ولا imageUrl ولا paymentMethod ولا fundsHeld
+        ككائن ولا shipping ككائن ولا paymentMethod ولا fundsHeld
         ولا pendingEdit ولا rejection ولا banner ولا rated ولا dispute ككائن في
         الرد الفعلي — فقط isDisputed (bool) و timeline مدمجة و contractHash.
         ملاحظة: ShippedAt غير معروض؛ المعروض هو deliveredAt فقط، و deliver()
@@ -1993,6 +1995,7 @@ components:
               actorType: { type: string }
               at: { type: string, format: date-time }
               note: { type: string, nullable: true }
+        imageUrl: { type: string, nullable: true, description: رابط صورة المنتج، أو null }
     FundSession:
       type: object
       description: كما يرجعه FundSessionDto من POST /deals/{id}/fund.

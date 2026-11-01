@@ -14,7 +14,7 @@ namespace Etamid.Application.Deals.Commands;
 /// <summary>Either party may cancel before any money moves (PendingAcceptance / AwaitingFunding only).</summary>
 public sealed record CancelDealCommand(long DealId) : IRequest<Result<DealDetailDto>>;
 
-public sealed class CancelDealHandler(IApplicationDbContext db, ICurrentUser currentUser, IClock clock)
+public sealed class CancelDealHandler(IApplicationDbContext db, ICurrentUser currentUser, IClock clock, IFileUrlResolver files)
     : IRequestHandler<CancelDealCommand, Result<DealDetailDto>>
 {
     public async Task<Result<DealDetailDto>> Handle(CancelDealCommand r, CancellationToken ct)
@@ -42,7 +42,7 @@ public sealed class CancelDealHandler(IApplicationDbContext db, ICurrentUser cur
         var saved = await db.SaveGuardedAsync(ct);
         if (saved.IsFailure) return saved.Error;
 
-        return await DealMapper.DetailAsync(db, deal, userId, now, ct);
+        return await DealMapper.DetailAsync(db, deal, userId, now, ct, files);
     }
 }
 
@@ -129,7 +129,7 @@ public sealed class ProposeDealEditHandler(IApplicationDbContext db, ICurrentUse
 // ======================================================================= Edit: respond
 public sealed record RespondDealEditCommand(long DealId, long EditId, bool Approve) : IRequest<Result<DealDetailDto>>;
 
-public sealed class RespondDealEditHandler(IApplicationDbContext db, ICurrentUser currentUser, IClock clock)
+public sealed class RespondDealEditHandler(IApplicationDbContext db, ICurrentUser currentUser, IClock clock, IFileUrlResolver files)
     : IRequestHandler<RespondDealEditCommand, Result<DealDetailDto>>
 {
     public async Task<Result<DealDetailDto>> Handle(RespondDealEditCommand r, CancellationToken ct)
@@ -166,14 +166,14 @@ public sealed class RespondDealEditHandler(IApplicationDbContext db, ICurrentUse
         var saved = await db.SaveGuardedAsync(ct);
         if (saved.IsFailure) return saved.Error;
 
-        return await DealMapper.DetailAsync(db, deal, userId, now, ct);
+        return await DealMapper.DetailAsync(db, deal, userId, now, ct, files);
     }
 }
 
 // ======================================================================= Edit: cancel by proposer
 public sealed record CancelDealEditCommand(long DealId, long EditId) : IRequest<Result<DealDetailDto>>;
 
-public sealed class CancelDealEditHandler(IApplicationDbContext db, ICurrentUser currentUser, IClock clock)
+public sealed class CancelDealEditHandler(IApplicationDbContext db, ICurrentUser currentUser, IClock clock, IFileUrlResolver files)
     : IRequestHandler<CancelDealEditCommand, Result<DealDetailDto>>
 {
     public async Task<Result<DealDetailDto>> Handle(CancelDealEditCommand r, CancellationToken ct)
@@ -194,6 +194,6 @@ public sealed class CancelDealEditHandler(IApplicationDbContext db, ICurrentUser
         var saved = await db.SaveGuardedAsync(ct);
         if (saved.IsFailure) return saved.Error;
 
-        return await DealMapper.DetailAsync(db, deal, userId, clock.UtcNow, ct);
+        return await DealMapper.DetailAsync(db, deal, userId, clock.UtcNow, ct, files);
     }
 }

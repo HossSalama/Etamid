@@ -14,6 +14,7 @@ export interface CreateDealRequest {
   shippingCompanyId: number | null;
   shippingAddressId: number | null;
   acceptTerms: boolean;
+  imagePublicId: string | null;
 }
 
 export interface CreatedDeal {
@@ -32,6 +33,7 @@ export interface CreatedDeal {
   needShipping: boolean;
   shippingCompanyId: number | null;
   shippingAddressId: number | null;
+  imageUrl: string | null;
   createdAt: string;
   respondDeadlineAt: string;
 }
@@ -48,6 +50,7 @@ export interface DealSummary {
   counterpartyCode: string;
   createdAt: string;
   availableActions: string[];
+  imageUrl: string | null;
 }
 
 export interface FundSession {
@@ -133,6 +136,13 @@ export class DealsService {
 
   createDeal(request: CreateDealRequest): Observable<ApiResponse<CreatedDeal>> {
     return this.http.post<ApiResponse<CreatedDeal>>(`${this.baseUrl}/deals`, request);
+  }
+
+  uploadDealImage(file: File): Observable<ApiResponse<{ fileId: string; url: string }>> {
+    const formData = new FormData();
+    formData.append('file', file, file.name);
+    formData.append('purpose', 'deal_image');
+    return this.http.post<ApiResponse<{ fileId: string; url: string }>>(`${this.baseUrl}/uploads`, formData);
   }
 
   getMyDeals(page = 1, pageSize = 50): Observable<ApiResponse<DealSummary[]>> {

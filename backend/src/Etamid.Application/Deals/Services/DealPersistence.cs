@@ -26,7 +26,7 @@ internal static class DealPersistence
 internal static class DealMapper
 {
     public static async Task<DealDetailDto> DetailAsync(
-        IApplicationDbContext db, Deal d, long viewerId, DateTime now, CancellationToken ct)
+        IApplicationDbContext db, Deal d, long viewerId, DateTime now, CancellationToken ct, IFileUrlResolver files)
     {
         var otherId = viewerId == d.BuyerId ? d.SellerId : d.BuyerId;
         var other = await db.Users.AsNoTracking().Where(u => u.Id == otherId)
@@ -49,6 +49,11 @@ internal static class DealMapper
                 .FirstOrDefaultAsync(ct)
             : null;
 
+        string? imageUrl = null;
+        if (d.ImageFileId is { } imageFileId)
+            imageUrl = files.Resolve(await db.Files.AsNoTracking()
+                .FirstOrDefaultAsync(f => f.Id == imageFileId, ct));
+
         return new DealDetailDto(
             d.Id, d.Number, d.Title, d.Description, d.Amount, d.Currency, ApiNames.Of(d.Status),
             RoleOf(d, viewerId), other?.Name ?? string.Empty, other?.Code ?? string.Empty,
@@ -57,7 +62,7 @@ internal static class DealMapper
             d.CreatedAt, d.RespondDeadlineAt, d.AcceptedAt, d.FundedAt, d.DeliveredAt,
             d.InspectionEndsAt, d.CompletedAt, d.ExpiresAt,
             d.ContractHash, pendingEdit is null ? null : MapEdit(pendingEdit, d),
-            DealActions.For(d, viewerId, now, pendingEdit), timeline);
+            DealActions.For(d, viewerId, now, pendingEdit), timeline, imageUrl);
     }
 
     public static DealEditDto MapEdit(DealEditRequest e, Deal d) => new(

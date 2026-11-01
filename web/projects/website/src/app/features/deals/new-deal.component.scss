@@ -256,6 +256,20 @@
   color: #14532d;
 }
 
+.image-preview {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+
+  img {
+    width: 120px;
+    height: 120px;
+    object-fit: cover;
+    border-radius: 12px;
+  }
+}
+
 .field-meta {
   display: flex;
   align-items: flex-start;

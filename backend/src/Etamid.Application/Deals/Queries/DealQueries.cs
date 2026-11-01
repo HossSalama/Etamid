@@ -12,7 +12,7 @@ namespace Etamid.Application.Deals.Queries;
 public sealed record GetMyDealsQuery(string? Role, string? Tab, int Page = 1, int PageSize = 20)
     : IRequest<Result<PagedResult<DealSummaryDto>>>;
 
-public sealed class GetMyDealsHandler(IApplicationDbContext db, ICurrentUser currentUser, IClock clock)
+public sealed class GetMyDealsHandler(IApplicationDbContext db, ICurrentUser currentUser, IClock clock, IFileUrlResolver files)
     : IRequestHandler<GetMyDealsQuery, Result<PagedResult<DealSummaryDto>>>
 {
     public async Task<Result<PagedResult<DealSummaryDto>>> Handle(GetMyDealsQuery r, CancellationToken ct)
@@ -56,15 +56,23 @@ public sealed class GetMyDealsHandler(IApplicationDbContext db, ICurrentUser cur
             .Where(e => dealIds.Contains(e.DealId) && e.Status == EditStatus.Pending)
             .ToDictionaryAsync(e => e.DealId, ct);
 
+        var imageFileIds = deals.Where(d => d.ImageFileId is not null).Select(d => d.ImageFileId!.Value).Distinct().ToList();
+        var imageFiles = imageFileIds.Count == 0
+            ? new Dictionary<long, Domain.Files.StoredFile>()
+            : await db.Files.AsNoTracking().Where(f => imageFileIds.Contains(f.Id)).ToDictionaryAsync(f => f.Id, ct);
+
         IReadOnlyList<DealSummaryDto> items = deals.Select(d =>
         {
             var otherId = d.BuyerId == userId ? d.SellerId : d.BuyerId;
             others.TryGetValue(otherId, out var other);
             pendingEdits.TryGetValue(d.Id, out var pendingEdit);
+            string? imageUrl = null;
+            if (d.ImageFileId is { } imageFileId && imageFiles.TryGetValue(imageFileId, out var imageFile))
+                imageUrl = files.Resolve(imageFile);
             return new DealSummaryDto(
                 d.Id, d.Number, d.Title, d.Amount, d.Currency, ApiNames.Of(d.Status),
                 DealMapper.RoleOf(d, userId), other?.Name ?? string.Empty, other?.Code ?? string.Empty,
-                d.CreatedAt, DealActions.For(d, userId, now, pendingEdit));
+                d.CreatedAt, DealActions.For(d, userId, now, pendingEdit), imageUrl);
         }).ToList();
 
         return new PagedResult<DealSummaryDto>(items, page, pageSize, total);
@@ -73,7 +81,7 @@ public sealed class GetMyDealsHandler(IApplicationDbContext db, ICurrentUser cur
 
 public sealed record GetDealQuery(long DealId) : IRequest<Result<DealDetailDto>>;
 
-public sealed class GetDealHandler(IApplicationDbContext db, ICurrentUser currentUser, IClock clock)
+public sealed class GetDealHandler(IApplicationDbContext db, ICurrentUser currentUser, IClock clock, IFileUrlResolver files)
     : IRequestHandler<GetDealQuery, Result<DealDetailDto>>
 {
     public async Task<Result<DealDetailDto>> Handle(GetDealQuery r, CancellationToken ct)
@@ -85,6 +93,6 @@ public sealed class GetDealHandler(IApplicationDbContext db, ICurrentUser curren
         // A stranger gets the same 404 as a missing deal, so ids cannot be probed.
         if (deal is null || !deal.IsParticipant(userId)) return DealErrors.NotFound;
 
-        return await DealMapper.DetailAsync(db, deal, userId, clock.UtcNow, ct);
+        return await DealMapper.DetailAsync(db, deal, userId, clock.UtcNow, ct, files);
     }
 }

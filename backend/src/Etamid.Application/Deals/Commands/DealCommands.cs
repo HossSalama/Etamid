@@ -4,6 +4,7 @@ using Etamid.Application.Deals.Services;
 using Etamid.Application.Identity.Validation;
 using Etamid.Domain.Deals;
 using Etamid.Domain.Disputes;
+using Etamid.Domain.Files;
 using Etamid.Domain.Money;
 using Etamid.SharedKernel;
 using FluentValidation;
@@ -16,7 +17,8 @@ namespace Etamid.Application.Deals.Commands;
 public sealed record CreateDealCommand(
     string Title, string SellerPhoneOrCode, string Description, decimal Amount,
     int DurationValue, string DurationUnit, bool NeedShipping,
-    long? ShippingCompanyId, long? ShippingAddressId, bool AcceptTerms) : IRequest<Result<DealDetailDto>>;
+    long? ShippingCompanyId, long? ShippingAddressId, bool AcceptTerms,
+    string? ImagePublicId = null) : IRequest<Result<DealDetailDto>>;
 
 public sealed class CreateDealValidator : AbstractValidator<CreateDealCommand>
 {
@@ -36,10 +38,13 @@ public sealed class CreateDealValidator : AbstractValidator<CreateDealCommand>
             .WithErrorCode("INVALID_VALUE");
         RuleFor(x => x.ShippingCompanyId).NotNull().WithErrorCode("REQUIRED").When(x => x.NeedShipping);
         RuleFor(x => x.AcceptTerms).Equal(true).WithErrorCode("TERMS_NOT_ACCEPTED");
+        RuleFor(x => x.ImagePublicId)
+            .Must(id => string.IsNullOrWhiteSpace(id) || Guid.TryParse(id.Trim(), out _))
+            .WithErrorCode("INVALID_VALUE");
     }
 }
 
-public sealed class CreateDealHandler(IApplicationDbContext db, ICurrentUser currentUser, IClock clock)
+public sealed class CreateDealHandler(IApplicationDbContext db, ICurrentUser currentUser, IClock clock, IFileUrlResolver files)
     : IRequestHandler<CreateDealCommand, Result<DealDetailDto>>
 {
     public async Task<Result<DealDetailDto>> Handle(CreateDealCommand r, CancellationToken ct)
@@ -49,6 +54,21 @@ public sealed class CreateDealHandler(IApplicationDbContext db, ICurrentUser cur
         var seller = await UserLookup.FindByPhoneOrCodeAsync(db, r.SellerPhoneOrCode, ct);
         if (seller is null) return DealErrors.SellerNotFound;
         if (seller.Id == buyerId) return DealErrors.SameParties;
+
+        // An image is optional, but when supplied it must be an image the buyer
+        // uploaded for this purpose — never another user's file, a non-image,
+        // or a deleted/quarantined one. The same generic error covers all cases
+        // so file ids cannot be probed.
+        long? imageFileId = null;
+        if (!string.IsNullOrWhiteSpace(r.ImagePublicId) && Guid.TryParse(r.ImagePublicId.Trim(), out var publicId))
+        {
+            var image = await db.Files.FirstOrDefaultAsync(f => f.PublicId == publicId, ct);
+            if (image is null || image.OwnerUserId != buyerId || image.Purpose != FilePurpose.DealImage
+                || image.Status != FileStatus.Uploaded || !image.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
+                return Error.Validation("INVALID_VALUE", "imagePublicId");
+            image.Status = FileStatus.Attached;
+            imageFileId = image.Id;
+        }
 
         if (r.NeedShipping)
         {
@@ -67,7 +87,7 @@ public sealed class CreateDealHandler(IApplicationDbContext db, ICurrentUser cur
 
         var created = Deal.Create(
             buyerId, seller.Id, r.Title, r.Description, r.Amount, r.DurationValue, unit,
-            r.NeedShipping, r.ShippingCompanyId, r.ShippingAddressId, imageFileId: null,
+            r.NeedShipping, r.ShippingCompanyId, r.ShippingAddressId, imageFileId,
             settings.Currency, now, settings.RespondWindow);
         if (created.IsFailure) return created.Error;
 
@@ -75,7 +95,7 @@ public sealed class CreateDealHandler(IApplicationDbContext db, ICurrentUser cur
         var saved = await db.SaveGuardedAsync(ct);
         if (saved.IsFailure) return saved.Error;
 
-        return await DealMapper.DetailAsync(db, created.Value, buyerId, now, ct);
+        return await DealMapper.DetailAsync(db, created.Value, buyerId, now, ct, files);
     }
 }
 
@@ -87,7 +107,7 @@ public sealed class AcceptDealValidator : AbstractValidator<AcceptDealCommand>
     public AcceptDealValidator() => RuleFor(x => x.AcceptTerms).Equal(true).WithErrorCode("TERMS_NOT_ACCEPTED");
 }
 
-public sealed class AcceptDealHandler(IApplicationDbContext db, ICurrentUser currentUser, IClock clock)
+public sealed class AcceptDealHandler(IApplicationDbContext db, ICurrentUser currentUser, IClock clock, IFileUrlResolver files)
     : IRequestHandler<AcceptDealCommand, Result<DealDetailDto>>
 {
     public async Task<Result<DealDetailDto>> Handle(AcceptDealCommand r, CancellationToken ct)
@@ -111,7 +131,7 @@ public sealed class AcceptDealHandler(IApplicationDbContext db, ICurrentUser cur
         var saved = await db.SaveGuardedAsync(ct);
         if (saved.IsFailure) return saved.Error;
 
-        return await DealMapper.DetailAsync(db, deal, userId, now, ct);
+        return await DealMapper.DetailAsync(db, deal, userId, now, ct, files);
     }
 }
 
@@ -127,7 +147,7 @@ public sealed class RejectDealValidator : AbstractValidator<RejectDealCommand>
     }
 }
 
-public sealed class RejectDealHandler(IApplicationDbContext db, ICurrentUser currentUser, IClock clock)
+public sealed class RejectDealHandler(IApplicationDbContext db, ICurrentUser currentUser, IClock clock, IFileUrlResolver files)
     : IRequestHandler<RejectDealCommand, Result<DealDetailDto>>
 {
     public async Task<Result<DealDetailDto>> Handle(RejectDealCommand r, CancellationToken ct)
@@ -158,14 +178,14 @@ public sealed class RejectDealHandler(IApplicationDbContext db, ICurrentUser cur
         var saved = await db.SaveGuardedAsync(ct);
         if (saved.IsFailure) return saved.Error;
 
-        return await DealMapper.DetailAsync(db, deal, userId, now, ct);
+        return await DealMapper.DetailAsync(db, deal, userId, now, ct, files);
     }
 }
 
 // ======================================================================= Deliver
 public sealed record DeliverDealCommand(long DealId) : IRequest<Result<DealDetailDto>>;
 
-public sealed class DeliverDealHandler(IApplicationDbContext db, ICurrentUser currentUser, IClock clock)
+public sealed class DeliverDealHandler(IApplicationDbContext db, ICurrentUser currentUser, IClock clock, IFileUrlResolver files)
     : IRequestHandler<DeliverDealCommand, Result<DealDetailDto>>
 {
     public async Task<Result<DealDetailDto>> Handle(DeliverDealCommand r, CancellationToken ct)
@@ -186,7 +206,7 @@ public sealed class DeliverDealHandler(IApplicationDbContext db, ICurrentUser cu
         var saved = await db.SaveGuardedAsync(ct);
         if (saved.IsFailure) return saved.Error;
 
-        return await DealMapper.DetailAsync(db, deal, userId, now, ct);
+        return await DealMapper.DetailAsync(db, deal, userId, now, ct, files);
     }
 }
 

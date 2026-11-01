@@ -3,7 +3,7 @@ namespace Etamid.Application.Deals;
 public sealed record DealSummaryDto(
     long Id, long Number, string Title, decimal Amount, string Currency, string Status,
     string Role, string CounterpartyName, string CounterpartyCode, DateTime CreatedAt,
-    IReadOnlyList<string> AvailableActions);
+    IReadOnlyList<string> AvailableActions, string? ImageUrl = null);
 
 public sealed record DealTimelineItemDto(string? From, string To, string ActorType, DateTime At, string? Note);
 
@@ -31,7 +31,8 @@ public sealed record DealDetailDto(
     DateTime CreatedAt, DateTime RespondDeadlineAt, DateTime? AcceptedAt, DateTime? FundedAt, DateTime? DeliveredAt,
     DateTime? InspectionEndsAt, DateTime? CompletedAt, DateTime? ExpiresAt,
     string? ContractHash, DealEditDto? PendingEdit,
-    IReadOnlyList<string> AvailableActions, IReadOnlyList<DealTimelineItemDto> Timeline);
+    IReadOnlyList<string> AvailableActions, IReadOnlyList<DealTimelineItemDto> Timeline,
+    string? ImageUrl = null);
 
 public sealed record FundSessionDto(
     Guid PaymentId, long DealId, string Status, decimal Amount, string Currency,

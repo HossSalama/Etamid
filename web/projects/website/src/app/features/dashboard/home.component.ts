@@ -18,6 +18,7 @@ export interface DealItem {
   statusText: string;
   availableActions: string[];
   pendingEdit: DealEdit | null;
+  imageUrl: string | null;
 }
 
 @Component({
@@ -376,6 +377,9 @@ export interface DealItem {
                   </div>
 
                   <div class="deal-card-body">
+                    @if (deal.imageUrl) {
+                      <img class="deal-image" [src]="deal.imageUrl" [alt]="deal.title" />
+                    }
                     <p class="deal-title">{{ deal.title }}</p>
                     @if (deal.description) {
                       <p class="deal-desc">{{ deal.description }}</p>
@@ -1317,6 +1321,14 @@ export interface DealItem {
     }
 
     .deal-card-body {
+      .deal-image {
+        width: 100%;
+        max-height: 220px;
+        object-fit: cover;
+        border-radius: 0.75rem;
+        margin-bottom: 0.5rem;
+      }
+
       .deal-title {
         font-size: 0.95rem;
         color: #111827;
@@ -1771,6 +1783,7 @@ export class HomeComponent {
       statusText: this.lang.t(`home_deal_status_${displayStatus}`),
       availableActions: deal.availableActions ?? [],
       pendingEdit: null,
+      imageUrl: deal.imageUrl ?? null,
     };
   }
 
@@ -1959,6 +1972,7 @@ export class HomeComponent {
       statusText: this.lang.isAr() ? 'في انتظار موافقة الطرف الآخر' : 'Awaiting counterparty acceptance',
       availableActions: [],
       pendingEdit: null,
+      imageUrl: null,
     };
 
     this.deals.update((current) => [newDeal, ...current]);

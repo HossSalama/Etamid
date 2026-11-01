@@ -102,6 +102,20 @@
               }
             </div>
             <div class="field full-width">
+              <label for="dealImage">{{ lang.t('deal_image_label') }}</label>
+              <input id="dealImage" type="file" accept="image/jpeg,image/png,image/webp" (change)="onImageSelected($event)" />
+              <small>{{ lang.t('deal_image_hint') }}</small>
+              @if (imagePreviewUrl(); as preview) {
+                <div class="image-preview">
+                  <img [src]="preview" [alt]="lang.t('deal_image_label')" />
+                  <button type="button" class="choice-button" (click)="clearImage()">{{ lang.t('deal_image_remove') }}</button>
+                </div>
+              }
+              @if (imageUploadError()) {
+                <small class="field-error" role="alert">{{ lang.t('deal_image_error') }}</small>
+              }
+            </div>
+            <div class="field full-width">
               <label for="description">{{ lang.t('deal_description') }} <span class="required">*</span></label>
               <textarea
                 id="description"

@@ -124,7 +124,8 @@ public sealed class UploadFileHandler(FileUploadService uploads, IApplicationDbC
         if (!string.IsNullOrWhiteSpace(r.Purpose) && !Purposes.TryGetValue(r.Purpose.Trim(), out purpose))
             return Error.Validation("INVALID_VALUE", "purpose");
 
-        var stored = await uploads.StoreAsync(r.Content, userId, purpose, r.FileName, imagesOnly: purpose == FilePurpose.StoreBanner, ct);
+        var stored = await uploads.StoreAsync(r.Content, userId, purpose, r.FileName,
+            imagesOnly: purpose is FilePurpose.StoreBanner or FilePurpose.DealImage, ct);
         if (stored.IsFailure) return stored.Error;
 
         await db.SaveChangesAsync(ct);

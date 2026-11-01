@@ -3,7 +3,7 @@ import { Component, OnInit, inject, signal } from '@angular/core';
 import { AbstractControl, FormBuilder, ReactiveFormsModule, ValidationErrors, ValidatorFn, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
-import { DealsService, Counterparty, CreatedDeal, LookupItem, UserAddress } from '../../core/services/deals.service';
+import { DealsService, Counterparty, CreateDealRequest, CreatedDeal, LookupItem, UserAddress } from '../../core/services/deals.service';
 import { LanguageService } from '../../core/services/language.service';
 
 const twoDecimalPlaces: ValidatorFn = (control: AbstractControl): ValidationErrors | null => {
@@ -38,6 +38,9 @@ export class NewDealComponent implements OnInit {
   readonly sellerPreview = signal<Counterparty | null>(null);
   readonly isLookingUpSeller = signal(false);
   readonly sellerLookupError = signal(false);
+  readonly selectedImage = signal<File | null>(null);
+  readonly imagePreviewUrl = signal<string | null>(null);
+  readonly imageUploadError = signal(false);
 
   lookupSeller(): void {
     const q = (this.dealForm.controls.sellerPhoneOrCode.value ?? '').trim();
@@ -96,6 +99,31 @@ export class NewDealComponent implements OnInit {
     company.updateValueAndValidity();
   }
 
+  onImageSelected(event: Event): void {
+    const input = event.target as HTMLInputElement | null;
+    const file = input?.files?.[0] ?? null;
+    this.imageUploadError.set(false);
+    if (!file) {
+      this.selectedImage.set(null);
+      this.imagePreviewUrl.set(null);
+      return;
+    }
+    if (!file.type.startsWith('image/')) {
+      this.selectedImage.set(null);
+      this.imagePreviewUrl.set(null);
+      this.imageUploadError.set(true);
+      return;
+    }
+    this.selectedImage.set(file);
+    this.imagePreviewUrl.set(URL.createObjectURL(file));
+  }
+
+  clearImage(): void {
+    this.selectedImage.set(null);
+    this.imagePreviewUrl.set(null);
+    this.imageUploadError.set(false);
+  }
+
   onSubmit(): void {
     if (this.isSubmitting() || this.createdDeal()) return;
     if (this.dealForm.invalid) {
@@ -106,7 +134,7 @@ export class NewDealComponent implements OnInit {
     const value = this.dealForm.getRawValue();
     if (value.amount === null) return;
 
-    const request = {
+    const request: CreateDealRequest = {
       title: (value.title ?? '').trim(),
       sellerPhoneOrCode: (value.sellerPhoneOrCode ?? '').trim(),
       description: (value.description ?? '').trim(),
@@ -117,10 +145,38 @@ export class NewDealComponent implements OnInit {
       shippingCompanyId: value.needShipping === true && value.shippingCompanyId ? Number(value.shippingCompanyId) : null,
       shippingAddressId: value.needShipping === true && value.shippingAddressId ? Number(value.shippingAddressId) : null,
       acceptTerms: value.acceptTerms === true,
-    } as const;
+      imagePublicId: null as string | null,
+    };
 
     this.isSubmitting.set(true);
     this.submitError.set(null);
+    this.imageUploadError.set(false);
+
+    const image = this.selectedImage();
+    if (!image) {
+      this.submitDeal(request);
+      return;
+    }
+
+    // The image is uploaded first; only its public id travels with the deal,
+    // so the deal is never created with a dangling or foreign image reference.
+    this.dealsApi.uploadDealImage(image).subscribe({
+      next: (response) => {
+        if (!response.success || !response.data?.fileId) {
+          this.isSubmitting.set(false);
+          this.imageUploadError.set(true);
+          return;
+        }
+        this.submitDeal({ ...request, imagePublicId: response.data.fileId });
+      },
+      error: () => {
+        this.isSubmitting.set(false);
+        this.imageUploadError.set(true);
+      },
+    });
+  }
+
+  private submitDeal(request: CreateDealRequest): void {
     this.dealsApi.createDeal(request).subscribe({
       next: (response) => {
         this.isSubmitting.set(false);
