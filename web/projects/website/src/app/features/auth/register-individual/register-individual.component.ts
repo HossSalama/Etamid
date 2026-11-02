@@ -107,7 +107,7 @@ import { LanguageService } from '../../../core/services/language.service';
           <div class="terms-group">
             <label class="terms-label">
               <input type="checkbox" formControlName="acceptTerms" />
-              <span>{{ lang.t('register_terms_agree') }} <a href="javascript:void(0)" class="coral-link">{{ lang.t('register_terms_link') }}</a></span>
+              <span>{{ lang.t('register_terms_agree') }} <a routerLink="/terms" class="coral-link">{{ lang.t('page_terms_nav') }}</a> {{ lang.isAr() ? 'و' : 'and' }} <a routerLink="/privacy" class="coral-link">{{ lang.t('page_privacy_nav') }}</a></span>
             </label>
             @if (form.get('acceptTerms')?.touched && form.get('acceptTerms')?.invalid) {
               <small class="error-text">{{ lang.t('register_terms_error') }}</small>

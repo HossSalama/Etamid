@@ -55,6 +55,8 @@ import { LanguageService } from '../../core/services/language.service';
           <a routerLink="/pricing">{{ lang.t('page_pricing_nav') }}</a>
           <a routerLink="/faq">{{ lang.t('page_faq_nav') }}</a>
           <a routerLink="/contact">{{ lang.t('page_contact_nav') }}</a>
+          <a routerLink="/terms">{{ lang.t('page_terms_nav') }}</a>
+          <a routerLink="/privacy">{{ lang.t('page_privacy_nav') }}</a>
         </nav>
         <span>{{ lang.t('landing_footer_note') }}</span>
         <a routerLink="/auth/login">{{ lang.t('welcome_login') }}</a>

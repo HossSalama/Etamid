@@ -246,7 +246,7 @@ export interface DealItem {
           </section>
         }
         <!-- WALLET SECTION -->
-        <section class="wallet-section">
+        <section class="wallet-section" id="wallet-section">
           <div class="section-title-row">
             <h2 class="section-title">{{ lang.t('home_wallet_title') }}</h2>
             @if (authService.isAuthenticated()) {
@@ -314,7 +314,7 @@ export interface DealItem {
 
         <!-- DEALS SECTION -->
         @if (authService.isAuthenticated()) {
-          <section class="deals-section">
+          <section class="deals-section" id="deals-section">
             <div class="section-title-row">
               <h2 class="section-title">{{ lang.t('home_deals_title') }}</h2>
               <button
@@ -749,15 +749,15 @@ export interface DealItem {
 
       <!-- Bottom Mobile Navigation Bar -->
       <nav class="bottom-nav-bar">
-        <button class="nav-item" [class.active]="activeNav() === 'home'" (click)="activeNav.set('home')">
+        <button class="nav-item" [class.active]="activeNav() === 'home'" (click)="onNavHome()">
           <span class="nav-icon">🏠</span>
           <span class="nav-label">{{ lang.t('home_nav_home') }}</span>
         </button>
-        <button class="nav-item" [class.active]="activeNav() === 'deals'" (click)="activeNav.set('deals')">
+        <button class="nav-item" [class.active]="activeNav() === 'deals'" (click)="onNavDeals()">
           <span class="nav-icon">📑</span>
           <span class="nav-label">{{ lang.t('home_nav_deals') }}</span>
         </button>
-        <button class="nav-item" [class.active]="activeNav() === 'wallet'" (click)="activeNav.set('wallet')">
+        <button class="nav-item" [class.active]="activeNav() === 'wallet'" (click)="onNavWallet()">
           <span class="nav-icon">💳</span>
           <span class="nav-label">{{ lang.t('home_nav_wallet') }}</span>
         </button>
@@ -786,6 +786,8 @@ export interface DealItem {
             <a routerLink="/pricing">{{ lang.t('page_pricing_nav') }}</a>
             <a routerLink="/faq">{{ lang.t('page_faq_nav') }}</a>
             <a routerLink="/contact">{{ lang.t('page_contact_nav') }}</a>
+            <a routerLink="/terms">{{ lang.t('page_terms_nav') }}</a>
+            <a routerLink="/privacy">{{ lang.t('page_privacy_nav') }}</a>
           </nav>
           <div class="landing-nav-actions">
             <button class="landing-language" type="button" (click)="lang.toggleLanguage()">{{ lang.langLabel() }} <span>⌄</span></button>
@@ -867,6 +869,8 @@ export interface DealItem {
             <a routerLink="/pricing">{{ lang.t('page_pricing_nav') }}</a>
             <a routerLink="/faq">{{ lang.t('page_faq_nav') }}</a>
             <a routerLink="/contact">{{ lang.t('page_contact_nav') }}</a>
+            <a routerLink="/terms">{{ lang.t('page_terms_nav') }}</a>
+            <a routerLink="/privacy">{{ lang.t('page_privacy_nav') }}</a>
           </nav>
           <span>{{ lang.t('landing_footer_note') }}</span>
           <a routerLink="/auth/login">{{ lang.t('welcome_login') }}</a>
@@ -2374,5 +2378,33 @@ export class HomeComponent {
   logout(): void {
     this.authService.logout();
     this.router.navigate(['/auth/welcome']);
+  }
+
+  /**
+   * Bottom navigation: Home scrolls to the top, Deals and Wallet switch
+   * back to the main view (from Profile) and scroll to their sections.
+   * Previously these buttons only changed the highlight, with no navigation.
+   */
+  onNavHome(): void {
+    this.activeNav.set('home');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  onNavDeals(): void {
+    this.activeNav.set('deals');
+    this.scrollToSection('deals-section');
+  }
+
+  onNavWallet(): void {
+    this.activeNav.set('wallet');
+    this.scrollToSection('wallet-section');
+  }
+
+  private scrollToSection(id: string): void {
+    // The section only exists once the main view re-renders, so scroll
+    // after the current change-detection cycle.
+    setTimeout(() => {
+      document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 0);
   }
 }

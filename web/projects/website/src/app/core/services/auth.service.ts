@@ -1,6 +1,6 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, tap } from 'rxjs';
+import { Observable, catchError, finalize, map, of, shareReplay, tap } from 'rxjs';
 import { ApiResponse } from '../models/api-response.model';
 import {
   AuthTokens,
@@ -122,6 +122,49 @@ export class AuthService {
       });
     }
     this.clearAuth();
+  }
+
+  /**
+   * Rotates the session via POST /api/v1/auth/refresh (the backend already
+   * supports this; the frontend previously stored the refresh token but
+   * never called it). Concurrent callers share one in-flight refresh, so a
+   * rotated refresh token is never spent twice. Emits true only when a new
+   * access token was stored; the interceptor logs the user out on false.
+   */
+  private refreshInFlight: Observable<boolean> | null = null;
+
+  refreshAccessToken(): Observable<boolean> {
+    if (this.refreshInFlight) return this.refreshInFlight;
+    const refreshToken = this.getRefreshToken();
+    if (!refreshToken) return of(false);
+    const request$ = this.http
+      .post<ApiResponse<LoginResponse>>(`${this.baseUrl}/refresh`, { refreshToken })
+      .pipe(
+        tap((res) => {
+          if (res.success && res.data) {
+            if (res.data.accessToken) {
+              localStorage.setItem('etamid_access_token', res.data.accessToken);
+            }
+            if (res.data.refreshToken) {
+              localStorage.setItem('etamid_refresh_token', res.data.refreshToken);
+            }
+            if (res.data.user) {
+              // Merge over the stored profile so a refresh never drops
+              // fields the refresh payload does not carry.
+              const current = this._currentUser();
+              this.saveCurrentUser(current ? { ...current, ...res.data.user } : res.data.user);
+            }
+          }
+        }),
+        map((res) => !!(res.success && res.data?.accessToken)),
+        catchError(() => of(false)),
+        finalize(() => {
+          this.refreshInFlight = null;
+        }),
+        shareReplay(1)
+      );
+    this.refreshInFlight = request$;
+    return request$;
   }
 
   private saveCurrentUser(user: UserProfile): void {

@@ -98,6 +98,20 @@ export const routes: Routes = [
       ),
   },
   {
+    path: 'terms',
+    loadComponent: () =>
+      import('./features/marketing/terms/terms.component').then(
+        (m) => m.TermsComponent
+      ),
+  },
+  {
+    path: 'privacy',
+    loadComponent: () =>
+      import('./features/marketing/privacy/privacy.component').then(
+        (m) => m.PrivacyComponent
+      ),
+  },
+  {
     path: 'deals/new',
     loadComponent: () =>
       import('./features/deals/new-deal.component').then(
