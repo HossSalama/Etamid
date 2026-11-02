@@ -780,8 +780,12 @@ export interface DealItem {
             <img src="/logo.png" alt="اعتمد" />
           </a>
           <nav class="landing-links" aria-label="Main navigation">
-            <a href="#features">{{ lang.t('landing_nav_features') }}</a>
-            <a href="#how-it-works">{{ lang.t('landing_nav_steps') }}</a>
+            <a routerLink="/features">{{ lang.t('landing_nav_features') }}</a>
+            <a routerLink="/how-it-works">{{ lang.t('landing_nav_steps') }}</a>
+            <a routerLink="/about">{{ lang.t('page_about_nav') }}</a>
+            <a routerLink="/pricing">{{ lang.t('page_pricing_nav') }}</a>
+            <a routerLink="/faq">{{ lang.t('page_faq_nav') }}</a>
+            <a routerLink="/contact">{{ lang.t('page_contact_nav') }}</a>
           </nav>
           <div class="landing-nav-actions">
             <button class="landing-language" type="button" (click)="lang.toggleLanguage()">{{ lang.langLabel() }} <span>⌄</span></button>
@@ -856,6 +860,14 @@ export interface DealItem {
 
         <footer class="landing-footer">
           <a routerLink="/home" class="landing-footer-brand"><img src="/logo.png" alt="اعتمد" /></a>
+          <nav class="landing-footer-links" aria-label="Footer navigation">
+            <a routerLink="/features">{{ lang.t('landing_nav_features') }}</a>
+            <a routerLink="/how-it-works">{{ lang.t('landing_nav_steps') }}</a>
+            <a routerLink="/about">{{ lang.t('page_about_nav') }}</a>
+            <a routerLink="/pricing">{{ lang.t('page_pricing_nav') }}</a>
+            <a routerLink="/faq">{{ lang.t('page_faq_nav') }}</a>
+            <a routerLink="/contact">{{ lang.t('page_contact_nav') }}</a>
+          </nav>
           <span>{{ lang.t('landing_footer_note') }}</span>
           <a routerLink="/auth/login">{{ lang.t('welcome_login') }}</a>
         </footer>

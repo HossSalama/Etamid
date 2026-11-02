@@ -56,6 +56,48 @@ export const routes: Routes = [
       ),
   },
   {
+    path: 'about',
+    loadComponent: () =>
+      import('./features/marketing/about/about.component').then(
+        (m) => m.AboutComponent
+      ),
+  },
+  {
+    path: 'pricing',
+    loadComponent: () =>
+      import('./features/marketing/pricing/pricing.component').then(
+        (m) => m.PricingComponent
+      ),
+  },
+  {
+    path: 'faq',
+    loadComponent: () =>
+      import('./features/marketing/faq/faq.component').then(
+        (m) => m.FaqComponent
+      ),
+  },
+  {
+    path: 'contact',
+    loadComponent: () =>
+      import('./features/marketing/contact/contact.component').then(
+        (m) => m.ContactComponent
+      ),
+  },
+  {
+    path: 'features',
+    loadComponent: () =>
+      import('./features/marketing/features/features.component').then(
+        (m) => m.FeaturesPageComponent
+      ),
+  },
+  {
+    path: 'how-it-works',
+    loadComponent: () =>
+      import('./features/marketing/how-it-works/how-it-works.component').then(
+        (m) => m.HowItWorksPageComponent
+      ),
+  },
+  {
     path: 'deals/new',
     loadComponent: () =>
       import('./features/deals/new-deal.component').then(
