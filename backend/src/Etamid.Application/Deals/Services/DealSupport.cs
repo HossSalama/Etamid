@@ -39,8 +39,10 @@ public static class DealActions
     /// open edit proposal, if any (null = none): the proposer may cancel it, the
     /// other party may approve/reject it, and nobody may propose another while
     /// one is open. Cancel is available to either party before any money moves.
+    /// <paramref name="alreadyRated"/> hides the rate action once the buyer has
+    /// rated this deal (one rating per deal).
     /// </summary>
-    public static IReadOnlyList<string> For(Deal deal, long userId, DateTime now, DealEditRequest? pendingEdit)
+    public static IReadOnlyList<string> For(Deal deal, long userId, DateTime now, DealEditRequest? pendingEdit, bool alreadyRated = false)
     {
         var actions = new List<string>();
         var isBuyer = userId == deal.BuyerId;
@@ -75,6 +77,9 @@ public static class DealActions
                 break;
             case DealStatus.Funded when isSeller:
                 actions.Add("deliver");
+                break;
+            case DealStatus.Released when isBuyer && !alreadyRated:
+                actions.Add("rate");
                 break;
             case DealStatus.Inspection when isBuyer:
                 actions.Add("release");

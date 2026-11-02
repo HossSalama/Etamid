@@ -43,6 +43,8 @@ public sealed record ReleaseResultDto(
 
 public sealed record DisputeDto(long Id, string Number, long DealId, string Status);
 
+public sealed record RatingDto(long Id, long DealId, long SellerId, int Stars, string? Comment, DateTime CreatedAt);
+
 public sealed record WebhookResultDto(string Outcome);
 
 public static class DealCategory

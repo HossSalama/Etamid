@@ -1,5 +1,6 @@
 using Etamid.Application.Common.Interfaces;
 using Etamid.Domain.Deals;
+using Etamid.Domain.Identity;
 using Etamid.Domain.Money;
 using Etamid.SharedKernel;
 using Microsoft.EntityFrameworkCore;
@@ -30,6 +31,21 @@ public sealed class EscrowReleaseService(IApplicationDbContext db, EscrowLedgerS
 
         var moved = transition(deal);
         if (moved.IsFailure) return moved.Error;
+
+        // A released deal is a successful deal for the seller. The lookup preview
+        // and the store page read StoreProfile.SuccessfulDeals, and nothing else
+        // updates it, so a release that skips this step leaves it at zero forever.
+        // This runs in the single release path (buyer confirmation and automatic
+        // release), and the caller saves, so a failed ledger stage or a replayed
+        // release (which returns before staging) never double-counts.
+        var store = await db.StoreProfiles.FirstOrDefaultAsync(s => s.UserId == deal.SellerId, ct);
+        if (store is null)
+        {
+            var seller = await db.Users.FirstOrDefaultAsync(u => u.Id == deal.SellerId, ct);
+            store = new StoreProfile { UserId = deal.SellerId, StoreName = seller?.Name ?? string.Empty };
+            db.StoreProfiles.Add(store);
+        }
+        store.SuccessfulDeals += 1;
 
         return await ledger.StageReleaseAsync(deal, hold, wallet, reason, ct);
     }

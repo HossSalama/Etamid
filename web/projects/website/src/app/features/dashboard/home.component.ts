@@ -542,6 +542,34 @@ export interface DealItem {
                       </button>
                     </div>
                   }
+                  @if (deal.availableActions.includes('rate')) {
+                    <div class="deal-actions-row">
+                      <button
+                        (click)="openRatePanel(deal.id)"
+                        class="btn btn-black btn-deal-accept"
+                        [disabled]="isProcessingDeal() === deal.id"
+                      >
+                        {{ lang.t('home_deal_rate') }}
+                      </button>
+                    </div>
+                  }
+                  @if (activeRateDealId() === deal.id) {
+                    <div class="deal-inline-panel">
+                      <form [formGroup]="rateForm" (ngSubmit)="submitRate(deal.id)">
+                        <label>{{ lang.t('home_deal_rate_stars') }}</label>
+                        <select formControlName="stars" class="modal-input">
+                          @for (s of [1, 2, 3, 4, 5]; track s) {
+                            <option [ngValue]="s">{{ s }} ★</option>
+                          }
+                        </select>
+                        <textarea formControlName="comment" class="modal-input" rows="3" maxlength="300" [placeholder]="lang.t('home_deal_rate_comment')"></textarea>
+                        <div class="deal-actions-row">
+                          <button type="submit" class="btn btn-black btn-deal-accept" [disabled]="isProcessingDeal() === deal.id">{{ lang.t('home_deal_rate') }}</button>
+                          <button type="button" class="btn btn-outline-coral btn-deal-decline" (click)="closePanels()">{{ lang.t('profile_cancel') }}</button>
+                        </div>
+                      </form>
+                    </div>
+                  }
                   @if (activeRejectDealId() === deal.id) {
                     <div class="deal-inline-panel">
                       <form [formGroup]="rejectForm" (ngSubmit)="submitReject(deal.id)">
@@ -1685,6 +1713,7 @@ export class HomeComponent {
   readonly dealActionError = signal<string | null>(null);
   readonly activeRejectDealId = signal<string | null>(null);
   readonly activeDisputeDealId = signal<string | null>(null);
+  readonly activeRateDealId = signal<string | null>(null);
   readonly activeEditDealId = signal<string | null>(null);
   readonly rejectReasons = signal<LookupItem[]>([]);
   readonly disputeReasons = signal<LookupItem[]>([]);
@@ -1698,6 +1727,11 @@ export class HomeComponent {
   readonly disputeForm = this.fb.group({
     reasonId: [null as number | null, Validators.required],
     details: ['', [Validators.required, Validators.maxLength(1000)]],
+  });
+
+  readonly rateForm = this.fb.group({
+    stars: [5 as number, [Validators.required, Validators.min(1), Validators.max(5)]],
+    comment: ['', Validators.maxLength(300)],
   });
 
   readonly editForm = this.fb.group({
@@ -2095,6 +2129,7 @@ export class HomeComponent {
   closePanels(): void {
     this.activeRejectDealId.set(null);
     this.activeDisputeDealId.set(null);
+    this.activeRateDealId.set(null);
     this.activeEditDealId.set(null);
     this.editPanelError.set(null);
   }
@@ -2268,6 +2303,38 @@ export class HomeComponent {
     this.isProcessingDeal.set(id);
     this.dealActionError.set(null);
     this.dealsApi.openDispute(Number(id), value.reasonId, value.details.trim()).subscribe({
+      next: (response) => {
+        this.isProcessingDeal.set(null);
+        if (!response.success) {
+          this.dealActionError.set('home_deal_action_error');
+          return;
+        }
+        this.closePanels();
+        this.loadDeals();
+      },
+      error: () => {
+        this.isProcessingDeal.set(null);
+        this.dealActionError.set('home_deal_action_error');
+      },
+    });
+  }
+
+  openRatePanel(id: string): void {
+    this.closePanels();
+    this.rateForm.reset({ stars: 5, comment: '' });
+    this.activeRateDealId.set(id);
+  }
+
+  submitRate(id: string): void {
+    if (this.isProcessingDeal() || this.rateForm.invalid) {
+      this.rateForm.markAllAsTouched();
+      return;
+    }
+    const value = this.rateForm.getRawValue();
+    if (value.stars === null) return;
+    this.isProcessingDeal.set(id);
+    this.dealActionError.set(null);
+    this.dealsApi.rateDeal(Number(id), value.stars, value.comment?.trim() || undefined).subscribe({
       next: (response) => {
         this.isProcessingDeal.set(null);
         if (!response.success) {

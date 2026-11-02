@@ -1,0 +1,2343 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Etamid Collection",
+    "version": "1.0.0",
+    "description": "Generated from the Etamid Postman collection (Etamid_API.postman_collection.json) so it can be browsed and tried from Swagger UI alongside the code-generated Etamid.Api v1 definition.\n\nThis is a faithful listing of the collection, not the implemented contract: requests marked [Proposed] in the collection, and endpoints not yet implemented in the backend (wallet, notifications, company deals, support tickets, old deal names such as pay/ship), will return NOT_FOUND (404) when tried against a local backend. For the contract of what is actually implemented, see docs/etamid-openapi.yaml."
+  },
+  "servers": [
+    {
+      "url": "http://localhost:5080",
+      "description": "Local backend"
+    }
+  ],
+  "tags": [
+    {
+      "name": "🔐 Auth & Profile"
+    },
+    {
+      "name": "🏠 Home & Notifications"
+    },
+    {
+      "name": "🤝 Individual Deals"
+    },
+    {
+      "name": "💰 Wallet & Payments"
+    },
+    {
+      "name": "⚖️ Disputes & Support"
+    },
+    {
+      "name": "🏢 Company Deals"
+    },
+    {
+      "name": "⚙️ App Config & Content"
+    }
+  ],
+  "paths": {
+    "/api/v1/auth/register/individual": {
+      "post": {
+        "tags": [
+          "🔐 Auth & Profile"
+        ],
+        "summary": "Register Individual",
+        "operationId": "post_api_v1_auth_register_individual_Register_Individual",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "example": {
+                "username": "Nada Alsharawi",
+                "phone": "0551234567",
+                "email": "nada@example.com",
+                "password": "Passw0rd!",
+                "acceptTerms": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/register/company": {
+      "post": {
+        "tags": [
+          "🔐 Auth & Profile"
+        ],
+        "summary": "Register Company",
+        "operationId": "post_api_v1_auth_register_company_Register_Company",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "example": {
+                "companyName": "Future Tech Company",
+                "ownerPhone": "0501112233",
+                "commercialRegNo": "1010123456",
+                "taxNo": "300012345600003",
+                "email": "info@futuretech.example.com",
+                "password": "Passw0rd!",
+                "acceptTerms": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/otp/verify": {
+      "post": {
+        "tags": [
+          "🔐 Auth & Profile"
+        ],
+        "summary": "Verify OTP (Activate Account)",
+        "operationId": "post_api_v1_auth_otp_verify_Verify_OTP_Activate_Account",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "example": {
+                "phone": "0551234567",
+                "code": "123456"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/otp/resend": {
+      "post": {
+        "tags": [
+          "🔐 Auth & Profile"
+        ],
+        "summary": "Resend OTP",
+        "operationId": "post_api_v1_auth_otp_resend_Resend_OTP",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "example": {
+                "phone": "0551234567",
+                "purpose": "register"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/login": {
+      "post": {
+        "tags": [
+          "🔐 Auth & Profile"
+        ],
+        "summary": "Login",
+        "operationId": "post_api_v1_auth_login_Login",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "example": {
+                "phone": "0501234567",
+                "password": "Hossam@123"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/refresh": {
+      "post": {
+        "tags": [
+          "🔐 Auth & Profile"
+        ],
+        "summary": "Refresh Token",
+        "operationId": "post_api_v1_auth_refresh_Refresh_Token",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "example": {
+                "refreshToken": "{{refreshToken}}"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/logout": {
+      "post": {
+        "tags": [
+          "🔐 Auth & Profile"
+        ],
+        "summary": "Logout",
+        "operationId": "post_api_v1_auth_logout_Logout",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "example": {
+                "refreshToken": "{{refreshToken}}",
+                "deviceToken": "{{deviceToken}}"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/logout-all": {
+      "post": {
+        "tags": [
+          "🔐 Auth & Profile"
+        ],
+        "summary": "[Proposed] Logout From All Devices",
+        "operationId": "post_api_v1_auth_logout_all_Proposed_Logout_From_All_Devices",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/password/forgot": {
+      "post": {
+        "tags": [
+          "🔐 Auth & Profile"
+        ],
+        "summary": "Forgot Password — Step 1 (Send Code)",
+        "operationId": "post_api_v1_auth_password_forgot_Forgot_Password_Step_1_Send_Code",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "example": {
+                "phone": "0551234567"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/password/verify-otp": {
+      "post": {
+        "tags": [
+          "🔐 Auth & Profile"
+        ],
+        "summary": "Forgot Password — Step 2 (Verify Code)",
+        "operationId": "post_api_v1_auth_password_verify_otp_Forgot_Password_Step_2_Verify_Code",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "example": {
+                "phone": "0551234567",
+                "code": "123456"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/password/reset": {
+      "post": {
+        "tags": [
+          "🔐 Auth & Profile"
+        ],
+        "summary": "Forgot Password — Step 3 (New Password)",
+        "operationId": "post_api_v1_auth_password_reset_Forgot_Password_Step_3_New_Password",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "example": {
+                "resetToken": "{{resetToken}}",
+                "newPassword": "NewPassw0rd!",
+                "confirmPassword": "NewPassw0rd!"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/me": {
+      "get": {
+        "tags": [
+          "🔐 Auth & Profile"
+        ],
+        "summary": "Get My Profile",
+        "operationId": "get_api_v1_me_Get_My_Profile",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "🔐 Auth & Profile"
+        ],
+        "summary": "Update Profile",
+        "operationId": "put_api_v1_me_Update_Profile",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "example": {
+                "username": "Nada Alsharawi",
+                "email": "nada.new@example.com"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "🔐 Auth & Profile"
+        ],
+        "summary": "Delete Account",
+        "operationId": "delete_api_v1_me_Delete_Account",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/me/password": {
+      "put": {
+        "tags": [
+          "🔐 Auth & Profile"
+        ],
+        "summary": "Change Password",
+        "operationId": "put_api_v1_me_password_Change_Password",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "example": {
+                "currentPassword": "Passw0rd!",
+                "newPassword": "NewPassw0rd!"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/me/language": {
+      "put": {
+        "tags": [
+          "🔐 Auth & Profile"
+        ],
+        "summary": "Change Preferred Language",
+        "operationId": "put_api_v1_me_language_Change_Preferred_Language",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "example": {
+                "language": "en"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/me/avatar": {
+      "post": {
+        "tags": [
+          "🔐 Auth & Profile"
+        ],
+        "summary": "Change Profile Image",
+        "operationId": "post_api_v1_me_avatar_Change_Profile_Image",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/me/kyc/nafath/start": {
+      "post": {
+        "tags": [
+          "🔐 Auth & Profile"
+        ],
+        "summary": "Start Nafath Verification",
+        "operationId": "post_api_v1_me_kyc_nafath_start_Start_Nafath_Verification",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/me/kyc/nafath/status": {
+      "get": {
+        "tags": [
+          "🔐 Auth & Profile"
+        ],
+        "summary": "Nafath Verification Status",
+        "operationId": "get_api_v1_me_kyc_nafath_status_Nafath_Verification_Status",
+        "parameters": [
+          {
+            "name": "requestId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/me/bank-account": {
+      "get": {
+        "tags": [
+          "🔐 Auth & Profile"
+        ],
+        "summary": "Get Bank Account",
+        "operationId": "get_api_v1_me_bank_account_Get_Bank_Account",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "🔐 Auth & Profile"
+        ],
+        "summary": "Save Bank Account",
+        "operationId": "put_api_v1_me_bank_account_Save_Bank_Account",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "example": {
+                "holderName": "Nada Alsharawi",
+                "iban": "SA0380000000608010167519"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/devices": {
+      "post": {
+        "tags": [
+          "🔐 Auth & Profile"
+        ],
+        "summary": "Register Device",
+        "operationId": "post_api_v1_devices_Register_Device",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "example": {
+                "deviceToken": "{{deviceToken}}",
+                "platform": "android"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/devices/{deviceToken}": {
+      "delete": {
+        "tags": [
+          "🔐 Auth & Profile"
+        ],
+        "summary": "Unregister Device",
+        "operationId": "delete_api_v1_devices_deviceToken_Unregister_Device",
+        "parameters": [
+          {
+            "name": "deviceToken",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "fcm-mock-device-token"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/me/home": {
+      "get": {
+        "tags": [
+          "🏠 Home & Notifications"
+        ],
+        "summary": "Get Home Screen",
+        "operationId": "get_api_v1_me_home_Get_Home_Screen",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/notifications": {
+      "get": {
+        "tags": [
+          "🏠 Home & Notifications"
+        ],
+        "summary": "List Notifications",
+        "operationId": "get_api_v1_notifications_List_Notifications",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "1"
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "20"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/notifications/unread-count": {
+      "get": {
+        "tags": [
+          "🏠 Home & Notifications"
+        ],
+        "summary": "Unread Count",
+        "operationId": "get_api_v1_notifications_unread_count_Unread_Count",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/notifications/{notificationId}/read": {
+      "put": {
+        "tags": [
+          "🏠 Home & Notifications"
+        ],
+        "summary": "Mark One as Read",
+        "operationId": "put_api_v1_notifications_notificationId_read_Mark_One_as_Read",
+        "parameters": [
+          {
+            "name": "notificationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "1"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/notifications/read-all": {
+      "put": {
+        "tags": [
+          "🏠 Home & Notifications"
+        ],
+        "summary": "Mark All as Read",
+        "operationId": "put_api_v1_notifications_read_all_Mark_All_as_Read",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/users/lookup": {
+      "get": {
+        "tags": [
+          "🤝 Individual Deals"
+        ],
+        "summary": "Find Seller by Phone or Code",
+        "operationId": "get_api_v1_users_lookup_Find_Seller_by_Phone_or_Code",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "0559876543"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/sellers/{sellerId}/store": {
+      "get": {
+        "tags": [
+          "🤝 Individual Deals"
+        ],
+        "summary": "Get Store Page",
+        "operationId": "get_api_v1_sellers_sellerId_store_Get_Store_Page",
+        "parameters": [
+          {
+            "name": "sellerId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "102"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/sellers/{sellerId}/reviews": {
+      "get": {
+        "tags": [
+          "🤝 Individual Deals"
+        ],
+        "summary": "List Store Reviews",
+        "operationId": "get_api_v1_sellers_sellerId_reviews_List_Store_Reviews",
+        "parameters": [
+          {
+            "name": "sellerId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "102"
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "1"
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "20"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/deals": {
+      "post": {
+        "tags": [
+          "🤝 Individual Deals"
+        ],
+        "summary": "Create Deal",
+        "operationId": "post_api_v1_deals_Create_Deal",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "example": {
+                "title": "iPhone 18 Pro Max 1T",
+                "sellerPhoneOrCode": "0559876543",
+                "description": "Brand new original device, sealed box, delivered in the agreed condition.",
+                "amount": 6200,
+                "durationValue": 5,
+                "durationUnit": "day",
+                "needShipping": true,
+                "shippingCompanyId": 1,
+                "shippingAddressId": 1,
+                "acceptTerms": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "🤝 Individual Deals"
+        ],
+        "summary": "List Deals",
+        "operationId": "get_api_v1_deals_List_Deals",
+        "parameters": [
+          {
+            "name": "role",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "seller"
+          },
+          {
+            "name": "tab",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "new"
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "1"
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "20"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/deals/{dealId}": {
+      "get": {
+        "tags": [
+          "🤝 Individual Deals"
+        ],
+        "summary": "Get Deal Details",
+        "operationId": "get_api_v1_deals_dealId_Get_Deal_Details",
+        "parameters": [
+          {
+            "name": "dealId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "1"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/deals/{dealId}/accept": {
+      "post": {
+        "tags": [
+          "🤝 Individual Deals"
+        ],
+        "summary": "Accept Deal",
+        "operationId": "post_api_v1_deals_dealId_accept_Accept_Deal",
+        "parameters": [
+          {
+            "name": "dealId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "1"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "example": {
+                "acceptTerms": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/deals/{dealId}/reject": {
+      "post": {
+        "tags": [
+          "🤝 Individual Deals"
+        ],
+        "summary": "Reject Deal",
+        "operationId": "post_api_v1_deals_dealId_reject_Reject_Deal",
+        "parameters": [
+          {
+            "name": "dealId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "1"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "example": {
+                "reasonId": 3,
+                "note": null
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/deals/{dealId}/timeline": {
+      "get": {
+        "tags": [
+          "🤝 Individual Deals"
+        ],
+        "summary": "Get Deal Timeline",
+        "operationId": "get_api_v1_deals_dealId_timeline_Get_Deal_Timeline",
+        "parameters": [
+          {
+            "name": "dealId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "1"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/deals/{dealId}/edits": {
+      "post": {
+        "tags": [
+          "🤝 Individual Deals"
+        ],
+        "summary": "Propose an Edit",
+        "operationId": "post_api_v1_deals_dealId_edits_Propose_an_Edit",
+        "parameters": [
+          {
+            "name": "dealId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "1"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "example": {
+                "amount": 6400,
+                "durationValue": 7,
+                "durationUnit": "day"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/deals/{dealId}/edits/{editId}/approve": {
+      "post": {
+        "tags": [
+          "🤝 Individual Deals"
+        ],
+        "summary": "Approve Edit",
+        "operationId": "post_api_v1_deals_dealId_edits_editId_approve_Approve_Edit",
+        "parameters": [
+          {
+            "name": "dealId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "1"
+          },
+          {
+            "name": "editId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "1"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/deals/{dealId}/edits/{editId}/reject": {
+      "post": {
+        "tags": [
+          "🤝 Individual Deals"
+        ],
+        "summary": "Reject Edit",
+        "operationId": "post_api_v1_deals_dealId_edits_editId_reject_Reject_Edit",
+        "parameters": [
+          {
+            "name": "dealId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "1"
+          },
+          {
+            "name": "editId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "1"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/deals/{dealId}/pay": {
+      "post": {
+        "tags": [
+          "🤝 Individual Deals"
+        ],
+        "summary": "Pay and Hold Funds",
+        "operationId": "post_api_v1_deals_dealId_pay_Pay_and_Hold_Funds",
+        "parameters": [
+          {
+            "name": "dealId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "1"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "example": {
+                "paymentMethod": "apple_pay",
+                "paymentToken": "mock-apple-pay-token"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/deals/{dealId}/ship": {
+      "post": {
+        "tags": [
+          "🤝 Individual Deals"
+        ],
+        "summary": "Ship Deal (Seller)",
+        "operationId": "post_api_v1_deals_dealId_ship_Ship_Deal_Seller",
+        "parameters": [
+          {
+            "name": "dealId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "1"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "example": {
+                "trackingNumber": null
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/deals/{dealId}/tracking": {
+      "get": {
+        "tags": [
+          "🤝 Individual Deals"
+        ],
+        "summary": "Track Shipment",
+        "operationId": "get_api_v1_deals_dealId_tracking_Track_Shipment",
+        "parameters": [
+          {
+            "name": "dealId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "1"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/deals/{dealId}/confirm-delivery": {
+      "post": {
+        "tags": [
+          "🤝 Individual Deals"
+        ],
+        "summary": "Confirm Delivery",
+        "operationId": "post_api_v1_deals_dealId_confirm_delivery_Confirm_Delivery",
+        "parameters": [
+          {
+            "name": "dealId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "1"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/deals/{dealId}/not-received": {
+      "post": {
+        "tags": [
+          "🤝 Individual Deals"
+        ],
+        "summary": "Report Not Received",
+        "operationId": "post_api_v1_deals_dealId_not_received_Report_Not_Received",
+        "parameters": [
+          {
+            "name": "dealId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "1"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/deals/{dealId}/rating": {
+      "post": {
+        "tags": [
+          "🤝 Individual Deals"
+        ],
+        "summary": "Rate the Store",
+        "operationId": "post_api_v1_deals_dealId_rating_Rate_the_Store",
+        "parameters": [
+          {
+            "name": "dealId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "1"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "example": {
+                "stars": 5,
+                "comment": "Great product and fast delivery."
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/wallet": {
+      "get": {
+        "tags": [
+          "💰 Wallet & Payments"
+        ],
+        "summary": "Get Wallet",
+        "operationId": "get_api_v1_wallet_Get_Wallet",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/wallet/transactions": {
+      "get": {
+        "tags": [
+          "💰 Wallet & Payments"
+        ],
+        "summary": "Wallet Transactions",
+        "operationId": "get_api_v1_wallet_transactions_Wallet_Transactions",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "1"
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "20"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/wallet/withdraw": {
+      "post": {
+        "tags": [
+          "💰 Wallet & Payments"
+        ],
+        "summary": "Withdraw to Bank",
+        "operationId": "post_api_v1_wallet_withdraw_Withdraw_to_Bank",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "example": {
+                "amount": 1000
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/wallet/withdrawals": {
+      "get": {
+        "tags": [
+          "💰 Wallet & Payments"
+        ],
+        "summary": "List Withdrawals",
+        "operationId": "get_api_v1_wallet_withdrawals_List_Withdrawals",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/payments/intents": {
+      "post": {
+        "tags": [
+          "💰 Wallet & Payments"
+        ],
+        "summary": "[Proposed] Create Payment Intent",
+        "operationId": "post_api_v1_payments_intents_Proposed_Create_Payment_Intent",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "example": {
+                "dealId": 1,
+                "paymentMethod": "mada"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/payments/webhook": {
+      "post": {
+        "tags": [
+          "💰 Wallet & Payments"
+        ],
+        "summary": "Payment Gateway Webhook (Backend Only)",
+        "operationId": "post_api_v1_payments_webhook_Payment_Gateway_Webhook_Backend_Only",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "example": {
+                "eventId": "evt_001",
+                "type": "payment.succeeded",
+                "paymentId": "pay_001",
+                "amount": 6200,
+                "currency": "SAR"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/uploads": {
+      "post": {
+        "tags": [
+          "⚖️ Disputes & Support"
+        ],
+        "summary": "Upload a File",
+        "operationId": "post_api_v1_uploads_Upload_a_File",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/disputes": {
+      "post": {
+        "tags": [
+          "⚖️ Disputes & Support"
+        ],
+        "summary": "Open a Dispute",
+        "operationId": "post_api_v1_disputes_Open_a_Dispute",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "example": {
+                "dealId": 1,
+                "reasonId": 1,
+                "details": "The shipment was marked delivered but nothing arrived.",
+                "fileIds": [
+                  "{{fileId}}"
+                ],
+                "confirmed": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "⚖️ Disputes & Support"
+        ],
+        "summary": "List My Disputes",
+        "operationId": "get_api_v1_disputes_List_My_Disputes",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "1"
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "20"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/disputes/{disputeId}": {
+      "get": {
+        "tags": [
+          "⚖️ Disputes & Support"
+        ],
+        "summary": "Get Dispute Details",
+        "operationId": "get_api_v1_disputes_disputeId_Get_Dispute_Details",
+        "parameters": [
+          {
+            "name": "disputeId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "1"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/disputes/{disputeId}/messages": {
+      "post": {
+        "tags": [
+          "⚖️ Disputes & Support"
+        ],
+        "summary": "Add Dispute Message",
+        "operationId": "post_api_v1_disputes_disputeId_messages_Add_Dispute_Message",
+        "parameters": [
+          {
+            "name": "disputeId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "1"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "example": {
+                "message": "Attached the shipping receipt.",
+                "fileIds": [
+                  "{{fileId}}"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/support/contact": {
+      "post": {
+        "tags": [
+          "⚖️ Disputes & Support"
+        ],
+        "summary": "Contact Us (Create Ticket)",
+        "operationId": "post_api_v1_support_contact_Contact_Us_Create_Ticket",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "example": {
+                "subject": "Question about my deal",
+                "message": "I need help with deal #45872.",
+                "dealId": 1
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/support/tickets": {
+      "get": {
+        "tags": [
+          "⚖️ Disputes & Support"
+        ],
+        "summary": "My Support Tickets",
+        "operationId": "get_api_v1_support_tickets_My_Support_Tickets",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "1"
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "20"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/support/tickets/{ticketId}": {
+      "get": {
+        "tags": [
+          "⚖️ Disputes & Support"
+        ],
+        "summary": "[Proposed] Get Ticket Details",
+        "operationId": "get_api_v1_support_tickets_ticketId_Proposed_Get_Ticket_Details",
+        "parameters": [
+          {
+            "name": "ticketId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "1"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/support/faqs": {
+      "get": {
+        "tags": [
+          "⚖️ Disputes & Support"
+        ],
+        "summary": "List FAQs",
+        "operationId": "get_api_v1_support_faqs_List_FAQs",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/company/dashboard": {
+      "get": {
+        "tags": [
+          "🏢 Company Deals"
+        ],
+        "summary": "Company Dashboard",
+        "operationId": "get_api_v1_company_dashboard_Company_Dashboard",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/company/deals/drafts": {
+      "post": {
+        "tags": [
+          "🏢 Company Deals"
+        ],
+        "summary": "Step 1 — Deal Details (Create Draft)",
+        "operationId": "post_api_v1_company_deals_drafts_Step_1_Deal_Details_Create_Draft",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "example": {
+                "companyName": "Al-Nakheel Trading",
+                "title": "Supply of IT equipment",
+                "companyPhone": "0501112233",
+                "details": "Supply and installation of IT equipment according to the attached contract.",
+                "totalAmount": 2450000,
+                "startDate": "2026-09-20",
+                "contractFileId": "{{fileId}}"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/company/deals/drafts/{draftId}": {
+      "put": {
+        "tags": [
+          "🏢 Company Deals"
+        ],
+        "summary": "Step 1 — Update Draft Details",
+        "operationId": "put_api_v1_company_deals_drafts_draftId_Step_1_Update_Draft_Details",
+        "parameters": [
+          {
+            "name": "draftId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "1"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "example": {
+                "companyName": "Al-Nakheel Trading",
+                "title": "Supply of IT equipment",
+                "companyPhone": "0501112233",
+                "details": "Supply and installation of IT equipment according to the attached contract.",
+                "totalAmount": 2450000,
+                "startDate": "2026-09-20",
+                "contractFileId": "{{fileId}}"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/company/deals/drafts/{draftId}/schedule": {
+      "put": {
+        "tags": [
+          "🏢 Company Deals"
+        ],
+        "summary": "Step 2 — Payment Schedule",
+        "operationId": "put_api_v1_company_deals_drafts_draftId_schedule_Step_2_Payment_Schedule",
+        "parameters": [
+          {
+            "name": "draftId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "1"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "example": {
+                "payments": [
+                  {
+                    "amount": 612500,
+                    "dueDate": "2026-11-15"
+                  },
+                  {
+                    "amount": 612500,
+                    "dueDate": "2026-12-15"
+                  },
+                  {
+                    "amount": 612500,
+                    "dueDate": "2027-01-15"
+                  },
+                  {
+                    "amount": 612500,
+                    "dueDate": "2027-02-15"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/company/deals/drafts/{draftId}/approval-settings": {
+      "put": {
+        "tags": [
+          "🏢 Company Deals"
+        ],
+        "summary": "Step 3 — Approval Settings",
+        "operationId": "put_api_v1_company_deals_drafts_draftId_approval_settings_Step_3_Approval_Settings",
+        "parameters": [
+          {
+            "name": "draftId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "1"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "example": {
+                "sendRequestDaysBefore": 7,
+                "responseDeadlineDays": 3,
+                "notes": null
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/company/deals/drafts/{draftId}/penalty": {
+      "put": {
+        "tags": [
+          "🏢 Company Deals"
+        ],
+        "summary": "Step 4 — Penalty Clause",
+        "operationId": "put_api_v1_company_deals_drafts_draftId_penalty_Step_4_Penalty_Clause",
+        "parameters": [
+          {
+            "name": "draftId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "1"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "example": {
+                "percentage": 5,
+                "graceDays": 30,
+                "clauses": "5% of the total value applies automatically if the company delays any payment for more than 30 days after the due date."
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/company/deals/drafts/{draftId}/review": {
+      "get": {
+        "tags": [
+          "🏢 Company Deals"
+        ],
+        "summary": "Step 5 — Review",
+        "operationId": "get_api_v1_company_deals_drafts_draftId_review_Step_5_Review",
+        "parameters": [
+          {
+            "name": "draftId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "1"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/company/deals/drafts/{draftId}/submit": {
+      "post": {
+        "tags": [
+          "🏢 Company Deals"
+        ],
+        "summary": "Submit Deal",
+        "operationId": "post_api_v1_company_deals_drafts_draftId_submit_Submit_Deal",
+        "parameters": [
+          {
+            "name": "draftId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "1"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/company/deals": {
+      "get": {
+        "tags": [
+          "🏢 Company Deals"
+        ],
+        "summary": "List Company Deals",
+        "operationId": "get_api_v1_company_deals_List_Company_Deals",
+        "parameters": [
+          {
+            "name": "tab",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "active"
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "1"
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "20"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/company/deals/{companyDealId}": {
+      "get": {
+        "tags": [
+          "🏢 Company Deals"
+        ],
+        "summary": "Get Company Deal Details",
+        "operationId": "get_api_v1_company_deals_companyDealId_Get_Company_Deal_Details",
+        "parameters": [
+          {
+            "name": "companyDealId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "1"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/company/deals/{companyDealId}/accept": {
+      "post": {
+        "tags": [
+          "🏢 Company Deals"
+        ],
+        "summary": "Accept Company Deal",
+        "operationId": "post_api_v1_company_deals_companyDealId_accept_Accept_Company_Deal",
+        "parameters": [
+          {
+            "name": "companyDealId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "1"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/company/deals/{companyDealId}/reject": {
+      "post": {
+        "tags": [
+          "🏢 Company Deals"
+        ],
+        "summary": "Reject Company Deal",
+        "operationId": "post_api_v1_company_deals_companyDealId_reject_Reject_Company_Deal",
+        "parameters": [
+          {
+            "name": "companyDealId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "1"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "example": {
+                "reasonId": 2,
+                "note": null
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/company/deals/{companyDealId}/contract": {
+      "get": {
+        "tags": [
+          "🏢 Company Deals"
+        ],
+        "summary": "Get Contract Link",
+        "operationId": "get_api_v1_company_deals_companyDealId_contract_Get_Contract_Link",
+        "parameters": [
+          {
+            "name": "companyDealId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "1"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/company/payments/upcoming": {
+      "get": {
+        "tags": [
+          "🏢 Company Deals"
+        ],
+        "summary": "Upcoming Payments",
+        "operationId": "get_api_v1_company_payments_upcoming_Upcoming_Payments",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "1"
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "20"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/company/payments/{installmentId}": {
+      "get": {
+        "tags": [
+          "🏢 Company Deals"
+        ],
+        "summary": "Get Payment Details",
+        "operationId": "get_api_v1_company_payments_installmentId_Get_Payment_Details",
+        "parameters": [
+          {
+            "name": "installmentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "3"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/company/payments/{installmentId}/approve": {
+      "post": {
+        "tags": [
+          "🏢 Company Deals"
+        ],
+        "summary": "Approve Payment",
+        "operationId": "post_api_v1_company_payments_installmentId_approve_Approve_Payment",
+        "parameters": [
+          {
+            "name": "installmentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "3"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/company/payments/{installmentId}/reject": {
+      "post": {
+        "tags": [
+          "🏢 Company Deals"
+        ],
+        "summary": "Reject Payment",
+        "operationId": "post_api_v1_company_payments_installmentId_reject_Reject_Payment",
+        "parameters": [
+          {
+            "name": "installmentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "3"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "example": {
+                "reason": "Milestone 3 deliverables are incomplete."
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/config": {
+      "get": {
+        "tags": [
+          "⚙️ App Config & Content"
+        ],
+        "summary": "Get App Config",
+        "operationId": "get_api_v1_config_Get_App_Config",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/lookups/reject-reasons": {
+      "get": {
+        "tags": [
+          "⚙️ App Config & Content"
+        ],
+        "summary": "Lookup — reject-reasons",
+        "operationId": "get_api_v1_lookups_reject_reasons_Lookup_reject_reasons",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/lookups/dispute-reasons": {
+      "get": {
+        "tags": [
+          "⚙️ App Config & Content"
+        ],
+        "summary": "Lookup — dispute-reasons",
+        "operationId": "get_api_v1_lookups_dispute_reasons_Lookup_dispute_reasons",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/lookups/company-reject-reasons": {
+      "get": {
+        "tags": [
+          "⚙️ App Config & Content"
+        ],
+        "summary": "Lookup — company-reject-reasons",
+        "operationId": "get_api_v1_lookups_company_reject_reasons_Lookup_company_reject_reasons",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/lookups/duration-units": {
+      "get": {
+        "tags": [
+          "⚙️ App Config & Content"
+        ],
+        "summary": "Lookup — duration-units",
+        "operationId": "get_api_v1_lookups_duration_units_Lookup_duration_units",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/lookups/payment-methods": {
+      "get": {
+        "tags": [
+          "⚙️ App Config & Content"
+        ],
+        "summary": "Lookup — payment-methods",
+        "operationId": "get_api_v1_lookups_payment_methods_Lookup_payment_methods",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/lookups/shipping-companies": {
+      "get": {
+        "tags": [
+          "⚙️ App Config & Content"
+        ],
+        "summary": "Lookup — shipping-companies",
+        "operationId": "get_api_v1_lookups_shipping_companies_Lookup_shipping_companies",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/lookups/banks": {
+      "get": {
+        "tags": [
+          "⚙️ App Config & Content"
+        ],
+        "summary": "Lookup — banks",
+        "operationId": "get_api_v1_lookups_banks_Lookup_banks",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/terms/platform": {
+      "get": {
+        "tags": [
+          "⚙️ App Config & Content"
+        ],
+        "summary": "Terms — platform",
+        "operationId": "get_api_v1_terms_platform_Terms_platform",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/terms/deal": {
+      "get": {
+        "tags": [
+          "⚙️ App Config & Content"
+        ],
+        "summary": "Terms — deal",
+        "operationId": "get_api_v1_terms_deal_Terms_deal",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/terms/company": {
+      "get": {
+        "tags": [
+          "⚙️ App Config & Content"
+        ],
+        "summary": "Terms — company",
+        "operationId": "get_api_v1_terms_company_Terms_company",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  },
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ]
+}

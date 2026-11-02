@@ -79,6 +79,8 @@
   "DEAL_DELIVERED": "Delivery confirmed. The inspection period has started.",
   "DEAL_RELEASED": "Funds released to the seller.",
   "DEAL_DISPUTE_OPENED": "Dispute opened. The funds are frozen until it is resolved.",
+  "RATING_CREATED": "Your rating for the seller was submitted.",
+  "RATING_ALREADY_EXISTS": "This deal has already been rated.",
   "WEBHOOK_OK": "Webhook received.",
   "DEAL_NOT_FOUND": "The deal was not found.",
   "SELLER_NOT_FOUND": "No active seller was found with this phone number or code.",

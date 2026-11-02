@@ -80,7 +80,14 @@ app.UseStatusCodePages(async ctx =>
 if (!app.Environment.IsProduction())
 {
     app.UseSwagger();
-    app.UseSwaggerUI();
+    app.UseSwaggerUI(o =>
+    {
+        o.SwaggerEndpoint("/swagger/v1/swagger.json", "Etamid.Api v1");
+        // Second definition: the Postman collection, converted to OpenAPI.
+        // Listing an endpoint here does not implement it — unimplemented
+        // collection requests still return NOT_FOUND when tried.
+        o.SwaggerEndpoint("/collection-openapi.json", "Etamid Collection");
+    });
 }
 
 app.UseCors();
@@ -90,6 +97,14 @@ app.UseAuthorization();
 app.UseRateLimiter();
 
 app.MapControllers();
+
+// Serves the converted Postman collection as OpenAPI for Swagger UI.
+// The file is copied to the output folder by the csproj (Swagger/collection-openapi.json).
+app.MapGet("/collection-openapi.json", () =>
+{
+    var path = Path.Combine(AppContext.BaseDirectory, "Swagger", "collection-openapi.json");
+    return File.Exists(path) ? Results.File(path, "application/json") : Results.NotFound();
+});
 app.MapHealthChecks("/health", new HealthCheckOptions { Predicate = _ => false });
 app.MapHealthChecks("/health/ready", new HealthCheckOptions { Predicate = r => r.Tags.Contains("ready") });
 

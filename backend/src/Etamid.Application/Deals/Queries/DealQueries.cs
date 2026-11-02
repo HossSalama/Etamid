@@ -56,6 +56,11 @@ public sealed class GetMyDealsHandler(IApplicationDbContext db, ICurrentUser cur
             .Where(e => dealIds.Contains(e.DealId) && e.Status == EditStatus.Pending)
             .ToDictionaryAsync(e => e.DealId, ct);
 
+        var ratedDealIds = await db.Ratings.AsNoTracking()
+            .Where(x => dealIds.Contains(x.DealId))
+            .Select(x => x.DealId)
+            .ToHashSetAsync(ct);
+
         var imageFileIds = deals.Where(d => d.ImageFileId is not null).Select(d => d.ImageFileId!.Value).Distinct().ToList();
         var imageFiles = imageFileIds.Count == 0
             ? new Dictionary<long, Domain.Files.StoredFile>()
@@ -72,7 +77,7 @@ public sealed class GetMyDealsHandler(IApplicationDbContext db, ICurrentUser cur
             return new DealSummaryDto(
                 d.Id, d.Number, d.Title, d.Amount, d.Currency, ApiNames.Of(d.Status),
                 DealMapper.RoleOf(d, userId), other?.Name ?? string.Empty, other?.Code ?? string.Empty,
-                d.CreatedAt, DealActions.For(d, userId, now, pendingEdit), imageUrl);
+                d.CreatedAt, DealActions.For(d, userId, now, pendingEdit, ratedDealIds.Contains(d.Id)), imageUrl);
         }).ToList();
 
         return new PagedResult<DealSummaryDto>(items, page, pageSize, total);

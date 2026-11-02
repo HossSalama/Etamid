@@ -47,6 +47,7 @@ public interface IApplicationDbContext
     DbSet<IdempotencyRecord> IdempotencyKeys { get; }
     DbSet<Dispute> Disputes { get; }
     DbSet<DisputeMessage> DisputeMessages { get; }
+    DbSet<Rating> Ratings { get; }
 
     DbSet<TEntity> Set<TEntity>() where TEntity : class;
 

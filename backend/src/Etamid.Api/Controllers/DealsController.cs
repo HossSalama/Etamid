@@ -73,4 +73,8 @@ public sealed class DealsController : BaseApiController
     [HttpPost("{id:long}/dispute")]
     public async Task<IActionResult> Dispute(long id, OpenDisputeCommand command, CancellationToken ct)
         => Respond(await Sender.Send(command with { DealId = id }, ct), "DEAL_DISPUTE_OPENED", StatusCodes.Status201Created);
+
+    [HttpPost("{id:long}/rating")]
+    public async Task<IActionResult> Rate(long id, RateDealCommand command, CancellationToken ct)
+        => Respond(await Sender.Send(command with { DealId = id }, ct), "RATING_CREATED", StatusCodes.Status201Created);
 }

@@ -16,4 +16,11 @@
   <ItemGroup>
     <Content Update="Resources\**\*" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
+  <ItemGroup>
+    <!-- Generated from Etamid_API.postman_collection.json; served at /collection-openapi.json
+         and listed as a second definition in Swagger UI. The SDK already includes the file
+         as Content, so Update (not Include) only sets the copy behaviour, so the endpoint
+         works both from `dotnet run` and from a built DLL. -->
+    <Content Update="Swagger\collection-openapi.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
 </Project>

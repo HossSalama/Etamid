@@ -186,6 +186,13 @@ export class DealsService {
     return this.http.post<ApiResponse<unknown>>(`${this.baseUrl}/deals/${id}/dispute`, { reasonId, details });
   }
 
+  rateDeal(id: number, stars: number, comment?: string): Observable<ApiResponse<unknown>> {
+    return this.http.post<ApiResponse<unknown>>(`${this.baseUrl}/deals/${id}/rating`, {
+      stars,
+      ...(comment ? { comment } : {}),
+    });
+  }
+
   getDealDetail(id: number): Observable<ApiResponse<DealDetail>> {
     return this.http.get<ApiResponse<DealDetail>>(`${this.baseUrl}/deals/${id}`);
   }

@@ -54,6 +54,9 @@ internal static class DealMapper
             imageUrl = files.Resolve(await db.Files.AsNoTracking()
                 .FirstOrDefaultAsync(f => f.Id == imageFileId, ct));
 
+        var alreadyRated = d.Status == DealStatus.Released
+            && await db.Ratings.AsNoTracking().AnyAsync(x => x.DealId == d.Id, ct);
+
         return new DealDetailDto(
             d.Id, d.Number, d.Title, d.Description, d.Amount, d.Currency, ApiNames.Of(d.Status),
             RoleOf(d, viewerId), other?.Name ?? string.Empty, other?.Code ?? string.Empty,
@@ -62,7 +65,7 @@ internal static class DealMapper
             d.CreatedAt, d.RespondDeadlineAt, d.AcceptedAt, d.FundedAt, d.DeliveredAt,
             d.InspectionEndsAt, d.CompletedAt, d.ExpiresAt,
             d.ContractHash, pendingEdit is null ? null : MapEdit(pendingEdit, d),
-            DealActions.For(d, viewerId, now, pendingEdit), timeline, imageUrl);
+            DealActions.For(d, viewerId, now, pendingEdit, alreadyRated), timeline, imageUrl);
     }
 
     public static DealEditDto MapEdit(DealEditRequest e, Deal d) => new(
