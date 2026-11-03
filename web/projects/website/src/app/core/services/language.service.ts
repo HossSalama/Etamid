@@ -296,6 +296,13 @@ export class LanguageService {
       product_err_REQUIRED: 'مطلوب',
       product_err_TOO_LONG: 'أطول من المسموح',
       product_err_INVALID_VALUE: 'قيمة غير صالحة',
+
+      // Shop feed
+      shop_nav: 'تسوق',
+      shop_title: 'تسوق المنتجات',
+      shop_loading: 'جارٍ تحميل المنتجات...',
+      shop_empty: 'لسه مفيش منتجات معروضة.',
+      shop_order: 'اطلب المنتج',
       home_deal_release: 'تأكيد الاستلام وتحرير المبلغ',
       home_deal_releasing: 'جارٍ تحرير المبلغ...',
       home_deal_release_confirm: 'هل تؤكد استلام الطلب؟ سيؤدي التأكيد إلى تحرير مبلغ الضمان للبائع.',
@@ -875,6 +882,13 @@ export class LanguageService {
       product_err_REQUIRED: 'required',
       product_err_TOO_LONG: 'too long',
       product_err_INVALID_VALUE: 'invalid value',
+
+      // Shop feed
+      shop_nav: 'Shop',
+      shop_title: 'Shop products',
+      shop_loading: 'Loading products...',
+      shop_empty: 'No products listed yet.',
+      shop_order: 'Order product',
       home_deal_release: 'Confirm receipt and release funds',
       home_deal_releasing: 'Releasing escrow...',
       home_deal_release_confirm: 'Confirm receipt? This will release the escrow amount to the seller.',

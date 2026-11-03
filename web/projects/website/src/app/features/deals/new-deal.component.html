@@ -70,6 +70,7 @@
                     <span>{{ seller.storeName }}</span>
                   }
                   <span>{{ lang.t('deal_lookup_rating') }}: {{ seller.rating }} · {{ seller.successfulDeals }} {{ lang.t('deal_lookup_deals') }}</span>
+                  <a [routerLink]="['/store', seller.sellerId]">{{ lang.t('store_view_store') }}</a>
                   @if (seller.emailVerified || seller.nafathVerified) {
                     <span>{{ seller.emailVerified ? '✓ ' + lang.t('deal_lookup_email_verified') : '' }} {{ seller.nafathVerified ? '✓ ' + lang.t('deal_lookup_nafath_verified') : '' }}</span>
                   }

@@ -809,6 +809,10 @@ export interface DealItem {
           <span class="nav-icon">📑</span>
           <span class="nav-label">{{ lang.t('home_nav_deals') }}</span>
         </button>
+        <a class="nav-item" routerLink="/shop">
+          <span class="nav-icon">🛍️</span>
+          <span class="nav-label">{{ lang.t('shop_nav') }}</span>
+        </a>
         <button class="nav-item" [class.active]="activeNav() === 'wallet'" (click)="onNavWallet()">
           <span class="nav-icon">💳</span>
           <span class="nav-label">{{ lang.t('home_nav_wallet') }}</span>
@@ -1660,6 +1664,7 @@ export interface DealItem {
         cursor: pointer;
         font-size: 0.75rem;
         font-weight: 600;
+        text-decoration: none;
         transition: color 0.2s;
 
         .nav-icon {

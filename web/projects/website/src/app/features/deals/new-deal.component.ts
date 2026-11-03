@@ -84,6 +84,25 @@ export class NewDealComponent implements OnInit {
     }
     this.loadShippingCompanies();
     this.loadAddresses();
+    this.prefillFromProduct();
+  }
+
+  /**
+   * Prefill from a shop product ("order this item"): the seller is verified
+   * from their code and the item name, description and price are filled in.
+   * A deal description caps at 200 chars while a product description may be
+   * longer, so an over-long description is trimmed to what the deal accepts.
+   */
+  private prefillFromProduct(): void {
+    const fromProduct = (history.state as {
+      fromProduct?: { sellerCode: string; name: string; description: string | null; price: number };
+    }).fromProduct;
+    if (!fromProduct) return;
+    this.dealForm.controls.sellerPhoneOrCode.setValue(fromProduct.sellerCode);
+    this.dealForm.controls.title.setValue(fromProduct.name);
+    this.dealForm.controls.description.setValue((fromProduct.description ?? '').slice(0, 200));
+    this.dealForm.controls.amount.setValue(fromProduct.price);
+    this.lookupSeller();
   }
 
   setShipping(needed: boolean): void {

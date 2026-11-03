@@ -115,6 +115,21 @@ export interface Counterparty {
   nafathVerified: boolean;
   rating: number;
   successfulDeals: number;
+  sellerId: number;
+}
+
+export interface ShopProduct {
+  id: number;
+  name: string;
+  description: string | null;
+  price: number;
+  quantity: number;
+  imageUrl: string | null;
+  createdAt: string;
+  sellerId: number;
+  sellerName: string;
+  storeName: string | null;
+  sellerCode: string;
 }
 
 export interface ProposeEditRequest {
@@ -346,6 +361,12 @@ export class DealsService {
     formData.append('file', file, file.name);
     formData.append('purpose', 'store_banner');
     return this.http.post<ApiResponse<{ fileId: string; url: string }>>(`${this.baseUrl}/uploads`, formData);
+  }
+
+  getShopProducts(page = 1, pageSize = 20): Observable<ApiResponse<ShopProduct[]>> {
+    return this.http.get<ApiResponse<ShopProduct[]>>(`${this.baseUrl}/products`, {
+      params: { page, pageSize },
+    });
   }
 
   getSellerProducts(sellerId: number, page = 1, pageSize = 20): Observable<ApiResponse<Product[]>> {

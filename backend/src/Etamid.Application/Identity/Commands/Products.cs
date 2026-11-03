@@ -398,3 +398,50 @@ public static class ProductTemplate
         return stream.ToArray();
     }
 }
+
+// ---------- GET /products (the shop feed: every seller's products, newest first)
+
+/// <summary>A product in the shop feed, with the seller it belongs to so the
+/// card can link to that seller's store page.</summary>
+public sealed record ShopProductDto(
+    long Id, string Name, string? Description, decimal Price, int Quantity, string? ImageUrl, DateTime CreatedAt,
+    long SellerId, string SellerName, string? StoreName, string SellerCode);
+
+public sealed record ListShopProductsQuery(int Page = 1, int PageSize = 20)
+    : IRequest<Result<PagedResult<ShopProductDto>>>;
+
+public sealed class ListShopProductsHandler(IApplicationDbContext db, ICurrentUser currentUser, IFileUrlResolver urls)
+    : IRequestHandler<ListShopProductsQuery, Result<PagedResult<ShopProductDto>>>
+{
+    public async Task<Result<PagedResult<ShopProductDto>>> Handle(ListShopProductsQuery r, CancellationToken ct)
+    {
+        if (currentUser.UserId is not { } _) return CommonErrors.Unauthorized;
+
+        var page = Math.Max(r.Page, 1);
+        var pageSize = Math.Clamp(r.PageSize, 1, 50);
+        var query = db.Products.AsNoTracking();
+        var total = await query.CountAsync(ct);
+        var items = await query
+            .OrderByDescending(p => p.CreatedAt).ThenByDescending(p => p.Id)
+            .Skip((page - 1) * pageSize).Take(pageSize)
+            .ToListAsync(ct);
+
+        var fileIds = items.Where(p => p.ImageFileId is not null).Select(p => p.ImageFileId!.Value).Distinct().ToList();
+        var files = await db.Files.AsNoTracking().Where(f => fileIds.Contains(f.Id))
+            .ToDictionaryAsync(f => f.Id, ct);
+        var sellerIds = items.Select(p => p.SellerId).Distinct().ToList();
+        var sellers = await db.Users.AsNoTracking().Where(u => sellerIds.Contains(u.Id))
+            .ToDictionaryAsync(u => u.Id, ct);
+        var stores = await db.StoreProfiles.AsNoTracking().Where(s => sellerIds.Contains(s.UserId))
+            .ToDictionaryAsync(s => s.UserId, s => s.StoreName, ct);
+
+        IReadOnlyList<ShopProductDto> dtos = items.Select(p => new ShopProductDto(
+            p.Id, p.Name, p.Description, p.Price, p.Quantity,
+            p.ImageFileId is { } fileId ? urls.Resolve(files.GetValueOrDefault(fileId)) : null,
+            p.CreatedAt, p.SellerId,
+            sellers.GetValueOrDefault(p.SellerId)?.Name ?? string.Empty,
+            stores.GetValueOrDefault(p.SellerId),
+            sellers.GetValueOrDefault(p.SellerId)?.Code ?? string.Empty)).ToList();
+        return new PagedResult<ShopProductDto>(dtos, page, pageSize, total);
+    }
+}

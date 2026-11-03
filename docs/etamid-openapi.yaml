@@ -701,8 +701,9 @@ paths:
       description: |
         بحث دقيق (exact) بالجوال السعودي أو الكود العام فقط — نفس مطابقة أمر
         الإنشاء — وليس بحثا جزئيا، حتى لا يمكن تعداد الحسابات. المتصل نفسه
-        مستثنى (404). الرد لا يحتوي id ولا جوال ولا بريد، فقط ما يلزم للتأكد
-        من هوية البائع قبل الإنشاء.
+        مستثنى (404). الرد لا يحتوي جوال ولا بريد، فقط ما يلزم للتأكد
+        من هوية البائع قبل الإنشاء، بالإضافة إلى sellerId لربط المعاينة
+        بصفحة المتجر.
       parameters:
         - { name: q, in: query, required: true, schema: { type: string, maxLength: 50 } }
       responses:
@@ -1146,6 +1147,27 @@ paths:
                   - type: object
                     properties:
                       data: { type: array, items: { $ref: '#/components/schemas/Review' } }
+  /products:
+    get:
+      tags: [Deals]
+      summary: صفحة التسوق — كل منتجات كل البائعين، بالأحدث
+      description: |
+        تغذية الاكتشاف: أي مستخدم مسجل دخول يشوف كل المنتجات مع البائع
+        والمتجر التابع لها، لفتح صفحة المتجر منها. بلا بحث في المرحلة دي.
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data: { type: array, items: { $ref: '#/components/schemas/ShopProduct' } }
   /sellers/{id}/products:
     get:
       tags: [Deals]
@@ -2071,7 +2093,7 @@ components:
         createdAt: { type: string, format: date-time }
     Counterparty:
       type: object
-      description: كما يرجعه GET /users/lookup. لا يحتوي id ولا جوال ولا بريد عمدا.
+      description: كما يرجعه GET /users/lookup. لا يحتوي جوال ولا بريد عمدا؛ sellerId موجود لربط المعاينة بصفحة المتجر.
       properties:
         name: { type: string }
         code: { type: string }
@@ -2081,6 +2103,7 @@ components:
         nafathVerified: { type: boolean }
         rating: { type: number }
         successfulDeals: { type: integer }
+        sellerId: { type: integer }
     DealStatus:
       type: string
       description: الحالات الفعلية فقط (snake_case). القيم القديمة draft/pending_seller/accepted/shipped/delivered/completed غير موجودة في الكود.
@@ -2265,6 +2288,17 @@ components:
         imageUrl: { type: string, nullable: true }
         createdAt: { type: string, format: date-time }
         imageFileId: { type: string, nullable: true, description: 'المعرّف العام لصورة المنتج، ليدور محرر المتجر على الصورة القديمة عند الحفظ' }
+    ShopProduct:
+      type: object
+      description: منتج في صفحة التسوق مع بائعه ومتجره، لربط الكارت بصفحة المتجر.
+      allOf:
+        - $ref: '#/components/schemas/Product'
+        - type: object
+          properties:
+            sellerId: { type: integer }
+            sellerName: { type: string }
+            storeName: { type: string, nullable: true }
+            sellerCode: { type: string, description: 'كود البائع العام، لفتح صفحة إنشاء صفقة منه' }
     ProductInput:
       type: object
       required: [name, price, quantity]

@@ -18,13 +18,17 @@ public sealed record DealEditDto(
     DateTime CreatedAt, DateTime? RespondedAt);
 
 /// <summary>
-/// Seller preview for GET /users/lookup. Deliberately minimal: no user id, no phone
-/// and no email — the caller already typed the phone/code, and only needs to confirm
-/// who they are about to deal with. Verified means the email address is verified.
+/// Seller preview for GET /users/lookup. Deliberately minimal: no phone and no
+/// email — the caller already typed the phone/code, and only needs to confirm
+/// who they are about to deal with. The seller id IS included, so the preview
+/// can link to the seller's store: the caller is authenticated, supplied the
+/// exact phone/code, and deal cards already expose counterparty ids.
+/// Verified means the email address is verified.
 /// </summary>
 public sealed record CounterpartyDto(
     string Name, string Code, string? StoreName, string? AvatarUrl,
-    bool EmailVerified, bool NafathVerified, decimal Rating, int SuccessfulDeals);
+    bool EmailVerified, bool NafathVerified, decimal Rating, int SuccessfulDeals,
+    long SellerId = 0);
 
 public sealed record DealDetailDto(
     long Id, long Number, string Title, string Description, decimal Amount, string Currency, string Status,

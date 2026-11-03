@@ -133,6 +133,13 @@ export const routes: Routes = [
       ),
   },
   {
+    path: 'shop',
+    loadComponent: () =>
+      import('./features/shop/shop-page.component').then(
+        (m) => m.ShopPageComponent
+      ),
+  },
+  {
     path: '**',
     redirectTo: 'home',
   },

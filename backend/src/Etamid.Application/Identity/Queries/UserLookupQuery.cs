@@ -15,7 +15,8 @@ namespace Etamid.Application.Identity.Queries;
 /// or public user code — the same match CreateDeal uses — not a directory search:
 /// partial queries return nothing, so accounts cannot be enumerated by guessing.
 /// The caller is excluded (you cannot deal with yourself), and the response
-/// deliberately contains no id, phone or email.
+/// deliberately contains no phone or email. The seller id is included so the
+/// preview can link to the seller's store.
 /// </summary>
 public sealed record LookupSellerQuery(string Q) : IRequest<Result<CounterpartyDto>>;
 
@@ -48,6 +49,6 @@ public sealed class LookupSellerHandler(
         return new CounterpartyDto(
             seller.Name, seller.Code, store?.StoreName, avatarUrl,
             seller.EmailVerifiedAt is not null, seller.NafathVerified,
-            store?.RatingAvg ?? 0m, store?.SuccessfulDeals ?? 0);
+            store?.RatingAvg ?? 0m, store?.SuccessfulDeals ?? 0, seller.Id);
     }
 }
