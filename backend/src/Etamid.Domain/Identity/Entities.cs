@@ -177,3 +177,19 @@ public sealed class AuthAuditLog : CreatedEntity<long>
     public long? DeviceId { get; set; }
     public string? Details { get; set; }
 }
+
+/// <summary>
+/// A product in a seller's store catalog. Display-only in v1: products are
+/// shown on the store page and managed by the seller, but they do not start
+/// deals and are not linked to escrow. Deleting a product removes its row;
+/// no deal ever references it, so no history is lost.
+/// </summary>
+public sealed class Product : AuditableEntity<long>
+{
+    public long SellerId { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string? Description { get; set; }
+    public decimal Price { get; set; }
+    public int Quantity { get; set; }
+    public long? ImageFileId { get; set; }
+}

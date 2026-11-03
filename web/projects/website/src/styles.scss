@@ -144,7 +144,9 @@ a {
 .profile-edit-form { display: grid; gap: 0.9rem; min-width: 0; padding-top: 0.35rem; }
 .profile-form-field { display: grid; gap: 0.4rem; min-width: 0; }
 .profile-form-field label { color: #374151; font-size: 0.86rem; font-weight: 750; }
-.profile-form-field input {
+.profile-form-field input,
+.profile-form-field select,
+.profile-form-field textarea {
   width: 100%;
   min-height: 46px;
   border: 1px solid #d1d5db;
@@ -156,8 +158,13 @@ a {
   outline: none;
   transition: border-color 150ms ease, box-shadow 150ms ease;
 }
-.profile-form-field input:focus { border-color: #eb5757; box-shadow: 0 0 0 3px rgba(235, 87, 87, 0.13); }
-.profile-form-field input[aria-invalid='true'] { border-color: #b91c1c; }
+.profile-form-field textarea { min-height: 90px; resize: vertical; }
+.profile-form-field input:focus,
+.profile-form-field select:focus,
+.profile-form-field textarea:focus { border-color: #eb5757; box-shadow: 0 0 0 3px rgba(235, 87, 87, 0.13); }
+.profile-form-field input[aria-invalid='true'],
+.profile-form-field select[aria-invalid='true'],
+.profile-form-field textarea[aria-invalid='true'] { border-color: #b91c1c; }
 .profile-field-error { color: #b91c1c; font-size: 0.78rem; font-weight: 650; }
 .profile-phone-locked { align-items: flex-start; }
 .profile-phone-value { display: grid; justify-items: end; gap: 0.35rem; min-width: 0; }

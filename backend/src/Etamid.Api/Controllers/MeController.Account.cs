@@ -46,6 +46,40 @@ public sealed partial class MeController
     public async Task<IActionResult> SaveStore(SaveMyStoreCommand command, CancellationToken ct)
         => Respond(await Sender.Send(command, ct), "STORE_SAVED");
 
+    // ---------- Products (the seller's own catalog, managed from the store editor)
+    [HttpGet("products")]
+    public async Task<IActionResult> ListMyProducts(
+        [FromQuery] int page = 1, [FromQuery] int pageSize = 20, CancellationToken ct = default)
+        => RespondPaged(await Sender.Send(new ListMyProductsQuery(page, pageSize), ct));
+
+    [HttpPost("products")]
+    public async Task<IActionResult> AddProduct(AddProductCommand command, CancellationToken ct)
+        => Respond(await Sender.Send(command, ct), "PRODUCT_SAVED", StatusCodes.Status201Created);
+
+    [HttpPut("products/{id:long}")]
+    public async Task<IActionResult> UpdateProduct(long id, UpdateProductCommand command, CancellationToken ct)
+        => Respond(await Sender.Send(command with { Id = id }, ct), "PRODUCT_SAVED");
+
+    [HttpDelete("products/{id:long}")]
+    public async Task<IActionResult> DeleteProduct(long id, CancellationToken ct)
+        => Respond(await Sender.Send(new DeleteProductCommand(id), ct), "PRODUCT_DELETED");
+
+    [HttpPost("products/import")]
+    [Consumes("multipart/form-data")]
+    [RequestSizeLimit(FileUploadService.MaxBytes + 1_048_576)]
+    public async Task<IActionResult> ImportProducts([FromForm] FileForm form, CancellationToken ct)
+    {
+        if (form.File is null) return Respond(SharedKernel.Result.Failure(FileErrors.Required));
+        return Respond(await Sender.Send(
+            new ImportProductsCommand(form.File.OpenReadStream(), form.File.FileName), ct), "PRODUCT_IMPORTED");
+    }
+
+    [HttpGet("products/template")]
+    public IActionResult DownloadProductTemplate()
+        => File(ProductTemplate.Build(),
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "etamid-products-template.xlsx");
+
     // ---------- Addresses
     [HttpGet("addresses")]
     public async Task<IActionResult> ListAddresses(CancellationToken ct)

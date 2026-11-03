@@ -163,6 +163,36 @@ export interface SellerReview {
   createdAt: string;
 }
 
+export interface Product {
+  id: number;
+  name: string;
+  description: string | null;
+  price: number;
+  quantity: number;
+  imageUrl: string | null;
+  createdAt: string;
+  imageFileId: string | null;
+}
+
+export interface ProductInput {
+  name: string;
+  description: string | null;
+  price: number;
+  quantity: number;
+  imagePublicId: string | null;
+}
+
+export interface ImportRowError {
+  row: number;
+  field: string;
+  code: string;
+}
+
+export interface ImportResult {
+  imported: number;
+  errors: ImportRowError[];
+}
+
 export interface UserAddress {
   id: number;
   label: string | null;
@@ -316,6 +346,47 @@ export class DealsService {
     formData.append('file', file, file.name);
     formData.append('purpose', 'store_banner');
     return this.http.post<ApiResponse<{ fileId: string; url: string }>>(`${this.baseUrl}/uploads`, formData);
+  }
+
+  getSellerProducts(sellerId: number, page = 1, pageSize = 20): Observable<ApiResponse<Product[]>> {
+    return this.http.get<ApiResponse<Product[]>>(`${this.baseUrl}/sellers/${sellerId}/products`, {
+      params: { page, pageSize },
+    });
+  }
+
+  getMyProducts(page = 1, pageSize = 20): Observable<ApiResponse<Product[]>> {
+    return this.http.get<ApiResponse<Product[]>>(`${this.baseUrl}/me/products`, {
+      params: { page, pageSize },
+    });
+  }
+
+  addProduct(input: ProductInput): Observable<ApiResponse<Product>> {
+    return this.http.post<ApiResponse<Product>>(`${this.baseUrl}/me/products`, input);
+  }
+
+  updateProduct(id: number, input: ProductInput): Observable<ApiResponse<Product>> {
+    return this.http.put<ApiResponse<Product>>(`${this.baseUrl}/me/products/${id}`, input);
+  }
+
+  deleteProduct(id: number): Observable<ApiResponse<unknown>> {
+    return this.http.delete<ApiResponse<unknown>>(`${this.baseUrl}/me/products/${id}`);
+  }
+
+  uploadProductImage(file: File): Observable<ApiResponse<{ fileId: string; url: string }>> {
+    const formData = new FormData();
+    formData.append('file', file, file.name);
+    formData.append('purpose', 'product_image');
+    return this.http.post<ApiResponse<{ fileId: string; url: string }>>(`${this.baseUrl}/uploads`, formData);
+  }
+
+  importProducts(file: File): Observable<ApiResponse<ImportResult>> {
+    const formData = new FormData();
+    formData.append('file', file, file.name);
+    return this.http.post<ApiResponse<ImportResult>>(`${this.baseUrl}/me/products/import`, formData);
+  }
+
+  downloadTemplate(): Observable<Blob> {
+    return this.http.get(`${this.baseUrl}/me/products/template`, { responseType: 'blob' });
   }
 
   getMyAddresses(): Observable<ApiResponse<UserAddress[]>> {

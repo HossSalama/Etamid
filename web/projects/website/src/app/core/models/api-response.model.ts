@@ -2,6 +2,9 @@ export interface ApiError {
   code: string;
   field?: string;
   message: string;
+  // The server marks error extras [JsonExtensionData], so they arrive flattened
+  // into the error object itself — e.g. the product-import row errors land here.
+  errors?: Array<{ row: number; field: string; code: string }>;
 }
 
 export interface ApiMeta {

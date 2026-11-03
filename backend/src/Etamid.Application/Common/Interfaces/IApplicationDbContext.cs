@@ -31,6 +31,7 @@ public interface IApplicationDbContext
     DbSet<ShippingCompany> ShippingCompanies { get; }
     DbSet<Faq> Faqs { get; }
     DbSet<StoreProfile> StoreProfiles { get; }
+    DbSet<Product> Products { get; }
     DbSet<Address> Addresses { get; }
     DbSet<NafathVerification> NafathVerifications { get; }
 

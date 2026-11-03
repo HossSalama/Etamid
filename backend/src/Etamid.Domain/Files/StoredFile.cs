@@ -2,7 +2,7 @@ using Etamid.Domain.Common;
 
 namespace Etamid.Domain.Files;
 
-public enum FilePurpose { Avatar, StoreBanner, DealImage, Dispute, Contract, Support, Other }
+public enum FilePurpose { Avatar, StoreBanner, DealImage, Dispute, Contract, Support, Other, ProductImage }
 public enum FileStatus { Uploaded, Attached, Quarantined, Deleted }
 
 /// <summary>Table "Files". Only metadata lives in the DB; the bytes are in object storage.</summary>

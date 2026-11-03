@@ -4,6 +4,7 @@ import { RouterLink } from '@angular/router';
 import { DealsService, LookupItem, MyStore } from '../../core/services/deals.service';
 import { AuthService } from '../../core/services/auth.service';
 import { LanguageService } from '../../core/services/language.service';
+import { MyProductsComponent } from './my-products.component';
 
 /**
  * The seller's own store editor, embedded in the profile section. Editing the
@@ -14,9 +15,9 @@ import { LanguageService } from '../../core/services/language.service';
 @Component({
   selector: 'app-store-editor',
   standalone: true,
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [ReactiveFormsModule, RouterLink, MyProductsComponent],
   template: `
-    <section class="store-editor-section">
+    <section class="profile-card store-editor-section">
       <div class="section-title-row">
         <h2 class="section-title">{{ lang.t('store_edit_title') }}</h2>
         @if (auth.currentUser()?.id) {
@@ -40,14 +41,14 @@ import { LanguageService } from '../../core/services/language.service';
       }
 
       <form class="store-editor-form" [formGroup]="storeForm" (ngSubmit)="save()" novalidate>
-        <label class="address-field">
+        <label class="profile-form-field">
           <span>{{ lang.t('store_name') }} *</span>
           <input type="text" formControlName="storeName" maxlength="150" />
           @if (storeForm.controls.storeName.touched && storeForm.controls.storeName.invalid) {
             <small class="profile-field-error">{{ lang.t('store_name_required') }}</small>
           }
         </label>
-        <label class="address-field">
+        <label class="profile-form-field">
           <span>{{ lang.t('store_category') }}</span>
           <select formControlName="categoryId">
             <option [ngValue]="null">{{ lang.t('store_category_placeholder') }}</option>
@@ -56,7 +57,7 @@ import { LanguageService } from '../../core/services/language.service';
             }
           </select>
         </label>
-        <div class="address-field">
+        <div class="profile-form-field">
           <span>{{ lang.t('store_banner') }}</span>
           @if (bannerPreview() || store()?.bannerUrl) {
             <img class="store-editor-banner" [src]="bannerPreview() ?? store()!.bannerUrl!" [alt]="lang.t('store_banner')" />
@@ -79,12 +80,14 @@ import { LanguageService } from '../../core/services/language.service';
           </button>
         </div>
       </form>
+
+      <app-my-products />
     </section>
   `,
   styles: [`
     .store-editor-section { margin-top: 1.5rem; }
     .store-editor-stats { font-weight: 700; margin: 0.25rem 0 1rem; }
-    .store-editor-form { display: grid; gap: 0.75rem; border: 1px solid #e5e5e5; border-radius: 12px; padding: 1rem; }
+    .store-editor-form { display: grid; gap: 0.9rem; }
     .store-editor-banner { width: 100%; max-height: 180px; object-fit: cover; border-radius: 12px; }
   `],
 })

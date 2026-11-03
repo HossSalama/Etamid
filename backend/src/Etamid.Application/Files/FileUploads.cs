@@ -93,6 +93,7 @@ public sealed class FileUploadService(IApplicationDbContext db, IFileStorage sto
         FilePurpose.Avatar => "avatars",
         FilePurpose.StoreBanner => "banners",
         FilePurpose.DealImage => "deals",
+        FilePurpose.ProductImage => "products",
         FilePurpose.Dispute => "disputes",
         FilePurpose.Contract => "contracts",
         FilePurpose.Support => "support",
@@ -113,7 +114,8 @@ public sealed class UploadFileHandler(FileUploadService uploads, IApplicationDbC
         ["dispute"] = FilePurpose.Dispute,
         ["contract"] = FilePurpose.Contract,
         ["support"] = FilePurpose.Support,
-        ["store_banner"] = FilePurpose.StoreBanner
+        ["store_banner"] = FilePurpose.StoreBanner,
+        ["product_image"] = FilePurpose.ProductImage
     };
 
     public async Task<Result<UploadedFileDto>> Handle(UploadFileCommand r, CancellationToken ct)
@@ -125,7 +127,7 @@ public sealed class UploadFileHandler(FileUploadService uploads, IApplicationDbC
             return Error.Validation("INVALID_VALUE", "purpose");
 
         var stored = await uploads.StoreAsync(r.Content, userId, purpose, r.FileName,
-            imagesOnly: purpose is FilePurpose.StoreBanner or FilePurpose.DealImage, ct);
+            imagesOnly: purpose is FilePurpose.StoreBanner or FilePurpose.DealImage or FilePurpose.ProductImage, ct);
         if (stored.IsFailure) return stored.Error;
 
         await db.SaveChangesAsync(ct);

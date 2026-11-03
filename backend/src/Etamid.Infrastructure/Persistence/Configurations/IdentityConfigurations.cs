@@ -56,6 +56,19 @@ public sealed class StoreProfileConfiguration : IEntityTypeConfiguration<StorePr
     }
 }
 
+public sealed class ProductConfiguration : IEntityTypeConfiguration<Product>
+{
+    public void Configure(EntityTypeBuilder<Product> b)
+    {
+        b.Property(x => x.Name).HasMaxLength(150);
+        b.Property(x => x.Description).HasMaxLength(1000);
+        b.Property(x => x.Price).HasColumnType("decimal(18,2)");
+        b.HasIndex(x => x.SellerId);
+        b.ForeignKey<Product, User>(x => x.SellerId);
+        b.ForeignKey<Product, StoredFile>(x => x.ImageFileId);
+    }
+}
+
 public sealed class AddressConfiguration : IEntityTypeConfiguration<Address>
 {
     public void Configure(EntityTypeBuilder<Address> b)

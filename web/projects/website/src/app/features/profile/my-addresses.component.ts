@@ -14,7 +14,7 @@ import { LanguageService } from '../../core/services/language.service';
   standalone: true,
   imports: [ReactiveFormsModule],
   template: `
-    <section class="addresses-section">
+    <section class="profile-card addresses-section">
       <div class="section-title-row">
         <h2 class="section-title">{{ lang.t('addresses_title') }}</h2>
         @if (!isEditing() && addresses().length < 10) {
@@ -76,48 +76,48 @@ import { LanguageService } from '../../core/services/language.service';
         <form class="address-form" [formGroup]="addressForm" (ngSubmit)="save()" novalidate>
           <h3>{{ editingId() ? lang.t('addresses_edit_title') : lang.t('addresses_new_title') }}</h3>
           <div class="address-form-grid">
-            <label class="address-field">
+            <label class="profile-form-field">
               <span>{{ lang.t('addresses_label') }}</span>
               <input type="text" formControlName="label" maxlength="50" [placeholder]="lang.t('addresses_label_placeholder')" />
             </label>
-            <label class="address-field">
+            <label class="profile-form-field">
               <span>{{ lang.t('addresses_recipient_name') }} *</span>
               <input type="text" formControlName="recipientName" maxlength="150" />
               @if (addressForm.controls.recipientName.touched && addressForm.controls.recipientName.invalid) {
                 <small class="profile-field-error">{{ lang.t('addresses_required') }}</small>
               }
             </label>
-            <label class="address-field">
+            <label class="profile-form-field">
               <span>{{ lang.t('addresses_recipient_phone') }} *</span>
               <input type="tel" formControlName="recipientPhone" dir="ltr" maxlength="10" placeholder="05XXXXXXXX" />
               @if (addressForm.controls.recipientPhone.touched && addressForm.controls.recipientPhone.invalid) {
                 <small class="profile-field-error">{{ lang.t('addresses_phone_error') }}</small>
               }
             </label>
-            <label class="address-field">
+            <label class="profile-form-field">
               <span>{{ lang.t('addresses_city') }} *</span>
               <input type="text" formControlName="city" maxlength="80" />
               @if (addressForm.controls.city.touched && addressForm.controls.city.invalid) {
                 <small class="profile-field-error">{{ lang.t('addresses_required') }}</small>
               }
             </label>
-            <label class="address-field">
+            <label class="profile-form-field">
               <span>{{ lang.t('addresses_district') }}</span>
               <input type="text" formControlName="district" maxlength="80" />
             </label>
-            <label class="address-field">
+            <label class="profile-form-field">
               <span>{{ lang.t('addresses_street') }}</span>
               <input type="text" formControlName="street" maxlength="150" />
             </label>
-            <label class="address-field">
+            <label class="profile-form-field">
               <span>{{ lang.t('addresses_building') }}</span>
               <input type="text" formControlName="buildingNo" maxlength="20" />
             </label>
-            <label class="address-field">
+            <label class="profile-form-field">
               <span>{{ lang.t('addresses_postal') }}</span>
               <input type="text" formControlName="postalCode" maxlength="10" />
             </label>
-            <label class="address-field">
+            <label class="profile-form-field">
               <span>{{ lang.t('addresses_additional') }}</span>
               <input type="text" formControlName="additionalNo" maxlength="10" />
             </label>
@@ -139,14 +139,12 @@ import { LanguageService } from '../../core/services/language.service';
     .addresses-subtitle { opacity: 0.75; margin: 0.25rem 0 1rem; }
     .addresses-limit { font-weight: 600; }
     .addresses-list { display: grid; gap: 0.75rem; margin-bottom: 1rem; }
-    .address-card { display: flex; flex-wrap: wrap; gap: 0.75rem; justify-content: space-between; align-items: center; border: 1px solid #e5e5e5; border-radius: 12px; padding: 0.9rem 1rem; }
+    .address-card { display: flex; flex-wrap: wrap; gap: 0.75rem; justify-content: space-between; align-items: center; border: 1px solid #e5e7eb; border-radius: 12px; padding: 0.9rem 1rem; }
     .address-card-main { display: flex; flex-direction: column; gap: 0.2rem; }
     .address-default-badge { width: fit-content; font-size: 0.8rem; font-weight: 700; padding: 0.1rem 0.5rem; border-radius: 999px; background: #eef6ee; }
     .address-card-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
-    .address-form { border: 1px solid #e5e5e5; border-radius: 12px; padding: 1rem; margin-top: 1rem; }
-    .address-form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.75rem; margin: 0.75rem 0 1rem; }
-    .address-field { display: flex; flex-direction: column; gap: 0.25rem; }
-    .address-field input { padding: 0.55rem 0.7rem; border: 1px solid #ccc; border-radius: 8px; font: inherit; }
+    .address-form { margin-top: 1rem; }
+    .address-form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.9rem; margin: 0.75rem 0 1rem; }
   `],
 })
 export class MyAddressesComponent implements OnInit {
