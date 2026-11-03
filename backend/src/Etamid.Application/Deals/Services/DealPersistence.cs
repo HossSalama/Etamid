@@ -1,6 +1,8 @@
 using Etamid.Application.Common.Interfaces;
 using Etamid.Application.Deals;
 using Etamid.Domain.Deals;
+using Etamid.Domain.Identity;
+using Etamid.Domain.Identity.ValueObjects;
 using Etamid.SharedKernel;
 using Microsoft.EntityFrameworkCore;
 
@@ -57,6 +59,9 @@ internal static class DealMapper
         var alreadyRated = d.Status == DealStatus.Released
             && await db.Ratings.AsNoTracking().AnyAsync(x => x.DealId == d.Id, ct);
 
+        var (companyAr, companyEn, addressText, tracking, shipmentStatus) =
+            await ShippingInfoAsync(db, d, ct);
+
         return new DealDetailDto(
             d.Id, d.Number, d.Title, d.Description, d.Amount, d.Currency, ApiNames.Of(d.Status),
             RoleOf(d, viewerId), other?.Name ?? string.Empty, other?.Code ?? string.Empty,
@@ -65,7 +70,45 @@ internal static class DealMapper
             d.CreatedAt, d.RespondDeadlineAt, d.AcceptedAt, d.FundedAt, d.DeliveredAt,
             d.InspectionEndsAt, d.CompletedAt, d.ExpiresAt,
             d.ContractHash, pendingEdit is null ? null : MapEdit(pendingEdit, d),
-            DealActions.For(d, viewerId, now, pendingEdit, alreadyRated), timeline, imageUrl);
+            DealActions.For(d, viewerId, now, pendingEdit, alreadyRated), timeline, imageUrl,
+            companyAr, companyEn, addressText, tracking, shipmentStatus);
+    }
+
+    /// <summary>
+    /// The frozen snapshot is the source of truth; for deals created before snapshots
+    /// existed, fall back to the address as it is now (soft-deleted addresses are
+    /// already filtered out of queries, so a deleted address yields no text).
+    /// </summary>
+    public static async Task<(string? CompanyAr, string? CompanyEn, string? AddressText, string? Tracking, string? ShipmentStatus)>
+        ShippingInfoAsync(IApplicationDbContext db, Deal d, CancellationToken ct)
+    {
+        string? companyAr = null, companyEn = null;
+        if (d.ShippingCompanyId is { } companyId)
+        {
+            var company = await db.ShippingCompanies.AsNoTracking()
+                .FirstOrDefaultAsync(c => c.Id == companyId, ct);
+            companyAr = company?.NameAr;
+            companyEn = company?.NameEn;
+        }
+
+        string? addressText = d.ShippingAddressSnapshot;
+        if (addressText is null && d.ShippingAddressId is { } addressId)
+        {
+            var address = await db.Addresses.AsNoTracking().FirstOrDefaultAsync(a => a.Id == addressId, ct);
+            if (address is not null) addressText = ShippingSnapshotText(address);
+        }
+
+        var shipment = await db.Shipments.AsNoTracking().FirstOrDefaultAsync(s => s.DealId == d.Id, ct);
+        return (companyAr, companyEn, addressText, shipment?.TrackingNumber,
+            shipment is null ? null : ApiNames.Of(shipment.Status));
+    }
+
+    /// <summary>Recipient + phone + full address, capped at the 400-char snapshot column.</summary>
+    public static string ShippingSnapshotText(Address a)
+    {
+        var phone = PhoneNumber.TryParse(a.RecipientPhone, out var p) ? p!.Local : a.RecipientPhone;
+        var text = $"{a.RecipientName} — {phone} — {a.FullText}";
+        return text.Length <= 400 ? text : text[..400];
     }
 
     public static DealEditDto MapEdit(DealEditRequest e, Deal d) => new(

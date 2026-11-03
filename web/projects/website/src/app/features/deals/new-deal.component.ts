@@ -1,7 +1,7 @@
 import { DecimalPipe } from '@angular/common';
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { AbstractControl, FormBuilder, ReactiveFormsModule, ValidationErrors, ValidatorFn, Validators } from '@angular/forms';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
 import { DealsService, Counterparty, CreateDealRequest, CreatedDeal, LookupItem, UserAddress } from '../../core/services/deals.service';
 import { LanguageService } from '../../core/services/language.service';
@@ -16,7 +16,7 @@ const twoDecimalPlaces: ValidatorFn = (control: AbstractControl): ValidationErro
 @Component({
   selector: 'app-new-deal',
   standalone: true,
-  imports: [DecimalPipe, ReactiveFormsModule],
+  imports: [DecimalPipe, ReactiveFormsModule, RouterLink],
   templateUrl: './new-deal.component.html',
   styleUrl: './new-deal.component.scss',
 })
@@ -91,12 +91,20 @@ export class NewDealComponent implements OnInit {
     this.dealForm.controls.needShipping.setValue(needed);
     if (needed) {
       company.addValidators(Validators.required);
+      this.selectDefaultAddress();
     } else {
       company.clearValidators();
       company.setValue(null);
       this.dealForm.controls.shippingAddressId.setValue(null);
     }
     company.updateValueAndValidity();
+  }
+
+  /** The default saved address is pre-selected for shipping, when one exists. */
+  private selectDefaultAddress(): void {
+    if (this.dealForm.controls.shippingAddressId.value) return;
+    const fallback = this.addresses().find((a) => a.isDefault);
+    if (fallback) this.dealForm.controls.shippingAddressId.setValue(fallback.id);
   }
 
   onImageSelected(event: Event): void {
@@ -223,6 +231,7 @@ export class NewDealComponent implements OnInit {
       next: (response) => {
         this.isLoadingAddresses.set(false);
         this.addresses.set(response.success ? response.data ?? [] : []);
+        if (this.dealForm.controls.needShipping.value) this.selectDefaultAddress();
       },
       error: () => this.isLoadingAddresses.set(false),
     });

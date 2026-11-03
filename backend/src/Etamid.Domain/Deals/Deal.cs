@@ -96,7 +96,8 @@ public sealed class Deal : AuditableEntity<long>
         long buyerId, long sellerId, string title, string description, decimal amount,
         int durationValue, DurationUnit durationUnit, bool needShipping,
         long? shippingCompanyId, long? shippingAddressId, long? imageFileId,
-        string currency, DateTime now, TimeSpan respondWindow)
+        string currency, DateTime now, TimeSpan respondWindow,
+        string? shippingAddressSnapshot = null)
     {
         if (buyerId == sellerId) return DealErrors.SameParties;
         if (amount <= 0 || decimal.Round(amount, 2) != amount) return DealErrors.AmountInvalid;
@@ -117,6 +118,9 @@ public sealed class Deal : AuditableEntity<long>
             NeedShipping = needShipping,
             ShippingCompanyId = needShipping ? shippingCompanyId : null,
             ShippingAddressId = needShipping ? shippingAddressId : null,
+            // Frozen at creation: later edits or deletion of the address must not
+            // change the delivery address the two parties agreed on.
+            ShippingAddressSnapshot = needShipping ? shippingAddressSnapshot : null,
             ImageFileId = imageFileId,
             Status = DealStatus.PendingAcceptance,
             RespondDeadlineAt = now + respondWindow,

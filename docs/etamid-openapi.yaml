@@ -932,17 +932,34 @@ paths:
       tags: [Deals]
       summary: تسليم المعاملة (البائع فقط، من funded فقط)
       description: |
-        لا يوجد body ولا رقم تتبع في الكود الحالي. الاستدعاء ينقل الصفقة فورا
-        إلى inspection ويبدأ نافذة الفحص (نافذة الفحص = مدة الصفقة نفسها، وليست
-        إعدادا مستقلا). لا يوجد إنشاء Shipment ولا تتبع فعلي حاليا.
+        ينقل الصفقة فورا إلى inspection ويبدأ نافذة الفحص (نافذة الفحص = مدة
+        الصفقة نفسها، وليست إعدادا مستقلا). لصفقة شحن، ينشئ سجل Shipment:
+        رقم تتبع يدوي اختياري (trackingNumber، حتى 60 حرفا) يجعل حالة
+        الشحنة in_transit، وبدونه تكون created. رقم تتبع على صفقة بلا شحن
+        مرفوض بـ INVALID_VALUE. الـ body اختياري — عملاء قدامى يرسلون body
+        فارغا ما زالوا يعملون.
       parameters:
         - $ref: '#/components/parameters/DealId'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                trackingNumber: { type: string, nullable: true, description: رقم تتبع شركة الشحن، لصفقات الشحن فقط }
       responses:
         "200": { $ref: '#/components/responses/DealResult' }
   /deals/{id}/tracking:
     get:
       tags: [Deals]
-      summary: '[NOT IMPLEMENTED] تتبع الشحنة — لا يوجد endpoint تتبع ولا Shipment ينشأ عند التسليم'
+      summary: تتبع الشحنة (طرفا الصفقة فقط)
+      description: |
+        يعيد شحنة الصفقة إن وجدت: رقم التتبع اليدوي وحالة الشحنة
+        (created بدون رقم تتبع، in_transit برقم تتبع) وأحداث الشحنة
+        (فارغة في التتبع اليدوي v1 — الأحداث تأتي مع تكامل شركة شحن
+        مستقبلي). صفقة بلا شحن أو بلا شحنة تعيد حقولا null وقائمة
+        أحداث فارغة، لا 404. غير الطرفين يأخذ 404.
       parameters:
         - $ref: '#/components/parameters/DealId'
       responses:
@@ -958,15 +975,20 @@ paths:
                       data:
                         type: object
                         properties:
-                          trackingNumber: { type: string }
-                          status: { type: string }
+                          dealId: { type: integer }
+                          trackingNumber: { type: string, nullable: true }
+                          shipmentStatus: { type: string, nullable: true, enum: [created, picked_up, in_transit, out_for_delivery, delivered, failed, returned] }
+                          shippingCompanyNameAr: { type: string, nullable: true }
+                          shippingCompanyNameEn: { type: string, nullable: true }
                           events:
                             type: array
                             items:
                               type: object
                               properties:
-                                at: { type: string, format: date-time }
+                                code: { type: string }
                                 description: { type: string }
+                                location: { type: string, nullable: true }
+                                at: { type: string, format: date-time }
   /deals/{id}/release:
     post:
       tags: [Deals]
@@ -1946,6 +1968,12 @@ components:
         createdAt: { type: string, format: date-time }
         availableActions: { type: array, items: { $ref: '#/components/schemas/DealAction' } }
         imageUrl: { type: string, nullable: true, description: رابط صورة المنتج، أو null }
+        needShipping: { type: boolean }
+        shippingCompanyNameAr: { type: string, nullable: true }
+        shippingCompanyNameEn: { type: string, nullable: true }
+        shippingAddressText: { type: string, nullable: true, description: نص عنوان التوصيل المجمّد وقت إنشاء الصفقة }
+        trackingNumber: { type: string, nullable: true }
+        shipmentStatus: { type: string, nullable: true }
     Deal:
       type: object
       description: |
@@ -1996,6 +2024,11 @@ components:
               at: { type: string, format: date-time }
               note: { type: string, nullable: true }
         imageUrl: { type: string, nullable: true, description: رابط صورة المنتج، أو null }
+        shippingCompanyNameAr: { type: string, nullable: true }
+        shippingCompanyNameEn: { type: string, nullable: true }
+        shippingAddressText: { type: string, nullable: true, description: نص عنوان التوصيل المجمّد وقت إنشاء الصفقة }
+        trackingNumber: { type: string, nullable: true }
+        shipmentStatus: { type: string, nullable: true }
     FundSession:
       type: object
       description: كما يرجعه FundSessionDto من POST /deals/{id}/fund.

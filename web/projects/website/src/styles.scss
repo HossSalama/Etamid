@@ -657,3 +657,8 @@ a {
 
 .landing-footer-links { display: flex; gap: 1rem; flex-wrap: wrap; }
 .landing-footer-links a { color: #374151; font-weight: 700; text-decoration: none; }
+
+/* Shipping info on deal cards + tracking input (addresses feature). */
+.deal-shipping-info { display: flex; flex-direction: column; gap: 0.25rem; margin-top: 0.5rem; font-size: 0.9rem; }
+.deal-shipping-info p { margin: 0; }
+.tracking-input { flex: 1; min-width: 160px; padding: 0.55rem 0.7rem; border: 1px solid #ccc; border-radius: 8px; font: inherit; }

@@ -70,15 +70,22 @@ public sealed class CreateDealHandler(IApplicationDbContext db, ICurrentUser cur
             imageFileId = image.Id;
         }
 
+        // Freeze the delivery address into the deal at creation: the snapshot is
+        // what the seller ships to, even if the buyer later edits or deletes it.
+        string? addressSnapshot = null;
         if (r.NeedShipping)
         {
             var companyId = r.ShippingCompanyId!.Value;
             if (!await db.ShippingCompanies.AnyAsync(c => c.Id == companyId && c.IsActive, ct))
                 return Error.Validation("INVALID_VALUE", "shippingCompanyId");
 
-            if (r.ShippingAddressId is { } addressId &&
-                !await db.Addresses.AnyAsync(a => a.Id == addressId && a.UserId == buyerId, ct))
-                return Error.Validation("INVALID_VALUE", "shippingAddressId");
+            if (r.ShippingAddressId is { } addressId)
+            {
+                var address = await db.Addresses.FirstOrDefaultAsync(a => a.Id == addressId && a.UserId == buyerId, ct);
+                if (address is null)
+                    return Error.Validation("INVALID_VALUE", "shippingAddressId");
+                addressSnapshot = DealMapper.ShippingSnapshotText(address);
+            }
         }
 
         var settings = await DealSettings.LoadAsync(db, ct);
@@ -88,7 +95,8 @@ public sealed class CreateDealHandler(IApplicationDbContext db, ICurrentUser cur
         var created = Deal.Create(
             buyerId, seller.Id, r.Title, r.Description, r.Amount, r.DurationValue, unit,
             r.NeedShipping, r.ShippingCompanyId, r.ShippingAddressId, imageFileId,
-            settings.Currency, now, settings.RespondWindow);
+            settings.Currency, now, settings.RespondWindow,
+            shippingAddressSnapshot: addressSnapshot);
         if (created.IsFailure) return created.Error;
 
         db.Deals.Add(created.Value);
@@ -183,7 +191,18 @@ public sealed class RejectDealHandler(IApplicationDbContext db, ICurrentUser cur
 }
 
 // ======================================================================= Deliver
-public sealed record DeliverDealCommand(long DealId) : IRequest<Result<DealDetailDto>>;
+/// <summary>Seller hands over. For a shipping deal this also opens the manual shipment: an optional
+/// carrier tracking number the buyer can then see. No carrier integration in v1 (Aramex deferred).</summary>
+public sealed record DeliverDealCommand(long DealId, string? TrackingNumber = null) : IRequest<Result<DealDetailDto>>;
+
+public sealed class DeliverDealValidator : AbstractValidator<DeliverDealCommand>
+{
+    public DeliverDealValidator()
+    {
+        // Matches the Shipment.TrackingNumber column (60).
+        RuleFor(x => x.TrackingNumber!).MaximumLength(60).WithErrorCode("TOO_LONG").When(x => x.TrackingNumber is not null);
+    }
+}
 
 public sealed class DeliverDealHandler(IApplicationDbContext db, ICurrentUser currentUser, IClock clock, IFileUrlResolver files)
     : IRequestHandler<DeliverDealCommand, Result<DealDetailDto>>
@@ -195,6 +214,10 @@ public sealed class DeliverDealHandler(IApplicationDbContext db, ICurrentUser cu
         var deal = await db.Deals.FirstOrDefaultAsync(d => d.Id == r.DealId, ct);
         if (deal is null || !deal.IsParticipant(userId)) return DealErrors.NotFound;
 
+        var tracking = string.IsNullOrWhiteSpace(r.TrackingNumber) ? null : r.TrackingNumber.Trim();
+        if (tracking is not null && !deal.NeedShipping)
+            return Error.Validation("INVALID_VALUE", "trackingNumber");
+
         var hold = await db.EscrowHolds.AsNoTracking().FirstOrDefaultAsync(h => h.DealId == deal.Id, ct);
         var now = clock.UtcNow;
 
@@ -202,6 +225,19 @@ public sealed class DeliverDealHandler(IApplicationDbContext db, ICurrentUser cu
         var delivered = deal.Deliver(userId, now);
         if (delivered.IsFailure) return delivered.Error;
         if (hold is null || hold.Status != EscrowStatus.Held) return DealErrors.EscrowNotHeld;
+
+        // One shipment per deal (unique index on DealId): created here, at delivery,
+        // for shipping deals only — never for a deal without shipping.
+        if (deal.NeedShipping && !await db.Shipments.AnyAsync(s => s.DealId == deal.Id, ct))
+        {
+            db.Shipments.Add(new Shipment
+            {
+                DealId = deal.Id,
+                ShippingCompanyId = deal.ShippingCompanyId!.Value,
+                TrackingNumber = tracking,
+                Status = tracking is null ? ShipmentStatus.Created : ShipmentStatus.InTransit
+            });
+        }
 
         var saved = await db.SaveGuardedAsync(ct);
         if (saved.IsFailure) return saved.Error;

@@ -66,6 +66,19 @@ public sealed class GetMyDealsHandler(IApplicationDbContext db, ICurrentUser cur
             ? new Dictionary<long, Domain.Files.StoredFile>()
             : await db.Files.AsNoTracking().Where(f => imageFileIds.Contains(f.Id)).ToDictionaryAsync(f => f.Id, ct);
 
+        var companyIds = deals.Where(d => d.ShippingCompanyId is not null).Select(d => d.ShippingCompanyId!.Value).Distinct().ToList();
+        var companies = companyIds.Count == 0
+            ? new Dictionary<long, Domain.Config.ShippingCompany>()
+            : await db.ShippingCompanies.AsNoTracking().Where(c => companyIds.Contains(c.Id)).ToDictionaryAsync(c => c.Id, ct);
+
+        var addressIds = deals.Where(d => d.ShippingAddressId is not null).Select(d => d.ShippingAddressId!.Value).Distinct().ToList();
+        var addresses = addressIds.Count == 0
+            ? new Dictionary<long, Domain.Identity.Address>()
+            : await db.Addresses.AsNoTracking().Where(a => addressIds.Contains(a.Id)).ToDictionaryAsync(a => a.Id, ct);
+
+        var shipments = await db.Shipments.AsNoTracking()
+            .Where(s => dealIds.Contains(s.DealId)).ToDictionaryAsync(s => s.DealId, ct);
+
         IReadOnlyList<DealSummaryDto> items = deals.Select(d =>
         {
             var otherId = d.BuyerId == userId ? d.SellerId : d.BuyerId;
@@ -74,13 +87,51 @@ public sealed class GetMyDealsHandler(IApplicationDbContext db, ICurrentUser cur
             string? imageUrl = null;
             if (d.ImageFileId is { } imageFileId && imageFiles.TryGetValue(imageFileId, out var imageFile))
                 imageUrl = files.Resolve(imageFile);
+            companies.TryGetValue(d.ShippingCompanyId ?? -1, out var company);
+            var addressText = d.ShippingAddressSnapshot;
+            if (addressText is null && d.ShippingAddressId is { } addressId
+                && addresses.TryGetValue(addressId, out var address))
+                addressText = DealMapper.ShippingSnapshotText(address);
+            shipments.TryGetValue(d.Id, out var shipment);
             return new DealSummaryDto(
                 d.Id, d.Number, d.Title, d.Amount, d.Currency, ApiNames.Of(d.Status),
                 DealMapper.RoleOf(d, userId), other?.Name ?? string.Empty, other?.Code ?? string.Empty,
-                d.CreatedAt, DealActions.For(d, userId, now, pendingEdit, ratedDealIds.Contains(d.Id)), imageUrl);
+                d.CreatedAt, DealActions.For(d, userId, now, pendingEdit, ratedDealIds.Contains(d.Id)), imageUrl,
+                d.NeedShipping, company?.NameAr, company?.NameEn, addressText,
+                shipment?.TrackingNumber, shipment is null ? null : ApiNames.Of(shipment.Status));
         }).ToList();
 
         return new PagedResult<DealSummaryDto>(items, page, pageSize, total);
+    }
+}
+
+/// <summary>Manual tracking (v1): the shipment created at delivery, if any. No shipment yet means no tracking.</summary>
+public sealed record GetDealTrackingQuery(long DealId) : IRequest<Result<ShipmentTrackingDto>>;
+
+public sealed class GetDealTrackingHandler(IApplicationDbContext db, ICurrentUser currentUser)
+    : IRequestHandler<GetDealTrackingQuery, Result<ShipmentTrackingDto>>
+{
+    public async Task<Result<ShipmentTrackingDto>> Handle(GetDealTrackingQuery r, CancellationToken ct)
+    {
+        if (currentUser.UserId is not { } userId) return CommonErrors.Unauthorized;
+
+        var deal = await db.Deals.AsNoTracking().FirstOrDefaultAsync(d => d.Id == r.DealId, ct);
+        if (deal is null || !deal.IsParticipant(userId)) return DealErrors.NotFound;
+
+        var (companyAr, companyEn, _, tracking, shipmentStatus) =
+            await DealMapper.ShippingInfoAsync(db, deal, ct);
+
+        var shipment = await db.Shipments.AsNoTracking().FirstOrDefaultAsync(s => s.DealId == deal.Id, ct);
+        var events = shipment is null
+            ? []
+            : await db.ShipmentEvents.AsNoTracking()
+                .Where(e => e.ShipmentId == shipment.Id)
+                .OrderBy(e => e.EventAt).ThenBy(e => e.Id)
+                .Select(e => new ShipmentEventDto(e.Code, e.Description, e.Location, e.EventAt))
+                .ToListAsync(ct);
+
+        return Result.Success(new ShipmentTrackingDto(
+            deal.Id, tracking, shipmentStatus, companyAr, companyEn, events));
     }
 }
 

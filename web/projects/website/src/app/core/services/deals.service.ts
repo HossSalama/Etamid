@@ -51,6 +51,12 @@ export interface DealSummary {
   createdAt: string;
   availableActions: string[];
   imageUrl: string | null;
+  needShipping: boolean;
+  shippingCompanyNameAr: string | null;
+  shippingCompanyNameEn: string | null;
+  shippingAddressText: string | null;
+  trackingNumber: string | null;
+  shipmentStatus: string | null;
 }
 
 export interface FundSession {
@@ -125,8 +131,23 @@ export interface UserAddress {
   city: string;
   district: string | null;
   street: string | null;
+  buildingNo: string | null;
+  postalCode: string | null;
+  additionalNo: string | null;
   fullText: string;
   isDefault: boolean;
+}
+
+export interface AddressInput {
+  label: string | null;
+  recipientName: string;
+  recipientPhone: string;
+  city: string;
+  district: string | null;
+  street: string | null;
+  buildingNo: string | null;
+  postalCode: string | null;
+  additionalNo: string | null;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -215,8 +236,11 @@ export class DealsService {
     return this.http.post<ApiResponse<unknown>>(`${this.baseUrl}/payments/dev/deals/${id}/complete`, null);
   }
 
-  deliverDeal(id: number): Observable<ApiResponse<unknown>> {
-    return this.http.post<ApiResponse<unknown>>(`${this.baseUrl}/deals/${id}/deliver`, null);
+  deliverDeal(id: number, trackingNumber?: string): Observable<ApiResponse<unknown>> {
+    const tracking = (trackingNumber ?? '').trim();
+    return this.http.post<ApiResponse<unknown>>(`${this.baseUrl}/deals/${id}/deliver`, {
+      trackingNumber: tracking ? tracking : null,
+    });
   }
 
   releaseEscrow(id: number): Observable<ApiResponse<unknown>> {
@@ -231,6 +255,22 @@ export class DealsService {
 
   getMyAddresses(): Observable<ApiResponse<UserAddress[]>> {
     return this.http.get<ApiResponse<UserAddress[]>>(`${this.baseUrl}/me/addresses`);
+  }
+
+  addAddress(input: AddressInput): Observable<ApiResponse<UserAddress>> {
+    return this.http.post<ApiResponse<UserAddress>>(`${this.baseUrl}/me/addresses`, input);
+  }
+
+  updateAddress(id: number, input: AddressInput): Observable<ApiResponse<UserAddress>> {
+    return this.http.put<ApiResponse<UserAddress>>(`${this.baseUrl}/me/addresses/${id}`, input);
+  }
+
+  deleteAddress(id: number): Observable<ApiResponse<unknown>> {
+    return this.http.delete<ApiResponse<unknown>>(`${this.baseUrl}/me/addresses/${id}`);
+  }
+
+  setDefaultAddress(id: number): Observable<ApiResponse<unknown>> {
+    return this.http.put<ApiResponse<unknown>>(`${this.baseUrl}/me/addresses/${id}/default`, {});
   }
 
   private createIdempotencyKey(): string {

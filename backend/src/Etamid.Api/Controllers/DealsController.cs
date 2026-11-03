@@ -63,8 +63,13 @@ public sealed class DealsController : BaseApiController
         => Respond(await Sender.Send(new FundDealCommand(id, IdempotencyKey), ct), "DEAL_FUNDING_STARTED");
 
     [HttpPost("{id:long}/deliver")]
-    public async Task<IActionResult> Deliver(long id, CancellationToken ct)
-        => Respond(await Sender.Send(new DeliverDealCommand(id), ct), "DEAL_DELIVERED");
+    public async Task<IActionResult> Deliver(long id, DeliverDealCommand? command, CancellationToken ct)
+        // The body is optional: older clients post an empty body, newer ones send { trackingNumber }.
+        => Respond(await Sender.Send(new DeliverDealCommand(id, command?.TrackingNumber), ct), "DEAL_DELIVERED");
+
+    [HttpGet("{id:long}/tracking")]
+    public async Task<IActionResult> Tracking(long id, CancellationToken ct)
+        => Respond(await Sender.Send(new GetDealTrackingQuery(id), ct));
 
     [HttpPost("{id:long}/release")]
     public async Task<IActionResult> Release(long id, CancellationToken ct)

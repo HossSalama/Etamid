@@ -48,6 +48,10 @@ public interface IApplicationDbContext
     DbSet<Dispute> Disputes { get; }
     DbSet<DisputeMessage> DisputeMessages { get; }
     DbSet<Rating> Ratings { get; }
+    // The Shipments table already exists (Initial migration); only the interface
+    // exposure was missing, so no new migration is needed for tracking.
+    DbSet<Shipment> Shipments { get; }
+    DbSet<ShipmentEvent> ShipmentEvents { get; }
 
     DbSet<TEntity> Set<TEntity>() where TEntity : class;
 

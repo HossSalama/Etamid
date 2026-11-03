@@ -4,6 +4,7 @@ import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
 import { DealEdit, DealSummary, DealsService, LookupItem } from '../../core/services/deals.service';
 import { LanguageService } from '../../core/services/language.service';
+import { MyAddressesComponent } from '../profile/my-addresses.component';
 
 export interface DealItem {
   id: string;
@@ -19,12 +20,18 @@ export interface DealItem {
   availableActions: string[];
   pendingEdit: DealEdit | null;
   imageUrl: string | null;
+  needShipping: boolean;
+  shippingCompanyNameAr: string | null;
+  shippingCompanyNameEn: string | null;
+  shippingAddressText: string | null;
+  trackingNumber: string | null;
+  shipmentStatus: string | null;
 }
 
 @Component({
   selector: 'app-home',
   standalone: true,
-  imports: [RouterLink, ReactiveFormsModule],
+  imports: [RouterLink, ReactiveFormsModule, MyAddressesComponent],
   template: `
     @if (authService.isAuthenticated()) {
     <div class="app-screen home-screen">
@@ -224,6 +231,7 @@ export interface DealItem {
                 </div>
               }
             </div>
+            <app-my-addresses />
           </section>
         } @else {
         @if (!authService.isAuthenticated()) {
@@ -396,6 +404,24 @@ export interface DealItem {
                         {{ deal.statusText }}
                       </span>
                     </div>
+                    @if (deal.needShipping) {
+                      <div class="deal-shipping-info">
+                        @if (lang.isAr() ? deal.shippingCompanyNameAr : deal.shippingCompanyNameEn) {
+                          <span>🚚 {{ lang.isAr() ? deal.shippingCompanyNameAr : deal.shippingCompanyNameEn }}</span>
+                        }
+                        @if (deal.shippingAddressText) {
+                          <p>{{ lang.t('home_deal_shipping_address') }}: {{ deal.shippingAddressText }}</p>
+                        }
+                        @if (deal.trackingNumber) {
+                          <p>
+                            {{ lang.t('home_deal_tracking') }}: <strong dir="ltr">{{ deal.trackingNumber }}</strong>
+                            @if (deal.shipmentStatus) {
+                              <span>({{ lang.t('home_deal_shipment_' + deal.shipmentStatus) }})</span>
+                            }
+                          </p>
+                        }
+                      </div>
+                    }
                   </div>
 
                   @if (deal.availableActions.includes('accept')) {
@@ -433,13 +459,33 @@ export interface DealItem {
                   }
                   @if (deal.availableActions.includes('deliver')) {
                     <div class="deal-actions-row">
-                      <button
-                        (click)="deliverDeal(deal.id)"
-                        class="btn btn-black btn-deal-accept"
-                        [disabled]="isProcessingDeal() === deal.id"
-                      >
-                        {{ lang.t(isProcessingDeal() === deal.id ? 'home_deal_delivering' : 'home_deal_deliver') }}
-                      </button>
+                      @if (deal.needShipping && trackingDealId() === deal.id) {
+                        <input
+                          #trackingInput
+                          type="text"
+                          maxlength="60"
+                          class="tracking-input"
+                          [placeholder]="lang.t('home_deal_tracking_placeholder')"
+                        />
+                        <button
+                          (click)="deliverDeal(deal.id, trackingInput.value)"
+                          class="btn btn-black btn-deal-accept"
+                          [disabled]="isProcessingDeal() === deal.id"
+                        >
+                          {{ lang.t(isProcessingDeal() === deal.id ? 'home_deal_delivering' : 'home_deal_tracking_confirm') }}
+                        </button>
+                        <button type="button" class="btn btn-outline-coral" (click)="trackingDealId.set(null)">
+                          {{ lang.t('home_deal_tracking_cancel') }}
+                        </button>
+                      } @else {
+                        <button
+                          (click)="deal.needShipping ? trackingDealId.set(deal.id) : deliverDeal(deal.id)"
+                          class="btn btn-black btn-deal-accept"
+                          [disabled]="isProcessingDeal() === deal.id"
+                        >
+                          {{ lang.t(isProcessingDeal() === deal.id ? 'home_deal_delivering' : 'home_deal_deliver') }}
+                        </button>
+                      }
                     </div>
                   }
                   @if (deal.availableActions.includes('release')) {
@@ -1725,6 +1771,7 @@ export class HomeComponent {
   readonly dealLoadError = signal(false);
   readonly isAcceptingDeal = signal<string | null>(null);
   readonly isProcessingDeal = signal<string | null>(null);
+  readonly trackingDealId = signal<string | null>(null);
   readonly fakePaymentDealId = signal<string | null>(null);
   readonly dealActionError = signal<string | null>(null);
   readonly activeRejectDealId = signal<string | null>(null);
@@ -1834,6 +1881,12 @@ export class HomeComponent {
       availableActions: deal.availableActions ?? [],
       pendingEdit: null,
       imageUrl: deal.imageUrl ?? null,
+      needShipping: deal.needShipping ?? false,
+      shippingCompanyNameAr: deal.shippingCompanyNameAr ?? null,
+      shippingCompanyNameEn: deal.shippingCompanyNameEn ?? null,
+      shippingAddressText: deal.shippingAddressText ?? null,
+      trackingNumber: deal.trackingNumber ?? null,
+      shipmentStatus: deal.shipmentStatus ?? null,
     };
   }
 
@@ -2023,6 +2076,12 @@ export class HomeComponent {
       availableActions: [],
       pendingEdit: null,
       imageUrl: null,
+      needShipping: false,
+      shippingCompanyNameAr: null,
+      shippingCompanyNameEn: null,
+      shippingAddressText: null,
+      trackingNumber: null,
+      shipmentStatus: null,
     };
 
     this.deals.update((current) => [newDeal, ...current]);
@@ -2101,13 +2160,14 @@ export class HomeComponent {
     });
   }
 
-  deliverDeal(id: string): void {
+  deliverDeal(id: string, trackingNumber?: string): void {
     if (this.isProcessingDeal()) return;
     this.isProcessingDeal.set(id);
     this.dealActionError.set(null);
-    this.dealsApi.deliverDeal(Number(id)).subscribe({
+    this.dealsApi.deliverDeal(Number(id), trackingNumber).subscribe({
       next: (response) => {
         this.isProcessingDeal.set(null);
+        this.trackingDealId.set(null);
         if (!response.success) {
           this.dealActionError.set('home_deal_action_error');
           return;

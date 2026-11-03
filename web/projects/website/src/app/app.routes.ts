@@ -119,6 +119,13 @@ export const routes: Routes = [
       ),
   },
   {
+    path: 'addresses',
+    loadComponent: () =>
+      import('./features/profile/my-addresses.component').then(
+        (m) => m.MyAddressesComponent
+      ),
+  },
+  {
     path: '**',
     redirectTo: 'home',
   },

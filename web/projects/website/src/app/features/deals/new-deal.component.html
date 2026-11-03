@@ -220,7 +220,7 @@
                   }
                 </select>
                 @if (!isLoadingAddresses() && !addresses().length) {
-                  <small>{{ lang.t('deal_no_saved_addresses') }}</small>
+                  <small>{{ lang.t('deal_no_saved_addresses') }} <a routerLink="/addresses">{{ lang.t('deal_manage_addresses') }}</a></small>
                 }
               </div>
             </div>
