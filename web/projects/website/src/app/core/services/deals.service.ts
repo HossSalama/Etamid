@@ -51,6 +51,7 @@ export interface DealSummary {
   createdAt: string;
   availableActions: string[];
   imageUrl: string | null;
+  counterpartyId: number | null;
   needShipping: boolean;
   shippingCompanyNameAr: string | null;
   shippingCompanyNameEn: string | null;
@@ -121,6 +122,45 @@ export interface ProposeEditRequest {
   durationValue?: number | null;
   durationUnit?: 'hour' | 'day' | null;
   description?: string | null;
+}
+
+export interface SellerStore {
+  sellerId: number;
+  sellerName: string;
+  storeName: string | null;
+  categoryId: number | null;
+  category: string | null;
+  bannerUrl: string | null;
+  ratingAvg: number;
+  ratingCount: number;
+  successfulDeals: number;
+}
+
+export interface MyStore {
+  id: number;
+  name: string;
+  categoryId: number | null;
+  category: string | null;
+  bannerUrl: string | null;
+  rating: number;
+  successfulDeals: number;
+  bannerFileId: string | null;
+}
+
+export interface SaveStoreRequest {
+  storeName: string;
+  categoryId: number | null;
+  bannerFileId: string | null;
+}
+
+export interface SellerReview {
+  id: number;
+  dealId: number;
+  dealTitle: string;
+  stars: number;
+  comment: string | null;
+  raterName: string;
+  createdAt: string;
 }
 
 export interface UserAddress {
@@ -251,6 +291,31 @@ export class DealsService {
 
   getShippingCompanies(): Observable<ApiResponse<LookupItem[]>> {
     return this.http.get<ApiResponse<LookupItem[]>>(`${this.baseUrl}/lookups/shipping-companies`);
+  }
+
+  getSellerStore(sellerId: number): Observable<ApiResponse<SellerStore>> {
+    return this.http.get<ApiResponse<SellerStore>>(`${this.baseUrl}/sellers/${sellerId}/store`);
+  }
+
+  getSellerReviews(sellerId: number, page = 1, pageSize = 20): Observable<ApiResponse<SellerReview[]>> {
+    return this.http.get<ApiResponse<SellerReview[]>>(`${this.baseUrl}/sellers/${sellerId}/reviews`, {
+      params: { page, pageSize },
+    });
+  }
+
+  getMyStore(): Observable<ApiResponse<MyStore | null>> {
+    return this.http.get<ApiResponse<MyStore | null>>(`${this.baseUrl}/me/store`);
+  }
+
+  saveMyStore(request: SaveStoreRequest): Observable<ApiResponse<MyStore | null>> {
+    return this.http.put<ApiResponse<MyStore | null>>(`${this.baseUrl}/me/store`, request);
+  }
+
+  uploadBanner(file: File): Observable<ApiResponse<{ fileId: string; url: string }>> {
+    const formData = new FormData();
+    formData.append('file', file, file.name);
+    formData.append('purpose', 'store_banner');
+    return this.http.post<ApiResponse<{ fileId: string; url: string }>>(`${this.baseUrl}/uploads`, formData);
   }
 
   getMyAddresses(): Observable<ApiResponse<UserAddress[]>> {

@@ -126,6 +126,13 @@ export const routes: Routes = [
       ),
   },
   {
+    path: 'store/:sellerId',
+    loadComponent: () =>
+      import('./features/store/store-page.component').then(
+        (m) => m.StorePageComponent
+      ),
+  },
+  {
     path: '**',
     redirectTo: 'home',
   },

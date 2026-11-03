@@ -1096,10 +1096,13 @@ paths:
                       data: { $ref: '#/components/schemas/DisputeResult' }
         "409": { $ref: '#/components/responses/Conflict' }
   /sellers/{id}/store:
-    # [NOT IMPLEMENTED] غير منفذ في الكود الحالي — لا يستخدمه الموبايل
     get:
       tags: [Deals]
-      summary: صفحة المتجر (seller review page)
+      summary: صفحة المتجر العامة (أي مستخدم مسجل دخول)
+      description: |
+        تعرض كل حاجة ما عدا صفقات البائع: البانر والاسم والتصنيف والتقييم
+        وعدد الصفقات الناجحة. بائع بلا ملف متجر يرجع صفحة افتراضية (اسم
+        حسابه وتقييم صفر) بدل 404؛ بائع غير موجود فقط هو 404.
       parameters:
         - { name: id, in: path, required: true, schema: { type: integer } }
       responses:
@@ -1112,12 +1115,22 @@ paths:
                   - $ref: '#/components/schemas/Envelope'
                   - type: object
                     properties:
-                      data: { $ref: '#/components/schemas/Store' }
+                      data:
+                        type: object
+                        properties:
+                          sellerId: { type: integer }
+                          sellerName: { type: string }
+                          storeName: { type: string, nullable: true }
+                          categoryId: { type: integer, nullable: true }
+                          category: { type: string, nullable: true }
+                          bannerUrl: { type: string, nullable: true }
+                          ratingAvg: { type: number }
+                          ratingCount: { type: integer }
+                          successfulDeals: { type: integer }
   /sellers/{id}/reviews:
-    # [NOT IMPLEMENTED] غير منفذ في الكود الحالي — لا يستخدمه الموبايل
     get:
       tags: [Deals]
-      summary: تقييمات المتجر
+      summary: تقييمات المتجر (الظاهرة فقط، بلا بيانات خاصة)
       parameters:
         - { name: id, in: path, required: true, schema: { type: integer } }
         - $ref: '#/components/parameters/Page'
@@ -1974,6 +1987,7 @@ components:
         shippingAddressText: { type: string, nullable: true, description: نص عنوان التوصيل المجمّد وقت إنشاء الصفقة }
         trackingNumber: { type: string, nullable: true }
         shipmentStatus: { type: string, nullable: true }
+        counterpartyId: { type: integer, nullable: true, description: id الطرف الآخر، لربط كارت الصفقة بصفحة متجره }
     Deal:
       type: object
       description: |

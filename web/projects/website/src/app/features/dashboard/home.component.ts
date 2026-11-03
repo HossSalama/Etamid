@@ -5,11 +5,13 @@ import { AuthService } from '../../core/services/auth.service';
 import { DealEdit, DealSummary, DealsService, LookupItem } from '../../core/services/deals.service';
 import { LanguageService } from '../../core/services/language.service';
 import { MyAddressesComponent } from '../profile/my-addresses.component';
+import { StoreEditorComponent } from '../profile/store-editor.component';
 
 export interface DealItem {
   id: string;
   code: string;
   counterParty: string;
+  counterpartyId: string | null;
   role: 'مشتري' | 'بائع';
   title: string;
   description: string;
@@ -31,7 +33,7 @@ export interface DealItem {
 @Component({
   selector: 'app-home',
   standalone: true,
-  imports: [RouterLink, ReactiveFormsModule, MyAddressesComponent],
+  imports: [RouterLink, ReactiveFormsModule, MyAddressesComponent, StoreEditorComponent],
   template: `
     @if (authService.isAuthenticated()) {
     <div class="app-screen home-screen">
@@ -232,6 +234,7 @@ export interface DealItem {
               }
             </div>
             <app-my-addresses />
+            <app-store-editor />
           </section>
         } @else {
         @if (!authService.isAuthenticated()) {
@@ -377,6 +380,9 @@ export interface DealItem {
                     <div class="client-info">
                       <strong class="client-name">{{ deal.counterParty }}</strong>
                       <span class="deal-code">{{ lang.t('home_deal_code') }} #{{ deal.code }}</span>
+                      @if (deal.role === 'مشتري' && deal.counterpartyId) {
+                        <a class="deal-store-link" [routerLink]="['/store', deal.counterpartyId]">{{ lang.t('store_view_store') }}</a>
+                      }
                     </div>
                     <div class="deal-price-badge">
                       <span class="deal-amount">{{ deal.amount.toLocaleString() }}</span>
@@ -1871,6 +1877,7 @@ export class HomeComponent {
       id: String(deal.id),
       code: String(deal.number),
       counterParty: deal.counterpartyName || deal.counterpartyCode,
+      counterpartyId: deal.counterpartyId !== null && deal.counterpartyId !== undefined ? String(deal.counterpartyId) : null,
       role: deal.role === 'seller' ? 'بائع' : 'مشتري',
       title: deal.title,
       description: '',
@@ -2066,6 +2073,7 @@ export class HomeComponent {
       id: Date.now().toString(),
       code: Math.floor(10000 + Math.random() * 90000).toString(),
       counterParty: formVal.partyPhone || 'طرف آخر',
+      counterpartyId: null,
       role: 'بائع',
       title: formVal.title || '',
       description: formVal.description || '',

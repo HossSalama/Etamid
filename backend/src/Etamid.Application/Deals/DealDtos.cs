@@ -5,7 +5,8 @@ public sealed record DealSummaryDto(
     string Role, string CounterpartyName, string CounterpartyCode, DateTime CreatedAt,
     IReadOnlyList<string> AvailableActions, string? ImageUrl = null,
     bool NeedShipping = false, string? ShippingCompanyNameAr = null, string? ShippingCompanyNameEn = null,
-    string? ShippingAddressText = null, string? TrackingNumber = null, string? ShipmentStatus = null);
+    string? ShippingAddressText = null, string? TrackingNumber = null, string? ShipmentStatus = null,
+    long? CounterpartyId = null);
 
 public sealed record DealTimelineItemDto(string? From, string To, string ActorType, DateTime At, string? Note);
 

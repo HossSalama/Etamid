@@ -98,7 +98,7 @@ public sealed class GetMyDealsHandler(IApplicationDbContext db, ICurrentUser cur
                 DealMapper.RoleOf(d, userId), other?.Name ?? string.Empty, other?.Code ?? string.Empty,
                 d.CreatedAt, DealActions.For(d, userId, now, pendingEdit, ratedDealIds.Contains(d.Id)), imageUrl,
                 d.NeedShipping, company?.NameAr, company?.NameEn, addressText,
-                shipment?.TrackingNumber, shipment is null ? null : ApiNames.Of(shipment.Status));
+                shipment?.TrackingNumber, shipment is null ? null : ApiNames.Of(shipment.Status), otherId);
         }).ToList();
 
         return new PagedResult<DealSummaryDto>(items, page, pageSize, total);
