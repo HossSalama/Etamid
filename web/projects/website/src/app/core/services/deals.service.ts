@@ -268,6 +268,107 @@ export interface AddressInput {
   additionalNo: string | null;
 }
 
+export interface CompanyInstallmentInput {
+  label: string | null;
+  amount: number;
+  dueDate: string;
+}
+
+export interface CreateCompanyDealRequest {
+  counterpartyPhoneOrCode: string;
+  title: string;
+  details: string;
+  totalAmount: number;
+  startDate: string;
+  contractFilePublicId: string | null;
+  approvalSendDaysBefore: number | null;
+  approvalResponseDays: number | null;
+  approvalNotes: string | null;
+  penaltyPercent: number | null;
+  penaltyGraceDays: number | null;
+  penaltyClauses: string | null;
+  wizardStep: number;
+  installments: CompanyInstallmentInput[];
+}
+
+export interface CompanyInstallment {
+  id: number;
+  order: number;
+  label: string | null;
+  amount: number;
+  dueDate: string;
+  status: string;
+  approvalRequestedAt: string | null;
+  approvalDeadlineAt: string | null;
+  approvedAt: string | null;
+  paidAt: string | null;
+  isFunded: boolean;
+  penaltyAmount: number | null;
+  penaltyStatus: string | null;
+  rejectionReason: string | null;
+  availableActions: string[];
+}
+
+export interface CompanyPenalty {
+  id: number;
+  installmentId: number;
+  penaltyPercent: number;
+  baseAmount: number;
+  penaltyAmount: number;
+  daysLate: number;
+  status: string;
+  waiverReason: string | null;
+  appliedAt: string;
+}
+
+export interface CompanyDealSummary {
+  id: number;
+  number: number;
+  title: string;
+  counterpartyName: string;
+  counterpartyCode: string;
+  totalAmount: number;
+  currency: string;
+  status: string;
+  role: string;
+  startDate: string;
+  createdAt: string;
+  availableActions: string[];
+}
+
+export interface CompanyDealDetail extends CompanyDealSummary {
+  details: string;
+  creatorName: string;
+  hasContract: boolean;
+  contractFileUrl: string | null;
+  approvalSendDaysBefore: number | null;
+  approvalResponseDays: number | null;
+  approvalNotes: string | null;
+  penaltyPercent: number | null;
+  penaltyGraceDays: number;
+  penaltyClauses: string | null;
+  wizardStep: number;
+  rejectReasonId: number | null;
+  rejectNote: string | null;
+  submittedAt: string | null;
+  acceptedAt: string | null;
+  completedAt: string | null;
+  installments: CompanyInstallment[];
+  penalties: CompanyPenalty[];
+}
+
+export interface InstallmentFundSession {
+  paymentId: string;
+  companyDealId: number;
+  installmentId: number;
+  status: string;
+  amount: number;
+  currency: string;
+  provider: string;
+  providerPaymentId: string;
+  redirectUrl: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class DealsService {
   private readonly http = inject(HttpClient);
@@ -488,6 +589,73 @@ export class DealsService {
 
   setDefaultAddress(id: number): Observable<ApiResponse<unknown>> {
     return this.http.put<ApiResponse<unknown>>(`${this.baseUrl}/me/addresses/${id}/default`, {});
+  }
+
+  // ---------- Company deals ----------
+  getCompanyDeals(status?: string, page = 1, pageSize = 20): Observable<ApiResponse<CompanyDealSummary[]>> {
+    return this.http.get<ApiResponse<CompanyDealSummary[]>>(`${this.baseUrl}/company-deals`, {
+      params: { ...(status ? { status } : {}), page, pageSize },
+    });
+  }
+
+  getCompanyDeal(id: number): Observable<ApiResponse<CompanyDealDetail>> {
+    return this.http.get<ApiResponse<CompanyDealDetail>>(`${this.baseUrl}/company-deals/${id}`);
+  }
+
+  createCompanyDeal(request: CreateCompanyDealRequest): Observable<ApiResponse<CompanyDealDetail>> {
+    return this.http.post<ApiResponse<CompanyDealDetail>>(`${this.baseUrl}/company-deals`, request);
+  }
+
+  updateCompanyDeal(id: number, request: CreateCompanyDealRequest): Observable<ApiResponse<CompanyDealDetail>> {
+    return this.http.put<ApiResponse<CompanyDealDetail>>(`${this.baseUrl}/company-deals/${id}`, request);
+  }
+
+  submitCompanyDeal(id: number): Observable<ApiResponse<CompanyDealDetail>> {
+    return this.http.post<ApiResponse<CompanyDealDetail>>(`${this.baseUrl}/company-deals/${id}/submit`, {});
+  }
+
+  acceptCompanyDeal(id: number): Observable<ApiResponse<CompanyDealDetail>> {
+    return this.http.post<ApiResponse<CompanyDealDetail>>(`${this.baseUrl}/company-deals/${id}/accept`, { acceptTerms: true });
+  }
+
+  rejectCompanyDeal(id: number, reasonId: number, note?: string): Observable<ApiResponse<CompanyDealDetail>> {
+    return this.http.post<ApiResponse<CompanyDealDetail>>(`${this.baseUrl}/company-deals/${id}/reject`, {
+      reasonId,
+      ...(note ? { note } : {}),
+    });
+  }
+
+  cancelCompanyDeal(id: number): Observable<ApiResponse<CompanyDealDetail>> {
+    return this.http.post<ApiResponse<CompanyDealDetail>>(`${this.baseUrl}/company-deals/${id}/cancel`, {});
+  }
+
+  requestInstallmentApproval(dealId: number, installmentId: number): Observable<ApiResponse<CompanyDealDetail>> {
+    return this.http.post<ApiResponse<CompanyDealDetail>>(
+      `${this.baseUrl}/company-deals/${dealId}/installments/${installmentId}/request-approval`, {});
+  }
+
+  approveInstallment(dealId: number, installmentId: number): Observable<ApiResponse<CompanyDealDetail>> {
+    return this.http.post<ApiResponse<CompanyDealDetail>>(
+      `${this.baseUrl}/company-deals/${dealId}/installments/${installmentId}/approve`, {});
+  }
+
+  rejectInstallment(dealId: number, installmentId: number, reason: string): Observable<ApiResponse<CompanyDealDetail>> {
+    return this.http.post<ApiResponse<CompanyDealDetail>>(
+      `${this.baseUrl}/company-deals/${dealId}/installments/${installmentId}/reject`, { reason });
+  }
+
+  fundInstallment(dealId: number, installmentId: number): Observable<ApiResponse<InstallmentFundSession>> {
+    return this.http.post<ApiResponse<InstallmentFundSession>>(
+      `${this.baseUrl}/company-deals/${dealId}/installments/${installmentId}/fund`, null, {
+        headers: { 'X-Idempotency-Key': this.createIdempotencyKey() },
+      });
+  }
+
+  uploadContractFile(file: File): Observable<ApiResponse<{ fileId: string; url: string }>> {
+    const formData = new FormData();
+    formData.append('file', file, file.name);
+    formData.append('purpose', 'contract');
+    return this.http.post<ApiResponse<{ fileId: string; url: string }>>(`${this.baseUrl}/uploads`, formData);
   }
 
   private createIdempotencyKey(): string {

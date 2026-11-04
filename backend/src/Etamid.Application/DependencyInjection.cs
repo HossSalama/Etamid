@@ -37,6 +37,9 @@ public static class DependencyInjection
         services.AddScoped<Etamid.Application.Deals.Services.EscrowReleaseService>();
         services.AddScoped<Etamid.Application.Deals.Services.IdempotencyService>();
 
+        // Company deals and installment escrow
+        services.AddScoped<Etamid.Application.CompanyDeals.CompanyEscrowService>();
+
         // Files
         services.AddScoped<Etamid.Application.Files.FileUploadService>();
 

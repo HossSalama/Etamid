@@ -1,3 +1,4 @@
+using Etamid.Domain.CompanyDeals;
 using Etamid.Domain.Config;
 using Etamid.Domain.Deals;
 using Etamid.Domain.Disputes;
@@ -54,6 +55,14 @@ public interface IApplicationDbContext
     // exposure was missing, so no new migration is needed for tracking.
     DbSet<Shipment> Shipments { get; }
     DbSet<ShipmentEvent> ShipmentEvents { get; }
+
+    // Company deals: the tables already exist (Initial migration); only the
+    // interface exposure was missing, so no new migration is needed.
+    DbSet<CompanyDeal> CompanyDeals { get; }
+    DbSet<CompanyDealStatusHistory> CompanyDealStatusHistory { get; }
+    DbSet<PaymentInstallment> PaymentInstallments { get; }
+    DbSet<InstallmentApproval> InstallmentApprovals { get; }
+    DbSet<PenaltyCharge> PenaltyCharges { get; }
 
     DbSet<TEntity> Set<TEntity>() where TEntity : class;
 

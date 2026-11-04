@@ -1,7 +1,9 @@
 using System.Text.Json;
 using Etamid.Application.Common.Errors;
 using Etamid.Application.Common.Interfaces;
+using Etamid.Application.CompanyDeals;
 using Etamid.Application.Deals.Services;
+using Etamid.Domain.CompanyDeals;
 using Etamid.Domain.Deals;
 using Etamid.Domain.Money;
 using Etamid.SharedKernel;
@@ -102,7 +104,8 @@ public sealed class FundDealHandler(
 public sealed record ProcessPaymentWebhookCommand(string RawBody, string? Signature) : IRequest<Result<WebhookResultDto>>;
 
 public sealed class ProcessPaymentWebhookHandler(
-    IApplicationDbContext db, IClock clock, IPaymentGateway gateway, IWebhookSignatureVerifier verifier, EscrowLedgerService ledger)
+    IApplicationDbContext db, IClock clock, IPaymentGateway gateway, IWebhookSignatureVerifier verifier, EscrowLedgerService ledger,
+    CompanyEscrowService companyEscrow)
     : IRequestHandler<ProcessPaymentWebhookCommand, Result<WebhookResultDto>>
 {
     private const string SucceededType = "payment.succeeded";
@@ -222,6 +225,12 @@ public sealed class ProcessPaymentWebhookHandler(
             return new WebhookResultDto("amount_mismatch");
         }
 
+        // Installment payments take the company-deal path; deal payments keep
+        // the original path below. The two never mix: a payment carries
+        // either DealId or InstallmentId, never both.
+        if (payment.InstallmentId is { } installmentId)
+            return await OnInstallmentSucceededAsync(p, evt, payment, installmentId, now, ct);
+
         var deal = payment.DealId is { } dealId ? await db.Deals.FirstOrDefaultAsync(d => d.Id == dealId, ct) : null;
         if (deal is null)
         {
@@ -249,6 +258,61 @@ public sealed class ProcessPaymentWebhookHandler(
         var staged = await ledger.StageFundingAsync(deal, payment, ct);
         if (staged.IsFailure)
             return staged.Error;
+
+        await FinishAsync(evt, WebhookStatus.Processed, null, now, ct);
+        return new WebhookResultDto("processed");
+    }
+
+    /// <summary>
+    /// Company-installment funding, mirroring the deal path: the payment
+    /// lands in escrow, and an already-approved installment releases
+    /// immediately; otherwise the approval releases it later. Money that
+    /// arrives for a non-active deal or an already-paid installment is
+    /// recorded but holds nothing, exactly like the deal path.
+    /// </summary>
+    private async Task<Result<WebhookResultDto>> OnInstallmentSucceededAsync(
+        WebhookPayload p, PaymentWebhookEvent evt, Payment payment, long installmentId, DateTime now, CancellationToken ct)
+    {
+        var installment = await db.PaymentInstallments.FirstOrDefaultAsync(i => i.Id == installmentId, ct);
+        if (installment is null)
+        {
+            await FinishAsync(evt, WebhookStatus.Failed, "INSTALLMENT_NOT_FOUND", now, ct);
+            return CompanyDealErrors.InstallmentNotFound;
+        }
+
+        var deal = await db.CompanyDeals.FirstOrDefaultAsync(d => d.Id == installment.CompanyDealId, ct);
+        if (deal is null)
+        {
+            await FinishAsync(evt, WebhookStatus.Failed, "COMPANY_DEAL_NOT_FOUND", now, ct);
+            return CompanyDealErrors.NotFound;
+        }
+
+        if (deal.Status != CompanyDealStatus.Active)
+        {
+            payment.Status = PaymentStatus.Succeeded;
+            await FinishAsync(evt, WebhookStatus.Ignored, "company_deal_not_active", now, ct);
+            return new WebhookResultDto("company_deal_not_active");
+        }
+
+        if (installment.Status == InstallmentStatus.Paid)
+        {
+            payment.Status = PaymentStatus.Succeeded;
+            await FinishAsync(evt, WebhookStatus.Ignored, "installment_already_paid", now, ct);
+            return new WebhookResultDto("installment_already_paid");
+        }
+
+        payment.Status = PaymentStatus.Succeeded;
+        installment.PaymentId = payment.Id;
+        var staged = await companyEscrow.StageInstallmentFundingAsync(deal, installment, payment, ct);
+        if (staged.IsFailure)
+            return staged.Error;
+
+        if (installment.Status == InstallmentStatus.Approved)
+        {
+            var released = await companyEscrow.StageInstallmentReleaseAsync(deal, installment, ct);
+            if (released.IsFailure)
+                return released.Error;
+        }
 
         await FinishAsync(evt, WebhookStatus.Processed, null, now, ct);
         return new WebhookResultDto("processed");

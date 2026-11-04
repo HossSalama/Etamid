@@ -140,6 +140,34 @@ export const routes: Routes = [
       ),
   },
   {
+    path: 'company-deals',
+    loadComponent: () =>
+      import('./features/company/company-deals.component').then(
+        (m) => m.CompanyDealsComponent
+      ),
+  },
+  {
+    path: 'company-deals/new',
+    loadComponent: () =>
+      import('./features/company/company-deal-wizard.component').then(
+        (m) => m.CompanyDealWizardComponent
+      ),
+  },
+  {
+    path: 'company-deals/:id',
+    loadComponent: () =>
+      import('./features/company/company-deal-detail.component').then(
+        (m) => m.CompanyDealDetailComponent
+      ),
+  },
+  {
+    path: 'company-deals/:id/edit',
+    loadComponent: () =>
+      import('./features/company/company-deal-wizard.component').then(
+        (m) => m.CompanyDealWizardComponent
+      ),
+  },
+  {
     path: '**',
     redirectTo: 'home',
   },

@@ -9,7 +9,7 @@ namespace Etamid.Api.Controllers;
 /// Withdrawal approval is a manual bank transfer confirmed here, never automated.
 /// </summary>
 [Authorize]
-public sealed class AdminController : BaseApiController
+public sealed partial class AdminController : BaseApiController
 {
     [HttpGet("withdrawals")]
     public async Task<IActionResult> ListWithdrawals(

@@ -889,6 +889,258 @@ paths:
                     properties:
                       data:
                         $ref: '#/components/schemas/Withdrawal'
+  # ---------------- Company deals (web v1, implemented) ----------------
+  # Separate path from individual deals: wizard draft, counterparty
+  # acceptance, per-installment escrow (fund -> approve -> release), reject
+  # and resubmit per installment, automatic penalties past the grace period,
+  # operator waiver. The counterparty must be a registered user (resolved by
+  # phone/code, like /users/lookup). Roles: creator = payee, counterparty =
+  # payer. The platform fee (platform_fee_amount, fixed) is charged ONCE per
+  # company deal, on the first installment release.
+  /company-deals:
+    post:
+      tags: [Company]
+      summary: إنشاء مسودة صفقة شركة (الأقساط يجب أن تساوي الإجمالي، وإلا 422 COMPANY_INSTALLMENTS_SUM_MISMATCH)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCompanyDealRequest'
+      responses:
+        "201":
+          description: Created (draft)
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/CompanyDealDetail'
+        "422": { $ref: '#/components/responses/ValidationError' }
+    get:
+      tags: [Company]
+      summary: صفقات الشركة الخاصة بي (منشئاً أو طرفاً آخر)
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string, enum: [draft, pending, active, completed, rejected, cancelled] }
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        "200":
+          description: OK (paged)
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/CompanyDealListItem'
+  /company-deals/{id}:
+    get:
+      tags: [Company]
+      summary: تفاصيل صفقة الشركة مع الأقساط والغرامات (للمشاركين فقط، وإلا 404)
+      parameters:
+        - $ref: '#/components/parameters/DealId'
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/CompanyDealDetail'
+    put:
+      tags: [Company]
+      summary: تعديل المسودة (المنشئ فقط، وحالة draft فقط؛ الأقساط تُستبدل بالكامل)
+      parameters:
+        - $ref: '#/components/parameters/DealId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCompanyDealRequest'
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/CompanyDealDetail'
+  /company-deals/{id}/submit:
+    post:
+      tags: [Company]
+      summary: إرسال المسودة إلى الطرف الآخر (draft -> pending)
+      parameters:
+        - $ref: '#/components/parameters/DealId'
+      responses:
+        "200": { $ref: '#/components/responses/Ok' }
+  /company-deals/{id}/accept:
+    post:
+      tags: [Company]
+      summary: قبول الطرف الآخر (pending -> active)
+      parameters:
+        - $ref: '#/components/parameters/DealId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [acceptTerms]
+              properties:
+                acceptTerms: { type: boolean }
+      responses:
+        "200": { $ref: '#/components/responses/Ok' }
+  /company-deals/{id}/reject:
+    post:
+      tags: [Company]
+      summary: رفض الطرف الآخر (سبب من company_reject_reason + ملاحظة)
+      parameters:
+        - $ref: '#/components/parameters/DealId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reasonId]
+              properties:
+                reasonId: { type: integer }
+                note: { type: string, maxLength: 200, nullable: true }
+      responses:
+        "200": { $ref: '#/components/responses/Ok' }
+  /company-deals/{id}/cancel:
+    post:
+      tags: [Company]
+      summary: إلغاء المنشئ (draft أو pending فقط)
+      parameters:
+        - $ref: '#/components/parameters/DealId'
+      responses:
+        "200": { $ref: '#/components/responses/Ok' }
+  /company-deals/{id}/installments/{installmentId}/request-approval:
+    post:
+      tags: [Company]
+      summary: طلب موافقة المنشئ على دفعة (الموعد النهائي = الآن + مهلة الرد، 7 أيام عند عدم التحديد)
+      parameters:
+        - $ref: '#/components/parameters/DealId'
+        - { name: installmentId, in: path, required: true, schema: { type: integer } }
+      responses:
+        "200": { $ref: '#/components/responses/Ok' }
+  /company-deals/{id}/installments/{installmentId}/approve:
+    post:
+      tags: [Company]
+      summary: موافقة الطرف الآخر على دفعة — إن كانت مموّلة أُفرج عنها للمنشئ فوراً، وإلا انتظرت التمويل
+      parameters:
+        - $ref: '#/components/parameters/DealId'
+        - { name: installmentId, in: path, required: true, schema: { type: integer } }
+      responses:
+        "200": { $ref: '#/components/responses/Ok' }
+  /company-deals/{id}/installments/{installmentId}/reject:
+    post:
+      tags: [Company]
+      summary: رفض الطرف الآخر لدفعة مع السبب — تعود للمراجعة ولا تُلغى الصفقة ولا باقي الدفعات
+      parameters:
+        - $ref: '#/components/parameters/DealId'
+        - { name: installmentId, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason: { type: string, maxLength: 200 }
+      responses:
+        "200": { $ref: '#/components/responses/Ok' }
+  /company-deals/{id}/installments/{installmentId}/fund:
+    post:
+      tags: [Company]
+      summary: تمويل دفعة في الضمان (الطرف الآخر فقط؛ يتطلب هيدر X-Idempotency-Key؛ المبلغ = الدفعة + أي غرامة مطبّقة)
+      parameters:
+        - $ref: '#/components/parameters/DealId'
+        - { name: installmentId, in: path, required: true, schema: { type: integer } }
+      responses:
+        "200":
+          description: OK (payment session)
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/InstallmentFundSession'
+  /admin/company-deals/penalties:
+    get:
+      tags: [Company]
+      summary: كل الغرامات (للمشغّلين فقط — user ids في إعداد company.operators، وإلا 403 COMPANY_NOT_OPERATOR)
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string, enum: [applied, waived, paid] }
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        "200":
+          description: OK (paged)
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/CompanyPenaltyAdmin'
+  /admin/company-deals/penalties/{penaltyId}/waive:
+    post:
+      tags: [Company]
+      summary: إعفاء مشغّل من غرامة مع السبب (الدفعة تعود overdue — لا يزال مستحقاً بدون غرامة)
+      parameters:
+        - { name: penaltyId, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason: { type: string, maxLength: 300 }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/CompanyPenalty'
   /users/lookup:
     get:
       tags: [Deals]
@@ -2591,6 +2843,129 @@ components:
         amount: { type: number }
         dueDate: { type: string, format: date }
         badge: { type: string, enum: [on_time, near, upcoming, overdue] }
+    # ---------------- Company deals (web v1) ----------------
+    CreateCompanyDealRequest:
+      type: object
+      required: [counterpartyPhoneOrCode, title, details, totalAmount, startDate, installments]
+      properties:
+        counterpartyPhoneOrCode: { type: string, description: 'جوال أو كود الطرف الآخر — يجب أن يكون مستخدماً مسجّلاً، وإلا 404 COUNTERPARTY_NOT_FOUND' }
+        title: { type: string, maxLength: 150 }
+        details: { type: string, maxLength: 200 }
+        totalAmount: { type: number, description: 'بالريال، ويجب أن يساوي مجموع الدفعات' }
+        startDate: { type: string, format: date }
+        contractFilePublicId: { type: string, nullable: true, description: 'من POST /uploads بغرض contract، وإلا 422' }
+        approvalSendDaysBefore: { type: integer, nullable: true, description: 'النافذة الموصى بها لإرسال طلب الموافقة قبل الاستحقاق (ليست قيداً صارماً)' }
+        approvalResponseDays: { type: integer, nullable: true, description: 'مهلة رد الطرف الآخر بالأيام (7 عند عدم التحديد)' }
+        approvalNotes: { type: string, maxLength: 200, nullable: true }
+        penaltyPercent: { type: number, nullable: true, description: 'نسبة الغرامة من مبلغ الدفعة؛ null = لا غرامات' }
+        penaltyGraceDays: { type: integer, nullable: true, description: 'أيام السماح بعد الاستحقاق قبل الغرامة (30 عند عدم التحديد)' }
+        penaltyClauses: { type: string, maxLength: 200, nullable: true }
+        wizardStep: { type: integer, description: 'خطوة المعالج المحفوظة في المسودة' }
+        installments:
+          type: array
+          minItems: 1
+          maxItems: 100
+          items:
+            type: object
+            required: [amount, dueDate]
+            properties:
+              label: { type: string, maxLength: 50, nullable: true }
+              amount: { type: number }
+              dueDate: { type: string, format: date }
+    CompanyInstallmentDetail:
+      type: object
+      properties:
+        id: { type: integer }
+        order: { type: integer }
+        label: { type: string, nullable: true }
+        amount: { type: number }
+        dueDate: { type: string, format: date }
+        status: { type: string, enum: [scheduled, awaiting_approval, approved, rejected, paid, overdue, penalty_applied] }
+        approvalRequestedAt: { type: string, format: date-time, nullable: true }
+        approvalDeadlineAt: { type: string, format: date-time, nullable: true }
+        approvedAt: { type: string, format: date-time, nullable: true }
+        paidAt: { type: string, format: date-time, nullable: true }
+        isFunded: { type: boolean }
+        penaltyAmount: { type: number, nullable: true }
+        penaltyStatus: { type: string, nullable: true, enum: [applied, waived, paid] }
+        rejectionReason: { type: string, nullable: true }
+        availableActions: { type: array, items: { type: string, enum: [request_approval, approve, reject] } }
+    CompanyPenalty:
+      type: object
+      properties:
+        id: { type: integer }
+        installmentId: { type: integer }
+        penaltyPercent: { type: number }
+        baseAmount: { type: number }
+        penaltyAmount: { type: number }
+        daysLate: { type: integer }
+        status: { type: string, enum: [applied, waived, paid] }
+        waiverReason: { type: string, nullable: true }
+        appliedAt: { type: string, format: date-time }
+    CompanyPenaltyAdmin:
+      allOf:
+        - $ref: '#/components/schemas/CompanyPenalty'
+        - type: object
+          properties:
+            companyDealId: { type: integer }
+            dealTitle: { type: string }
+            installmentLabel: { type: string, nullable: true }
+    CompanyDealListItem:
+      type: object
+      properties:
+        id: { type: integer }
+        number: { type: integer }
+        title: { type: string }
+        counterpartyName: { type: string }
+        counterpartyCode: { type: string }
+        totalAmount: { type: number }
+        currency: { type: string, example: SAR }
+        status: { type: string, enum: [draft, pending, active, completed, rejected, cancelled] }
+        role: { type: string, enum: [creator, counterparty] }
+        startDate: { type: string, format: date }
+        createdAt: { type: string, format: date-time }
+        availableActions: { type: array, items: { type: string } }
+    CompanyDealDetail:
+      allOf:
+        - $ref: '#/components/schemas/CompanyDealListItem'
+        - type: object
+          properties:
+            details: { type: string }
+            creatorName: { type: string }
+            hasContract: { type: boolean }
+            contractFileUrl: { type: string, nullable: true }
+            approvalSendDaysBefore: { type: integer, nullable: true }
+            approvalResponseDays: { type: integer, nullable: true }
+            approvalNotes: { type: string, nullable: true }
+            penaltyPercent: { type: number, nullable: true }
+            penaltyGraceDays: { type: integer }
+            penaltyClauses: { type: string, nullable: true }
+            wizardStep: { type: integer }
+            rejectReasonId: { type: integer, nullable: true }
+            rejectNote: { type: string, nullable: true }
+            submittedAt: { type: string, format: date-time, nullable: true }
+            acceptedAt: { type: string, format: date-time, nullable: true }
+            completedAt: { type: string, format: date-time, nullable: true }
+            installments:
+              type: array
+              items:
+                $ref: '#/components/schemas/CompanyInstallmentDetail'
+            penalties:
+              type: array
+              items:
+                $ref: '#/components/schemas/CompanyPenalty'
+    InstallmentFundSession:
+      type: object
+      properties:
+        paymentId: { type: string, format: uuid }
+        companyDealId: { type: integer }
+        installmentId: { type: integer }
+        status: { type: string }
+        amount: { type: number }
+        currency: { type: string, example: SAR }
+        provider: { type: string }
+        providerPaymentId: { type: string }
+        redirectUrl: { type: string }
     CompanyDealStep1:
       type: object
       required: [companyName, title, companyPhone, details, totalAmount, startDate]

@@ -898,6 +898,10 @@ export interface DealItem {
           <span class="nav-icon">🛍️</span>
           <span class="nav-label">{{ lang.t('shop_nav') }}</span>
         </a>
+        <a class="nav-item" routerLink="/company-deals">
+          <span class="nav-icon">🏢</span>
+          <span class="nav-label">{{ lang.t('company_nav') }}</span>
+        </a>
         <button class="nav-item" [class.active]="activeNav() === 'wallet'" (click)="onNavWallet()">
           <span class="nav-icon">💳</span>
           <span class="nav-label">{{ lang.t('home_nav_wallet') }}</span>

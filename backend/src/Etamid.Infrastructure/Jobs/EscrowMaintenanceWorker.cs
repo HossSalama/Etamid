@@ -55,6 +55,29 @@ public sealed class EscrowMaintenanceWorker(
 
         foreach (var dealId in due.ExpireDealIds)
             await RunAsync(new ExpireDealCommand(dealId), "expire", dealId, ct);
+
+        // Company installments: mark the overdue ones and apply penalties
+        // past their grace period (one run covers both; see
+        // RunCompanyInstallmentMaintenanceCommand).
+        try
+        {
+            using var scope = scopes.CreateScope();
+            var maintained = await scope.ServiceProvider.GetRequiredService<ISender>()
+                .Send(new Etamid.Application.CompanyDeals.RunCompanyInstallmentMaintenanceCommand(), ct);
+            if (maintained.IsFailure)
+                logger.LogWarning("Company installment maintenance skipped ({Code}).", maintained.Error.Code);
+            else
+                logger.LogInformation("Company installment maintenance done: {Overdue} overdue, {Penalties} penalties.",
+                    maintained.Value.OverdueCount, maintained.Value.PenaltiesAppliedCount);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Company installment maintenance failed.");
+        }
     }
 
     private async Task RunAsync(IRequest<Etamid.SharedKernel.Result> command, string what, long dealId, CancellationToken ct)
