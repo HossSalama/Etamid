@@ -19,7 +19,7 @@ namespace Etamid.Api.IntegrationTests;
 public class WalletTests(EtamidFactory factory) : IClassFixture<EtamidFactory>
 {
     private const string Password = "Pass#123";
-    private const string IbanRajhi = "SA0380000000608010167519";
+    private const string IbanRajhi = "SA6180000000608010167542";
     // Distinct valid Rajhi IBANs: tests in one class share one database, and
     // saving the same IBAN for two users is a 409, so each bank-saving test
     // needs its own (all pass the mod-97 check, bank code 80 = Al Rajhi).
@@ -182,7 +182,7 @@ public class WalletTests(EtamidFactory factory) : IClassFixture<EtamidFactory>
         request.StatusCode.Should().Be(HttpStatusCode.Created, await request.Content.ReadAsStringAsync());
         var created = await Data(request);
         created.GetProperty("status").GetString().Should().Be("pending");
-        created.GetProperty("ibanSnapshotMasked").GetString().Should().EndWith("7519");
+        created.GetProperty("ibanSnapshotMasked").GetString().Should().EndWith("7542");
         var withdrawalId = created.GetProperty("id").GetInt64();
 
         // Replayed key returns the same request, never a second one.
