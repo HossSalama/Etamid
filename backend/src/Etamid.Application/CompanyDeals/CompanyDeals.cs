@@ -298,7 +298,7 @@ public sealed class RejectCompanyDealValidator : AbstractValidator<RejectCompany
 }
 
 public sealed class RejectCompanyDealHandler(
-    IApplicationDbContext db, ICurrentUser currentUser, IClock clock, IFileUrlResolver files)
+    IApplicationDbContext db, ICurrentUser currentUser, IFileUrlResolver files)
     : IRequestHandler<RejectCompanyDealCommand, Result<CompanyDealDetailDto>>
 {
     public async Task<Result<CompanyDealDetailDto>> Handle(RejectCompanyDealCommand r, CancellationToken ct)
@@ -326,7 +326,7 @@ public sealed class RejectCompanyDealHandler(
 public sealed record CancelCompanyDealCommand(long Id) : IRequest<Result<CompanyDealDetailDto>>;
 
 public sealed class CancelCompanyDealHandler(
-    IApplicationDbContext db, ICurrentUser currentUser, IClock clock, IFileUrlResolver files)
+    IApplicationDbContext db, ICurrentUser currentUser, IFileUrlResolver files)
     : IRequestHandler<CancelCompanyDealCommand, Result<CompanyDealDetailDto>>
 {
     public async Task<Result<CompanyDealDetailDto>> Handle(CancelCompanyDealCommand r, CancellationToken ct)
