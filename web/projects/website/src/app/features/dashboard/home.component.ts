@@ -2,7 +2,7 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
-import { DealEdit, DealSummary, DealsService, LookupItem } from '../../core/services/deals.service';
+import { DealEdit, DealSummary, DealsService, LookupItem, Wallet, WalletTransaction, Withdrawal } from '../../core/services/deals.service';
 import { LanguageService } from '../../core/services/language.service';
 import { MyAddressesComponent } from '../profile/my-addresses.component';
 import { StoreEditorComponent } from '../profile/store-editor.component';
@@ -260,14 +260,14 @@ export interface DealItem {
         <section class="wallet-section" id="wallet-section">
           <div class="section-title-row">
             <h2 class="section-title">{{ lang.t('home_wallet_title') }}</h2>
-            @if (authService.isAuthenticated()) {
+            @if (authService.isAuthenticated() && wallet()?.activated) {
               <span class="status-badge active-badge">{{ lang.t('home_wallet_active') }}</span>
             } @else {
               <span class="status-badge inactive-badge">{{ lang.t('home_wallet_inactive') }}</span>
             }
           </div>
 
-          @if (authService.isAuthenticated()) {
+          @if (authService.isAuthenticated() && wallet()?.activated) {
             <!-- Real Active Wallet Card -->
             <div class="wallet-card active-wallet">
               <div class="wallet-balance-row">
@@ -293,6 +293,91 @@ export interface DealItem {
                   {{ escrowHeldBalance().toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }} {{ lang.t('home_sar') }}
                 </span>
               </div>
+            </div>
+
+            @if (showWithdrawForm()) {
+              <div class="withdraw-form">
+                <label>
+                  <span>{{ lang.t('wallet_withdraw_amount') }}</span>
+                  <input type="number" min="0.01" step="0.01"
+                    [value]="withdrawAmount() ?? ''"
+                    (input)="withdrawAmount.set($any($event.target).valueAsNumber || null)" />
+                </label>
+                @if (wallet()?.hasBankAccount && wallet()?.bankAccountMasked) {
+                  <p class="withdraw-dest">{{ lang.t('wallet_withdraw_to') }} {{ wallet()!.bankAccountMasked }}</p>
+                } @else {
+                  <p class="withdraw-dest">{{ lang.t('wallet_withdraw_no_bank') }}</p>
+                }
+                @if (withdrawError()) {
+                  <p class="wallet-message wallet-message-error" role="alert">{{ lang.t(withdrawError()!) }}</p>
+                }
+                <button type="button" class="btn btn-black" (click)="submitWithdrawal()">
+                  {{ lang.t('wallet_withdraw_submit') }}
+                </button>
+              </div>
+            }
+            @if (withdrawSuccess()) {
+              <p class="wallet-message wallet-message-success" role="alert">{{ lang.t('wallet_withdraw_requested') }}</p>
+            }
+
+            <div class="wallet-history-block">
+              <h3>{{ lang.t('wallet_history') }}</h3>
+              @if (!walletTransactions().length) {
+                <p>{{ lang.t('wallet_history_empty') }}</p>
+              }
+              @for (tx of walletTransactions(); track tx.id) {
+                <div class="wallet-tx-row">
+                  <span>{{ lang.t('wallet_tx_' + tx.type) }}</span>
+                  <span [class]="tx.direction === 'credit' ? 'tx-credit' : 'tx-debit'">
+                    {{ tx.direction === 'credit' ? '+' : '−' }}{{ tx.amount }} {{ lang.t('home_sar') }}
+                  </span>
+                </div>
+              }
+              @if (walletTransactions().length < walletTransactionsTotal()) {
+                <button type="button" class="btn btn-outline-coral" (click)="loadMoreWalletTransactions()">
+                  {{ lang.t('store_load_more') }}
+                </button>
+              }
+            </div>
+
+            <div class="wallet-history-block">
+              <h3>{{ lang.t('wallet_withdrawals') }}</h3>
+              @if (!walletWithdrawals().length) {
+                <p>{{ lang.t('wallet_withdrawals_empty') }}</p>
+              }
+              @for (w of walletWithdrawals(); track w.id) {
+                <div class="wallet-tx-row">
+                  <span>{{ w.amount }} {{ lang.t('home_sar') }} · {{ w.ibanSnapshotMasked }}</span>
+                  <span>{{ lang.t('wallet_status_' + w.status) }}</span>
+                </div>
+                @if (w.bankReference) {
+                  <p class="wallet-tx-note">{{ lang.t('wallet_bank_reference') }}: {{ w.bankReference }}</p>
+                }
+                @if (w.rejectionReason) {
+                  <p class="wallet-tx-note">{{ w.rejectionReason }}</p>
+                }
+              }
+              @if (walletWithdrawals().length < walletWithdrawalsTotal()) {
+                <button type="button" class="btn btn-outline-coral" (click)="loadMoreWalletWithdrawals()">
+                  {{ lang.t('store_load_more') }}
+                </button>
+              }
+            </div>
+          } @else if (authService.isAuthenticated() && wallet() === null) {
+            <p>{{ lang.t('wallet_loading') }}</p>
+          } @else if (authService.isAuthenticated()) {
+            <!-- Locked wallet: activation card only, no balances visible -->
+            <div class="wallet-card inactive-wallet-card">
+              <div class="inactive-icon-row">
+                <div class="inactive-shield">💳</div>
+                <div class="inactive-info">
+                  <h3>{{ lang.t('wallet_activate_title') }}</h3>
+                  <p>{{ lang.t('wallet_activate_desc') }}</p>
+                </div>
+              </div>
+              <button type="button" class="btn btn-black btn-sm-wallet" (click)="activateWallet()" [disabled]="isActivatingWallet()">
+                {{ lang.t('wallet_activate_btn') }}
+              </button>
             </div>
           } @else {
             <!-- Guest Inactive Wallet Card -->
@@ -1234,6 +1319,96 @@ export interface DealItem {
       }
     }
 
+    .withdraw-form {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      margin-top: 1rem;
+      padding: 1rem;
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      background: #f9fafb;
+
+      label span {
+        display: block;
+        font-size: 0.85rem;
+        font-weight: 700;
+        margin-bottom: 0.25rem;
+      }
+
+      input {
+        width: 100%;
+        height: 46px;
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        padding: 0 12px;
+        font-size: 1rem;
+        box-sizing: border-box;
+      }
+
+      .withdraw-dest {
+        font-size: 0.85rem;
+        color: #4b5563;
+        margin: 0;
+      }
+    }
+
+    .wallet-message {
+      font-size: 0.85rem;
+      font-weight: 700;
+      margin: 0.75rem 0 0;
+    }
+
+    .wallet-message-error {
+      color: #b91c1c;
+    }
+
+    .wallet-message-success {
+      color: #047857;
+    }
+
+    .wallet-history-block {
+      margin-top: 1.5rem;
+
+      h3 {
+        font-size: 1rem;
+        font-weight: 800;
+        color: #111827;
+        margin: 0 0 0.5rem;
+      }
+
+      p {
+        font-size: 0.85rem;
+        color: #6b7280;
+        margin: 0.25rem 0;
+      }
+
+      .wallet-tx-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.6rem 0;
+        border-bottom: 1px solid #f1f5f9;
+        font-size: 0.85rem;
+
+        .tx-credit {
+          color: #047857;
+          font-weight: 800;
+        }
+
+        .tx-debit {
+          color: #b91c1c;
+          font-weight: 800;
+        }
+      }
+
+      .wallet-tx-note {
+        font-size: 0.8rem;
+        color: #6b7280;
+        margin: 0 0 0.5rem;
+      }
+    }
+
     .inactive-wallet-card {
       display: flex;
       flex-direction: column;
@@ -1817,6 +1992,19 @@ export class HomeComponent {
 
   readonly deals = signal<DealItem[]>([]);
   readonly availableBalance = signal<number>(0.0);
+  readonly escrowHeldBalance = signal<number>(0);
+  readonly wallet = signal<Wallet | null>(null);
+  readonly walletTransactions = signal<WalletTransaction[]>([]);
+  readonly walletTransactionsTotal = signal(0);
+  readonly walletWithdrawals = signal<Withdrawal[]>([]);
+  readonly walletWithdrawalsTotal = signal(0);
+  readonly showWithdrawForm = signal(false);
+  readonly withdrawAmount = signal<number | null>(null);
+  readonly withdrawError = signal<string | null>(null);
+  readonly withdrawSuccess = signal(false);
+  readonly isActivatingWallet = signal(false);
+  private walletTxPage = 1;
+  private walletWithdrawalPage = 1;
 
   readonly selectedAvatar = signal<File | null>(null);
   readonly avatarPreview = signal<string | null>(null);
@@ -1836,7 +2024,113 @@ export class HomeComponent {
     if (this.authService.isAuthenticated()) {
       this.authService.refreshProfile().subscribe({ error: () => {} });
       this.loadDeals();
+      this.loadWallet();
     }
+  }
+
+  loadWallet(): void {
+    if (!this.authService.isAuthenticated()) return;
+    this.dealsApi.getWallet().subscribe({
+      next: (response) => {
+        if (!response.success || !response.data) return;
+        this.applyWallet(response.data);
+        if (response.data.activated) {
+          this.loadWalletTransactions();
+          this.loadWalletWithdrawals();
+        }
+      },
+      error: () => {},
+    });
+  }
+
+  private applyWallet(data: Wallet): void {
+    this.wallet.set(data);
+    this.availableBalance.set(data.availableBalance ?? 0);
+    this.escrowHeldBalance.set(data.escrowHeld ?? 0);
+  }
+
+  activateWallet(): void {
+    if (this.isActivatingWallet()) return;
+    this.isActivatingWallet.set(true);
+    this.dealsApi.activateWallet().subscribe({
+      next: (response) => {
+        this.isActivatingWallet.set(false);
+        if (!response.success || !response.data) return;
+        this.applyWallet(response.data);
+        if (response.data.activated) {
+          this.loadWalletTransactions();
+          this.loadWalletWithdrawals();
+        }
+      },
+      error: () => {
+        this.isActivatingWallet.set(false);
+      },
+    });
+  }
+
+  loadWalletTransactions(): void {
+    this.dealsApi.getWalletTransactions(this.walletTxPage).subscribe({
+      next: (response) => {
+        if (!response.success || !response.data) return;
+        this.walletTransactionsTotal.set(response.meta?.total ?? 0);
+        this.walletTransactions.update((list) => [...list, ...response.data]);
+      },
+      error: () => {},
+    });
+  }
+
+  loadMoreWalletTransactions(): void {
+    this.walletTxPage += 1;
+    this.loadWalletTransactions();
+  }
+
+  loadWalletWithdrawals(): void {
+    this.dealsApi.getMyWithdrawals(this.walletWithdrawalPage).subscribe({
+      next: (response) => {
+        if (!response.success || !response.data) return;
+        this.walletWithdrawalsTotal.set(response.meta?.total ?? 0);
+        this.walletWithdrawals.update((list) => [...list, ...response.data]);
+      },
+      error: () => {},
+    });
+  }
+
+  loadMoreWalletWithdrawals(): void {
+    this.walletWithdrawalPage += 1;
+    this.loadWalletWithdrawals();
+  }
+
+  submitWithdrawal(): void {
+    const amount = this.withdrawAmount();
+    if (!amount || amount <= 0) {
+      this.withdrawError.set('wallet_amount_error');
+      return;
+    }
+    this.withdrawError.set(null);
+    const key = Date.now().toString(36) + Math.random().toString(36).slice(2);
+    this.dealsApi.requestWithdrawal(amount, key).subscribe({
+      next: (response) => {
+        if (!response.success || !response.data) {
+          this.withdrawError.set('wallet_withdraw_error');
+          return;
+        }
+        this.withdrawSuccess.set(true);
+        this.showWithdrawForm.set(false);
+        this.withdrawAmount.set(null);
+        this.walletWithdrawals.update((list) => [response.data!, ...list]);
+        this.walletWithdrawalsTotal.update((total) => total + 1);
+      },
+      error: (err: unknown) => {
+        const code = (err as { error?: { errors?: Array<{ code?: string }> } })?.error?.errors?.[0]?.code;
+        this.withdrawError.set(
+          code === 'WALLET_INSUFFICIENT_BALANCE'
+            ? 'wallet_insufficient'
+            : code === 'WALLET_BANK_ACCOUNT_REQUIRED'
+              ? 'wallet_withdraw_no_bank'
+              : 'wallet_withdraw_error'
+        );
+      },
+    });
   }
 
   loadDeals(): void {
@@ -2027,12 +2321,6 @@ export class HomeComponent {
       },
     });
   }
-
-  readonly escrowHeldBalance = computed(() =>
-    this.deals()
-      .filter((d) => d.status === 'in_progress')
-      .reduce((sum, d) => sum + d.amount, 0)
-  );
 
   readonly currentTabDeals = computed(() => {
     const tab = this.selectedTab();
@@ -2442,10 +2730,9 @@ export class HomeComponent {
 
   onWithdrawClick(): void {
     if (this.availableBalance() <= 0) return;
-    const msg = this.lang.isAr()
-      ? `طلب سحب لمبلغ ${this.availableBalance()} ر.س إلى حسابك البنكي المعتمد.`
-      : `Withdrawal request for ${this.availableBalance()} SAR to your verified bank account.`;
-    alert(msg);
+    this.withdrawError.set(null);
+    this.withdrawSuccess.set(false);
+    this.showWithdrawForm.update((v) => !v);
   }
 
   logout(): void {

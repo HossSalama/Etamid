@@ -118,6 +118,39 @@ export interface Counterparty {
   sellerId: number;
 }
 
+export interface Wallet {
+  activated: boolean;
+  activatedAt: string | null;
+  availableBalance: number | null;
+  escrowHeld: number | null;
+  hasBankAccount: boolean;
+  bankAccountMasked: string | null;
+}
+
+export interface WalletTransaction {
+  id: number;
+  type: string;
+  direction: string;
+  amount: number;
+  balanceAfter: number | null;
+  dealId: number | null;
+  description: string | null;
+  createdAt: string;
+}
+
+export interface Withdrawal {
+  id: number;
+  amount: number;
+  feeAmount: number;
+  ibanSnapshotMasked: string;
+  status: string;
+  rejectionReason: string | null;
+  bankReference: string | null;
+  approvedAt: string | null;
+  processedAt: string | null;
+  createdAt: string;
+}
+
 export interface ShopProduct {
   id: number;
   name: string;
@@ -345,6 +378,33 @@ export class DealsService {
   getSellerReviews(sellerId: number, page = 1, pageSize = 20): Observable<ApiResponse<SellerReview[]>> {
     return this.http.get<ApiResponse<SellerReview[]>>(`${this.baseUrl}/sellers/${sellerId}/reviews`, {
       params: { page, pageSize },
+    });
+  }
+
+  getWallet(): Observable<ApiResponse<Wallet>> {
+    return this.http.get<ApiResponse<Wallet>>(`${this.baseUrl}/me/wallet`);
+  }
+
+  activateWallet(): Observable<ApiResponse<Wallet>> {
+    return this.http.post<ApiResponse<Wallet>>(`${this.baseUrl}/me/wallet/activate`, {});
+  }
+
+  getWalletTransactions(page = 1, pageSize = 20): Observable<ApiResponse<WalletTransaction[]>> {
+    return this.http.get<ApiResponse<WalletTransaction[]>>(`${this.baseUrl}/me/wallet/transactions`, {
+      params: { page, pageSize },
+    });
+  }
+
+  getMyWithdrawals(page = 1, pageSize = 20): Observable<ApiResponse<Withdrawal[]>> {
+    return this.http.get<ApiResponse<Withdrawal[]>>(`${this.baseUrl}/me/wallet/withdrawals`, {
+      params: { page, pageSize },
+    });
+  }
+
+  requestWithdrawal(amount: number, idempotencyKey: string): Observable<ApiResponse<Withdrawal>> {
+    return this.http.post<ApiResponse<Withdrawal>>(`${this.baseUrl}/me/wallet/withdrawals`, {
+      amount,
+      idempotencyKey,
     });
   }
 

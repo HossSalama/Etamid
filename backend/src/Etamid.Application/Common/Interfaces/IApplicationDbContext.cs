@@ -26,6 +26,7 @@ public interface IApplicationDbContext
     DbSet<EmailOtp> EmailOtps { get; }
     DbSet<StoredFile> Files { get; }
     DbSet<Wallet> Wallets { get; }
+    DbSet<WithdrawalRequest> WithdrawalRequests { get; }
     DbSet<AppSetting> AppSettings { get; }
     DbSet<Lookup> Lookups { get; }
     DbSet<ShippingCompany> ShippingCompanies { get; }

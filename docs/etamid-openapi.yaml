@@ -694,6 +694,201 @@ paths:
         "200": { $ref: '#/components/responses/Ok' }
 
   # ---------------- Deals (individual) ----------------
+  /me/wallet:
+    get:
+      tags: [Wallet]
+      summary: محفظتي — مقفولة بالكامل لحد التفعيل (الأرصدة null قبل التفعيل)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Wallet'
+  /me/wallet/activate:
+    post:
+      tags: [Wallet]
+      summary: تفعيل المحفظة (idempotent — التفعيل الثاني يرجع نفس المحفظة)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Wallet'
+  /me/wallet/transactions:
+    get:
+      tags: [Wallet]
+      summary: سجل عمليات المحفظة من دفتر الأستاذ (يتطلب التفعيل، وإلا 403 WALLET_NOT_ACTIVATED)
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        "200":
+          description: OK (paged)
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/WalletTransaction'
+  /me/wallet/withdrawals:
+    get:
+      tags: [Wallet]
+      summary: طلبات السحب الخاصة بي (تتطلب التفعيل)
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        "200":
+          description: OK (paged)
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Withdrawal'
+    post:
+      tags: [Wallet]
+      summary: طلب سحب للحساب البنكي المسجّل — يتطلب التفعيل وحساباً بنكياً، والمبلغ ≤ الرصيد المتاح بعد خصم الطلبات المعلّقة والموافق عليها
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [amount, idempotencyKey]
+              properties:
+                amount: { type: number, description: 'أكبر من صفر، حتى 10,000,000، برقمين عشريين' }
+                idempotencyKey: { type: string, description: 'إعادة نفس المفتاح ترجع نفس الطلب، لا طلباً ثانياً' }
+      responses:
+        "201":
+          description: Created (pending)
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Withdrawal'
+  /admin/withdrawals:
+    get:
+      tags: [Wallet]
+      summary: كل طلبات السحب (للمشغّلين فقط — user ids في إعداد wallet.operators، وإلا 403 WALLET_NOT_OPERATOR)
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string, enum: [pending, approved, processing, completed, rejected, failed] }
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        "200":
+          description: OK (paged)
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/WithdrawalAdmin'
+  /admin/withdrawals/{id}/approve:
+    post:
+      tags: [Wallet]
+      summary: موافقة مشغّل على طلب سحب معلّق (يعيد فحص الرصيد؛ ApprovedByAdminId يبقى null لأن مفتاحه الأجنبي يشير لهوية أدمن منفصلة في سايكل 9)
+      parameters:
+        - $ref: '#/components/parameters/DealId'
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Withdrawal'
+  /admin/withdrawals/{id}/reject:
+    post:
+      tags: [Wallet]
+      summary: رفض مشغّل لطلب سحب معلّق مع سبب
+      parameters:
+        - $ref: '#/components/parameters/DealId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason: { type: string, maxLength: 500 }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Withdrawal'
+  /admin/withdrawals/{id}/complete:
+    post:
+      tags: [Wallet]
+      summary: تأكيد التحويل البنكي اليدوي — هنا فقط يغادر المال المحفظة (Dr محفظة / Cr BankPayout) مع مرجع التحويل
+      parameters:
+        - $ref: '#/components/parameters/DealId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [bankReference]
+              properties:
+                bankReference: { type: string, maxLength: 100 }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Withdrawal'
   /users/lookup:
     get:
       tags: [Deals]
@@ -2308,6 +2503,50 @@ components:
         price: { type: number }
         quantity: { type: integer, minimum: 0 }
         imagePublicId: { type: string, nullable: true, description: 'معرّف عام من /uploads بغرض product_image، ملك البائع وصورة فعلية' }
+    Wallet:
+      type: object
+      description: محفظة المستخدم — الأرصدة null قبل التفعيل لأن المحفظة مقفولة بالكامل.
+      properties:
+        activated: { type: boolean }
+        activatedAt: { type: string, format: date-time, nullable: true }
+        availableBalance: { type: number, nullable: true }
+        escrowHeld: { type: number, nullable: true, description: 'محسوب من الصفقات: مشتري موّل ولسه ما اتفرجتش، أو بائع مستني الإفراج؛ النزاع المجمد محسوب للطرفين، والاسترداد المعلق للمشتري فقط' }
+        hasBankAccount: { type: boolean }
+        bankAccountMasked: { type: string, nullable: true }
+    WalletTransaction:
+      type: object
+      description: حركة واحدة على حساب المحفظة في دفتر الأستاذ.
+      properties:
+        id: { type: integer }
+        type: { type: string, description: 'snake_case من LedgerTransactionType، مثل escrow_release و withdrawal' }
+        direction: { type: string, enum: [credit, debit] }
+        amount: { type: number }
+        balanceAfter: { type: number, nullable: true }
+        dealId: { type: integer, nullable: true }
+        description: { type: string, nullable: true }
+        createdAt: { type: string, format: date-time }
+    Withdrawal:
+      type: object
+      properties:
+        id: { type: integer }
+        amount: { type: number }
+        feeAmount: { type: number, description: 'صفر في v1 — لا رسوم' }
+        ibanSnapshotMasked: { type: string, description: 'نسخة IBAN مجمدة وقت الطلب، لا تتغير لو عدّل المستخدم حسابه بعدها' }
+        status: { type: string, enum: [pending, approved, processing, completed, rejected, failed] }
+        rejectionReason: { type: string, nullable: true }
+        bankReference: { type: string, nullable: true }
+        approvedAt: { type: string, format: date-time, nullable: true }
+        processedAt: { type: string, format: date-time, nullable: true }
+        createdAt: { type: string, format: date-time }
+    WithdrawalAdmin:
+      type: object
+      description: طلب سحب مع صاحبه، لقائمة المشغّل.
+      allOf:
+        - $ref: '#/components/schemas/Withdrawal'
+        - type: object
+          properties:
+            userId: { type: integer }
+            userName: { type: string }
     Wallet:
       type: object
       properties:
