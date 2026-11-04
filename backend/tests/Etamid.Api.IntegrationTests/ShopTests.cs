@@ -76,12 +76,69 @@ public class ShopTests(EtamidFactory factory) : IClassFixture<EtamidFactory>
 
         var shop = await Json(await buyer.Client.GetAsync("/api/v1/products"));
         var items = shop.GetProperty("data");
-        items.GetArrayLength().Should().Be(1);
-        items[0].GetProperty("name").GetString().Should().Be("منتج للعرض");
-        items[0].GetProperty("sellerId").GetInt64().Should().Be(sellerId);
-        items[0].GetProperty("sellerName").GetString().Should().Be(seller.Name);
-        items[0].GetProperty("storeName").GetString().Should().Be("متجر الاختبار");
-        items[0].GetProperty("sellerCode").GetString().Should().Be(sellerCode);
+        // Found by name, not by count: other tests in this class also add
+        // products to the shared feed, so the feed is never exactly one item.
+        var item = items.EnumerateArray().First(i => i.GetProperty("name").GetString() == "منتج للعرض");
+        item.GetProperty("sellerId").GetInt64().Should().Be(sellerId);
+        item.GetProperty("sellerName").GetString().Should().Be(seller.Name);
+        item.GetProperty("storeName").GetString().Should().Be("متجر الاختبار");
+        item.GetProperty("sellerCode").GetString().Should().Be(sellerCode);
+    }
+
+    private static int _companyCounter = 96000;
+
+    private async Task<Party> NewCompany()
+    {
+        var n = Interlocked.Increment(ref _companyCounter);
+        var local = $"05096{n:D5}";
+        var email = $"company-shop.{n}@example.com";
+        var name = "S Company " + n;
+
+        var registration = await _anon.PostAsJsonAsync("/api/v1/auth/register/company",
+            new { companyName = name, ownerPhone = local, commercialRegNo = "CR" + n, taxNo = (string?)null, email, password = Password, acceptTerms = true });
+        registration.StatusCode.Should().Be(HttpStatusCode.Created, await registration.Content.ReadAsStringAsync());
+        var code = factory.Emails.CodeFor(email);
+        var verify = await _anon.PostAsJsonAsync("/api/v1/auth/otp/verify", new { phone = local, code });
+        verify.StatusCode.Should().Be(HttpStatusCode.OK, await verify.Content.ReadAsStringAsync());
+        var token = (await Json(verify)).GetProperty("data").GetProperty("accessToken").GetString()!;
+
+        var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        return new Party(client, local, name);
+    }
+
+    [Fact]
+    public async Task Shop_marks_company_seller_products()
+    {
+        var seller = await NewCompany();
+        var buyer = await NewUser();
+
+        var add = await seller.Client.PostAsJsonAsync("/api/v1/me/products", new
+        {
+            name = "منتج شركة", description = (string?)null, price = 1999m, quantity = 3, imagePublicId = (string?)null
+        });
+        add.StatusCode.Should().Be(HttpStatusCode.Created, await add.Content.ReadAsStringAsync());
+
+        var shop = await Json(await buyer.Client.GetAsync("/api/v1/products"));
+        var item = shop.GetProperty("data").EnumerateArray().First(i => i.GetProperty("name").GetString() == "منتج شركة");
+        item.GetProperty("isCompany").GetBoolean().Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Shop_marks_individual_seller_products_not_company()
+    {
+        var seller = await NewUser();
+        var buyer = await NewUser();
+
+        var add = await seller.Client.PostAsJsonAsync("/api/v1/me/products", new
+        {
+            name = "منتج فرد", description = (string?)null, price = 50m, quantity = 2, imagePublicId = (string?)null
+        });
+        add.StatusCode.Should().Be(HttpStatusCode.Created, await add.Content.ReadAsStringAsync());
+
+        var shop = await Json(await buyer.Client.GetAsync("/api/v1/products"));
+        var item = shop.GetProperty("data").EnumerateArray().First(i => i.GetProperty("name").GetString() == "منتج فرد");
+        item.GetProperty("isCompany").GetBoolean().Should().BeFalse();
     }
 
     [Fact]

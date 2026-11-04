@@ -124,9 +124,13 @@ export class ShopPageComponent implements OnInit {
    * The buyer still completes duration and shipping before creating the deal.
    * The product photo does not carry over (a deal photo must be the buyer's
    * own upload), and the stock is not changed by creating a deal.
+   * A company seller's product opens the company-deal wizard instead, with
+   * the same prefill (one installment for the price; the buyer picks the
+   * due date and start date there).
    */
   order(product: ShopProduct): void {
-    void this.router.navigate(['/deals/new'], {
+    const target = product.isCompany ? '/company-deals/new' : '/deals/new';
+    void this.router.navigate([target], {
       state: {
         fromProduct: {
           sellerCode: product.sellerCode,

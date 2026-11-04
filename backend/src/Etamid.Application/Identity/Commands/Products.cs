@@ -405,7 +405,7 @@ public static class ProductTemplate
 /// card can link to that seller's store page.</summary>
 public sealed record ShopProductDto(
     long Id, string Name, string? Description, decimal Price, int Quantity, string? ImageUrl, DateTime CreatedAt,
-    long SellerId, string SellerName, string? StoreName, string SellerCode);
+    long SellerId, string SellerName, string? StoreName, string SellerCode, bool IsCompany);
 
 public sealed record ListShopProductsQuery(int Page = 1, int PageSize = 20)
     : IRequest<Result<PagedResult<ShopProductDto>>>;
@@ -441,7 +441,8 @@ public sealed class ListShopProductsHandler(IApplicationDbContext db, ICurrentUs
             p.CreatedAt, p.SellerId,
             sellers.GetValueOrDefault(p.SellerId)?.Name ?? string.Empty,
             stores.GetValueOrDefault(p.SellerId),
-            sellers.GetValueOrDefault(p.SellerId)?.Code ?? string.Empty)).ToList();
+            sellers.GetValueOrDefault(p.SellerId)?.Code ?? string.Empty,
+            sellers.GetValueOrDefault(p.SellerId)?.Type == UserType.Company)).ToList();
         return new PagedResult<ShopProductDto>(dtos, page, pageSize, total);
     }
 }

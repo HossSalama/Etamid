@@ -2746,6 +2746,7 @@ components:
             sellerName: { type: string }
             storeName: { type: string, nullable: true }
             sellerCode: { type: string, description: 'كود البائع العام، لفتح صفحة إنشاء صفقة منه' }
+            isCompany: { type: boolean, description: 'صحيح لو البائع حساب شركة — ساعتها زر الطلب بيفتح ويزارد صفقة شركة بدل صفقة أفراد' }
     ProductInput:
       type: object
       required: [name, price, quantity]

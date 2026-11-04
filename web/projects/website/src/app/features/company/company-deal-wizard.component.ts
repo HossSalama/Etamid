@@ -12,6 +12,10 @@ import { LanguageService } from '../../core/services/language.service';
  * the sum is checked live and the save button stays disabled otherwise.
  * The contract file is uploaded with purpose "contract" and its public id
  * is sent with the draft; on edit, leaving it empty keeps the old file.
+ * Ordered from a company seller's shop card, the wizard prefills from the
+ * router state (counterparty, title, details, total, one installment for
+ * the price); the start date and the installment due date stay empty for
+ * the buyer to pick, and save stays disabled until they do.
  */
 @Component({
   selector: 'app-company-deal-wizard',
@@ -170,6 +174,20 @@ export class CompanyDealWizardComponent implements OnInit {
         },
         error: () => this.isLoading.set(false),
       });
+    } else {
+      // Ordered from a company seller's shop card: prefill the wizard with
+      // the product. The company deal details cap is 200 chars, so a longer
+      // product description is trimmed, like the individual form does.
+      const fromProduct = (history.state as {
+        fromProduct?: { sellerCode: string; name: string; description: string | null; price: number };
+      }).fromProduct;
+      if (fromProduct) {
+        this.counterparty.set(fromProduct.sellerCode);
+        this.title.set(fromProduct.name);
+        this.details.set((fromProduct.description ?? '').slice(0, 200));
+        this.total.set(fromProduct.price);
+        this.installments.set([{ label: fromProduct.name, amount: fromProduct.price, dueDate: '' }]);
+      }
     }
   }
 

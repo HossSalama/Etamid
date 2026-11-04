@@ -163,6 +163,7 @@ export interface ShopProduct {
   sellerName: string;
   storeName: string | null;
   sellerCode: string;
+  isCompany: boolean;
 }
 
 export interface ProposeEditRequest {
