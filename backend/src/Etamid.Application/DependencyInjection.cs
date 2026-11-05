@@ -37,6 +37,9 @@ public static class DependencyInjection
         services.AddScoped<Etamid.Application.Deals.Services.EscrowReleaseService>();
         services.AddScoped<Etamid.Application.Deals.Services.IdempotencyService>();
 
+        // Disputes: decisions and accepted settlements execute through the escrow ledger
+        services.AddScoped<Etamid.Application.Disputes.DisputeExecutionService>();
+
         // Company deals and installment escrow
         services.AddScoped<Etamid.Application.CompanyDeals.CompanyEscrowService>();
 

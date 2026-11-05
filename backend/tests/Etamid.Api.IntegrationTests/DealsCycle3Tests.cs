@@ -375,9 +375,9 @@ public class DealsCycle3Tests(EtamidFactory factory) : IClassFixture<EtamidFacto
         (await ErrorCode(sellerReleases)).Should().Be("DEAL_ACTION_NOT_ALLOWED");
 
         (await Post(seller.Client, $"/api/v1/deals/{id}/dispute", new { reasonId = DisputeReason, details = "x" }))
-            .StatusCode.Should().Be(HttpStatusCode.Forbidden);
+            .StatusCode.Should().Be(HttpStatusCode.Created, "either party may open a dispute during inspection");
 
-        (await StatusOf(buyer, id)).Should().Be("inspection");
+        (await StatusOf(buyer, id)).Should().Be("disputed");
         (await LedgerOf(id)).Transactions.Should().ContainSingle(t => t.Type == LedgerTransactionType.EscrowFunding);
 
         // A stranger gets 404 everywhere, so deal ids cannot be probed.

@@ -19,6 +19,8 @@ export interface DealItem {
   date: string;
   status: 'pending' | 'in_progress' | 'completed' | 'declined';
   statusText: string;
+  /** Raw API status: the display category hides 'disputed', but the card needs it to link to the dispute page. */
+  rawStatus: string;
   availableActions: string[];
   pendingEdit: DealEdit | null;
   imageUrl: string | null;
@@ -677,6 +679,16 @@ export interface DealItem {
                       >
                         {{ lang.t('home_deal_dispute') }}
                       </button>
+                    </div>
+                  }
+                  @if (deal.rawStatus === 'disputed') {
+                    <div class="deal-actions-row">
+                      <a
+                        class="btn btn-black btn-deal-accept"
+                        [routerLink]="['/deals', deal.id, 'dispute']"
+                      >
+                        {{ lang.t('home_deal_view_dispute') }}
+                      </a>
                     </div>
                   }
                   @if (deal.availableActions.includes('rate')) {
@@ -2188,6 +2200,7 @@ export class HomeComponent {
       date: new Date(deal.createdAt).toLocaleDateString(this.lang.isAr() ? 'ar-SA' : 'en-US'),
       status: this.displayCategory(deal.status),
       statusText: this.lang.t(`home_deal_status_${displayStatus}`),
+      rawStatus: deal.status,
       availableActions: deal.availableActions ?? [],
       pendingEdit: null,
       imageUrl: deal.imageUrl ?? null,
@@ -2378,6 +2391,7 @@ export class HomeComponent {
       date: new Date().toLocaleTimeString(this.lang.isAr() ? 'ar-SA' : 'en-US', { hour: '2-digit', minute: '2-digit' }),
       status: 'pending',
       statusText: this.lang.isAr() ? 'في انتظار موافقة الطرف الآخر' : 'Awaiting counterparty acceptance',
+      rawStatus: 'pending_acceptance',
       availableActions: [],
       pendingEdit: null,
       imageUrl: null,

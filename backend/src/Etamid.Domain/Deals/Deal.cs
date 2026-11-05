@@ -261,14 +261,35 @@ public sealed class Deal : AuditableEntity<long>
     /// <summary>Opens the dispute path; from this moment nothing may release the money automatically.</summary>
     public Result OpenDispute(long actorId, DateTime now)
     {
-        if (actorId != BuyerId) return DealErrors.NotAllowed;
+        if (actorId != BuyerId && actorId != SellerId) return DealErrors.NotAllowed;
         if (IsDisputed || Status == DealStatus.Disputed) return DealErrors.Disputed;
         if (Status != DealStatus.Inspection) return DealErrors.InvalidState;
         if (InspectionEndsAt is not { } ends || now > ends) return DealErrors.InspectionEnded;
 
         IsDisputed = true;
         DisputedAt = now;
-        Move(DealStatus.Disputed, actorId, ActorType.Buyer, null);
+        Move(DealStatus.Disputed, actorId, actorId == BuyerId ? ActorType.Buyer : ActorType.Seller, null);
+        return Result.Success();
+    }
+
+    /// <summary>Dispute decision: the money goes to the seller in full.</summary>
+    public Result ResolveDisputeRelease(DateTime now)
+    {
+        if (!IsDisputed || Status != DealStatus.Disputed) return DealErrors.InvalidState;
+
+        CompletedAt = now;
+        Move(DealStatus.Released, null, ActorType.Admin, null);
+        return Result.Success();
+    }
+
+    /// <summary>Dispute decision: the money goes back to the buyer in full (via RefundPending, as the state machine requires).</summary>
+    public Result ResolveDisputeRefund(DateTime now)
+    {
+        if (!IsDisputed || Status != DealStatus.Disputed) return DealErrors.InvalidState;
+
+        CompletedAt = now;
+        Move(DealStatus.RefundPending, null, ActorType.Admin, null);
+        Move(DealStatus.Refunded, null, ActorType.Admin, null);
         return Result.Success();
     }
 

@@ -793,6 +793,30 @@ paths:
                     properties:
                       data:
                         $ref: '#/components/schemas/Withdrawal'
+  /me/disputes:
+    get:
+      tags: [Deals]
+      summary: نزاعاتي (فتحتها أو فُتحت ضدي)، مقسّمة صفحات، مع فلتر حالة اختياري
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string, enum: [under_review, awaiting_info, resolved_buyer, resolved_seller, closed] }
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        "200":
+          description: OK (paged)
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/DisputeSummary'
   /admin/withdrawals:
     get:
       tags: [Wallet]
@@ -817,6 +841,99 @@ paths:
                         type: array
                         items:
                           $ref: '#/components/schemas/WithdrawalAdmin'
+  /admin/disputes:
+    get:
+      tags: [Disputes]
+      summary: كل النزاعات (للمشغّلين فقط — user ids في إعداد disputes.operators، وإلا 403 DISPUTE_NOT_OPERATOR)
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string, enum: [under_review, awaiting_info, resolved_buyer, resolved_seller, closed] }
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        "200":
+          description: OK (paged)
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/DisputeSummary'
+  /admin/disputes/{disputeId}/request-info:
+    post:
+      tags: [Disputes]
+      summary: طلب مشغّل لمعلومات إضافية — الحالة awaiting_info مع مهلة معروضة؛ لا إجراء تلقائي عند انتهائها في v1
+      parameters:
+        - name: disputeId
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [deadlineDays]
+              properties:
+                note: { type: string, maxLength: 500, description: 'تظهر للطرفين كرسالة إدارة' }
+                deadlineDays: { type: integer, minimum: 1, maximum: 90 }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/DisputeDetail' }
+        "404": { $ref: '#/components/responses/NotFound' }
+        "409": { $ref: '#/components/responses/Conflict' }
+  /admin/disputes/{disputeId}/decide:
+    post:
+      tags: [Disputes]
+      summary: قرار المشغّل — ينفّذ فوراً عبر دفتر الأستاذ (تحرير كامل / استرداد كامل / تقسيم جزئي) ويغلق النزاع؛ القرار نهائي
+      description: |
+        الاسترداد الكامل يعيد المبلغ كاملاً للمشتري بلا رسوم (الرسوم تُحصَّل مرة
+        واحدة فقط عند الإفراج للبائع). التقسيم الجزئي: البائع يأخذ نسبته ناقص
+        رسوم المنصة (50)، والمشتري يأخذ الباقي. قرار ثانٍ على نزاع مغلق يرجع 409.
+      parameters:
+        - name: disputeId
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [resolution, note]
+              properties:
+                resolution: { type: string, enum: [release_seller, refund_buyer, partial] }
+                sellerPercent: { type: integer, minimum: 1, maximum: 99, description: 'مطلوب مع partial فقط' }
+                note: { type: string, maxLength: 500, description: 'ملاحظة القرار — إلزامية وتظهر للطرفين' }
+      responses:
+        "200":
+          description: قرار منفذ
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/DisputeExecution' }
+        "404": { $ref: '#/components/responses/NotFound' }
+        "409": { $ref: '#/components/responses/Conflict' }
   /admin/withdrawals/{id}/approve:
     post:
       tags: [Wallet]
@@ -1517,8 +1634,9 @@ paths:
       summary: فتح نزاع (أي طرف، يجمد الضمان)
       description: |
         يرجع 201 مع { id, number, dealId, status } حيث number بصيغة DSP-{dealId}.
-        لا يقبل fileIds ولا confirmed في الكود الحالي. فتح النزاع يجمّد الضمان
-        ويمنع الإفراج التلقائي؛ لا توجد بعد رسائل نزاع ولا قرار أدمن ولا استرداد.
+        أي طرف (مشتري أو بائع) يفتح أثناء الفحص وقبل انتهاء مهلته؛ الطرف المقابل
+        هو الطرف الآخر تلقائياً. فتح نزاع ثانٍ على نفس الصفقة يرجع 409 DEAL_DISPUTED.
+        فتح النزاع يجمّد الضمان ويمنع الإفراج التلقائي.
       parameters:
         - $ref: '#/components/parameters/DealId'
       requestBody:
@@ -1543,6 +1661,153 @@ paths:
                     properties:
                       data: { $ref: '#/components/schemas/DisputeResult' }
         "409": { $ref: '#/components/responses/Conflict' }
+    get:
+      tags: [Deals]
+      summary: تفاصيل النزاع على الصفقة (للطرفين والمشغّل فقط) — رسائل ومرفقات واقتراحات تسوية
+      parameters:
+        - $ref: '#/components/parameters/DealId'
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/DisputeDetail' }
+        "404": { $ref: '#/components/responses/NotFound' }
+  /deals/{id}/dispute/messages:
+    post:
+      tags: [Deals]
+      summary: رسالة داخل النزاع (طرف أو مشغّل؛ ملاحظة داخلية للمشغّل فقط ولا تظهر للطرفين)
+      parameters:
+        - $ref: '#/components/parameters/DealId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message: { type: string, maxLength: 1000, description: 'نص الرسالة؛ أو filePublicId وحده لرسالة بمرفق فقط' }
+                filePublicId: { type: string, description: 'معرّف عام من /uploads بغرض dispute، ملك المُرسل وحالته Uploaded' }
+                isInternalNote: { type: boolean, description: 'true للمشغّل فقط — يرجع 403 DISPUTE_ACTION_NOT_ALLOWED لغير المشغّل' }
+      responses:
+        "201":
+          description: رسالة مرسلة
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/DisputeMessage' }
+        "404": { $ref: '#/components/responses/NotFound' }
+  /deals/{id}/dispute/attachments:
+    post:
+      tags: [Deals]
+      summary: مرفق مستقل داخل النزاع (ملف مرفوع مسبقاً بغرض dispute)
+      parameters:
+        - $ref: '#/components/parameters/DealId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [filePublicId]
+              properties:
+                filePublicId: { type: string }
+                messageId: { type: integer, description: 'اختياري — ربط المرفق برسالة موجودة في نفس النزاع' }
+      responses:
+        "201":
+          description: مرفق مضاف
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/DisputeAttachment' }
+        "404": { $ref: '#/components/responses/NotFound' }
+  /deals/{id}/dispute/settlement/propose:
+    post:
+      tags: [Deals]
+      summary: اقتراح تسوية ودية (طرف فقط؛ اقتراح مفتوح واحد في كل مرة، وإلا 409 SETTLEMENT_ALREADY_OPEN)
+      parameters:
+        - $ref: '#/components/parameters/DealId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [resolution]
+              properties:
+                resolution: { type: string, enum: [release_seller, refund_buyer, partial] }
+                sellerPercent: { type: integer, minimum: 1, maximum: 99, description: 'مطلوب مع partial فقط — نسبة البائع من المبلغ' }
+      responses:
+        "201":
+          description: اقتراح مرسل
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/SettlementProposal' }
+        "404": { $ref: '#/components/responses/NotFound' }
+        "409": { $ref: '#/components/responses/Conflict' }
+  /deals/{id}/dispute/settlement/{proposalId}/accept:
+    post:
+      tags: [Deals]
+      summary: قبول الطرف الآخر لاقتراح التسوية — ينفّذ فوراً عبر دفتر الأستاذ (تحرير/استرداد/تقسيم) ويغلق النزاع
+      parameters:
+        - $ref: '#/components/parameters/DealId'
+        - name: proposalId
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: تسوية منفذة
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/DisputeExecution' }
+        "404": { $ref: '#/components/responses/NotFound' }
+        "409": { $ref: '#/components/responses/Conflict' }
+  /deals/{id}/dispute/settlement/{proposalId}/reject:
+    post:
+      tags: [Deals]
+      summary: رفض الطرف الآخر لاقتراح التسوية — يبقى النزاع مفتوحاً للمشغّل ويمكن اقتراح تسوية جديدة
+      parameters:
+        - $ref: '#/components/parameters/DealId'
+        - name: proposalId
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: اقتراح مرفوض
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/SettlementProposal' }
+        "404": { $ref: '#/components/responses/NotFound' }
   /sellers/{id}/store:
     get:
       tags: [Deals]
@@ -2679,6 +2944,103 @@ components:
         number: { type: string, example: "DSP-0045872" }
         dealId: { type: integer }
         status: { type: string, example: under_review }
+    DisputeSummary:
+      type: object
+      description: كما يرجعه DisputeSummaryDto من GET /me/disputes و GET /admin/disputes.
+      properties:
+        id: { type: integer }
+        number: { type: string }
+        dealId: { type: integer }
+        dealTitle: { type: string }
+        dealAmount: { type: number }
+        status: { type: string, enum: [under_review, awaiting_info, resolved_buyer, resolved_seller, closed] }
+        resolution: { type: string, enum: [none, refund_buyer, release_seller, partial] }
+        openedByName: { type: string, nullable: true }
+        createdAt: { type: string, format: date-time }
+        resolvedAt: { type: string, format: date-time, nullable: true }
+    DisputeAttachment:
+      type: object
+      description: كما يرجعه DisputeAttachmentDto.
+      properties:
+        id: { type: integer }
+        fileId: { type: integer }
+        fileName: { type: string }
+        fileUrl: { type: string, nullable: true }
+        contentType: { type: string }
+        sizeBytes: { type: integer }
+        uploadedByName: { type: string, nullable: true }
+        createdAt: { type: string, format: date-time }
+    DisputeMessage:
+      type: object
+      description: كما يرجعه DisputeMessageDto — الملاحظات الداخلية (isInternalNote) لا تظهر إلا للمشغّل.
+      properties:
+        id: { type: integer }
+        senderType: { type: string, enum: [buyer, seller, admin] }
+        senderName: { type: string, nullable: true }
+        message: { type: string, nullable: true }
+        isInternalNote: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        attachments:
+          type: array
+          items: { $ref: '#/components/schemas/DisputeAttachment' }
+    SettlementProposal:
+      type: object
+      description: كما يرجعه SettlementProposalDto — اقتراح تسوية ودية؛ sellerPercent مع partial فقط (1-99).
+      properties:
+        id: { type: integer }
+        proposedById: { type: integer }
+        proposedByName: { type: string, nullable: true }
+        resolution: { type: string, enum: [refund_buyer, release_seller, partial] }
+        sellerPercent: { type: integer, nullable: true }
+        status: { type: string, enum: [open, accepted, rejected] }
+        createdAt: { type: string, format: date-time }
+        decidedAt: { type: string, format: date-time, nullable: true }
+    DisputeDetail:
+      type: object
+      description: كما يرجعه DisputeDetailDto من GET /deals/{id}/dispute.
+      properties:
+        id: { type: integer }
+        number: { type: string }
+        dealId: { type: integer }
+        dealTitle: { type: string }
+        dealAmount: { type: number }
+        dealCurrency: { type: string }
+        status: { type: string, enum: [under_review, awaiting_info, resolved_buyer, resolved_seller, closed] }
+        resolution: { type: string, enum: [none, refund_buyer, release_seller, partial] }
+        resolutionNote: { type: string, nullable: true }
+        details: { type: string }
+        reasonId: { type: integer }
+        reasonNameAr: { type: string, nullable: true }
+        reasonNameEn: { type: string, nullable: true }
+        openedById: { type: integer }
+        openedByName: { type: string, nullable: true }
+        againstUserId: { type: integer }
+        againstName: { type: string, nullable: true }
+        role: { type: string, enum: [buyer, seller, operator] }
+        infoDeadlineAt: { type: string, format: date-time, nullable: true }
+        resolvedAt: { type: string, format: date-time, nullable: true }
+        createdAt: { type: string, format: date-time }
+        messages:
+          type: array
+          items: { $ref: '#/components/schemas/DisputeMessage' }
+        attachments:
+          type: array
+          items: { $ref: '#/components/schemas/DisputeAttachment' }
+        openProposal: { $ref: '#/components/schemas/SettlementProposal', nullable: true }
+        availableActions:
+          type: array
+          items: { type: string, enum: [send_message, propose_settlement, accept_settlement, reject_settlement] }
+    DisputeExecution:
+      type: object
+      description: كما يرجعه DisputeExecutionDto من قرار المشغّل أو قبول التسوية — المبالغ الفعلية المنقولة في دفتر الأستاذ.
+      properties:
+        disputeId: { type: integer }
+        number: { type: string }
+        resolution: { type: string, enum: [refund_buyer, release_seller, partial] }
+        sellerAmount: { type: number, description: 'ما استلمه البائع (حصته ناقص رسوم المنصة)' }
+        buyerAmount: { type: number, description: 'ما استرده المشتري' }
+        feeAmount: { type: number, description: 'رسوم المنصة الثابتة على الصفقة (تُخصم من البائع فقط)' }
+        dealStatus: { type: string, enum: [released, refunded] }
     UpdateProfileResult:
       type: object
       description: كما يرجعه PUT /me بعد إصلاح إعادة التحقق من البريد.

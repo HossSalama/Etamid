@@ -1,5 +1,6 @@
 using Etamid.Application.Common.Interfaces;
 using Etamid.Domain.Deals;
+using Etamid.Domain.Disputes;
 using Etamid.Domain.Money;
 using Etamid.SharedKernel;
 using Microsoft.EntityFrameworkCore;
@@ -142,6 +143,76 @@ public sealed class EscrowLedgerService(IApplicationDbContext db, IClock clock)
         return Result.Success();
     }
 
+    /// <summary>
+    /// Executes a dispute decision in one balanced transaction: a full release, a full refund,
+    /// or a partial split (one debit closing the hold, credits to the wallets that receive
+    /// money, plus the one platform fee to revenue when the seller receives anything).
+    /// Stages everything; the caller saves. The idempotency key makes a replayed execution
+    /// fail instead of moving money twice.
+    /// </summary>
+    public async Task<Result<DisputeExecutionLegs>> StageDisputeExecutionAsync(
+        Deal deal, EscrowHold hold, DisputeResolution resolution, decimal sellerShare,
+        Wallet? sellerWallet, Wallet? buyerWallet, ReleaseReason reason, CreatedByType createdBy, CancellationToken ct)
+    {
+        if (hold.Status != EscrowStatus.FrozenDispute) return DealErrors.EscrowNotHeld;
+
+        // A partial split needs a positive share on both sides after rounding;
+        // otherwise one of the wallets below would be null.
+        if (resolution == DisputeResolution.Partial && (sellerShare <= 0m || sellerShare >= deal.Amount))
+            return DealErrors.AmountTooLow;
+
+        var key = $"escrow-dispute:{deal.Id}";
+        if (await db.LedgerTransactions.AnyAsync(t => t.IdempotencyKey == key, ct)) return DealErrors.EscrowNotHeld;
+
+        var escrow = await GetPlatformAccountAsync(LedgerAccountType.PlatformEscrow, ct);
+        var revenue = await GetPlatformAccountAsync(LedgerAccountType.PlatformRevenue, ct);
+        var fee = deal.FeeAmount ?? 0m;
+
+        Result<IReadOnlyList<PostingLine>> lines = resolution switch
+        {
+            DisputeResolution.ReleaseSeller => EscrowPostings.Release(deal.Amount, fee, escrow, sellerWallet!.LedgerAccountId, revenue),
+            DisputeResolution.RefundBuyer => EscrowPostings.Refund(deal.Amount, escrow, buyerWallet!.LedgerAccountId),
+            DisputeResolution.Partial => EscrowPostings.Split(deal.Amount, fee, sellerShare, escrow, sellerWallet!.LedgerAccountId, revenue, buyerWallet!.LedgerAccountId),
+            _ => Result.Failure<IReadOnlyList<PostingLine>>(Error.Validation("INVALID_VALUE", "resolution"))
+        };
+        if (lines.IsFailure) return lines.Error;
+
+        var type = resolution == DisputeResolution.RefundBuyer
+            ? LedgerTransactionType.EscrowRefund
+            : LedgerTransactionType.EscrowRelease;
+        var transaction = BuildTransaction(
+            type, deal.Id, hold.PaymentId, key,
+            $"Dispute execution ({resolution}) for deal {deal.Id}", lines.Value);
+        transaction.CreatedByType = createdBy;
+
+        // Wallet balances are projections of the ledger: committed entries + the credits staged here.
+        foreach (var wallet in new[] { sellerWallet, buyerWallet }.Where(w => w is not null))
+        {
+            var committed = await db.LedgerEntries.AsNoTracking()
+                .Where(e => e.AccountId == wallet!.LedgerAccountId)
+                .SumAsync(e => e.Direction == LedgerDirection.Credit ? e.Amount : -e.Amount, ct);
+            var credit = lines.Value.Where(l => l.AccountId == wallet!.LedgerAccountId).Sum(l => l.Amount);
+            var balanceAfter = committed + credit;
+            transaction.Entries.First(e => e.AccountId == wallet!.LedgerAccountId).BalanceAfter = balanceAfter;
+            wallet!.AvailableBalance = balanceAfter;
+        }
+
+        db.LedgerTransactions.Add(transaction);
+
+        hold.Status = resolution == DisputeResolution.RefundBuyer ? EscrowStatus.Refunded : EscrowStatus.Released;
+        hold.ReleasedAt = clock.UtcNow;
+        if (resolution == DisputeResolution.RefundBuyer) hold.RefundedAt = clock.UtcNow;
+        hold.ReleaseReason = reason;
+
+        var sellerAmount = sellerWallet is null
+            ? 0m
+            : lines.Value.Where(l => l.AccountId == sellerWallet.LedgerAccountId).Sum(l => l.Amount);
+        var buyerAmount = buyerWallet is null
+            ? 0m
+            : lines.Value.Where(l => l.AccountId == buyerWallet.LedgerAccountId).Sum(l => l.Amount);
+        return new DisputeExecutionLegs(sellerAmount, buyerAmount);
+    }
+
     private LedgerTransaction BuildTransaction(
         LedgerTransactionType type, long dealId, long paymentId, string key, string description, IReadOnlyList<PostingLine> lines)
     {
@@ -162,3 +233,6 @@ public sealed class EscrowLedgerService(IApplicationDbContext db, IClock clock)
         return transaction;
     }
 }
+
+/// <summary>What a dispute execution credited to each side (net of the platform fee on the seller leg).</summary>
+public sealed record DisputeExecutionLegs(decimal SellerAmount, decimal BuyerAmount);

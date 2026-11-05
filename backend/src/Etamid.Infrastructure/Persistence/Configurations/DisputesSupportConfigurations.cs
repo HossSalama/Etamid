@@ -56,6 +56,17 @@ public sealed class DisputeAttachmentConfiguration : IEntityTypeConfiguration<Di
     }
 }
 
+public sealed class DisputeSettlementProposalConfiguration : IEntityTypeConfiguration<DisputeSettlementProposal>
+{
+    public void Configure(EntityTypeBuilder<DisputeSettlementProposal> b)
+    {
+        b.HasIndex(x => x.DisputeId);
+        b.ForeignKey<DisputeSettlementProposal, Dispute>(x => x.DisputeId);
+        b.ForeignKey<DisputeSettlementProposal, User>(x => x.ProposedByUserId);
+        b.ForeignKey<DisputeSettlementProposal, User>(x => x.DecidedByUserId);
+    }
+}
+
 public sealed class SupportTicketConfiguration : IEntityTypeConfiguration<SupportTicket>
 {
     public void Configure(EntityTypeBuilder<SupportTicket> b)

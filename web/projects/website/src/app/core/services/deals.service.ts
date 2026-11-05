@@ -370,6 +370,66 @@ export interface InstallmentFundSession {
   redirectUrl: string;
 }
 
+export interface DisputeAttachment {
+  id: number;
+  fileId: number;
+  fileName: string;
+  fileUrl: string | null;
+  contentType: string;
+  sizeBytes: number;
+  uploadedByName: string | null;
+  createdAt: string;
+}
+
+export interface DisputeMessage {
+  id: number;
+  senderType: string;
+  senderName: string | null;
+  message: string | null;
+  isInternalNote: boolean;
+  createdAt: string;
+  attachments: DisputeAttachment[];
+}
+
+export interface SettlementProposal {
+  id: number;
+  proposedById: number;
+  proposedByName: string | null;
+  resolution: string;
+  sellerPercent: number | null;
+  status: string;
+  createdAt: string;
+  decidedAt: string | null;
+}
+
+export interface DisputeDetail {
+  id: number;
+  number: string;
+  dealId: number;
+  dealTitle: string;
+  dealAmount: number;
+  dealCurrency: string;
+  status: string;
+  resolution: string;
+  resolutionNote: string | null;
+  details: string;
+  reasonId: number;
+  reasonNameAr: string | null;
+  reasonNameEn: string | null;
+  openedById: number;
+  openedByName: string | null;
+  againstUserId: number;
+  againstName: string | null;
+  role: string;
+  infoDeadlineAt: string | null;
+  resolvedAt: string | null;
+  createdAt: string;
+  messages: DisputeMessage[];
+  attachments: DisputeAttachment[];
+  openProposal: SettlementProposal | null;
+  availableActions: string[];
+}
+
 @Injectable({ providedIn: 'root' })
 export class DealsService {
   private readonly http = inject(HttpClient);
@@ -425,6 +485,58 @@ export class DealsService {
 
   openDispute(id: number, reasonId: number, details: string): Observable<ApiResponse<unknown>> {
     return this.http.post<ApiResponse<unknown>>(`${this.baseUrl}/deals/${id}/dispute`, { reasonId, details });
+  }
+
+  // ---------- Disputes ----------
+
+  getDispute(dealId: number): Observable<ApiResponse<DisputeDetail>> {
+    return this.http.get<ApiResponse<DisputeDetail>>(`${this.baseUrl}/deals/${dealId}/dispute`);
+  }
+
+  uploadDisputeFile(file: File): Observable<ApiResponse<{ fileId: string; url: string }>> {
+    const formData = new FormData();
+    formData.append('file', file, file.name);
+    formData.append('purpose', 'dispute');
+    return this.http.post<ApiResponse<{ fileId: string; url: string }>>(`${this.baseUrl}/uploads`, formData);
+  }
+
+  sendDisputeMessage(dealId: number, message: string, filePublicId?: string): Observable<ApiResponse<DisputeMessage>> {
+    return this.http.post<ApiResponse<DisputeMessage>>(`${this.baseUrl}/deals/${dealId}/dispute/messages`, {
+      message,
+      ...(filePublicId ? { filePublicId } : {}),
+    });
+  }
+
+  addDisputeAttachment(dealId: number, filePublicId: string): Observable<ApiResponse<DisputeAttachment>> {
+    return this.http.post<ApiResponse<DisputeAttachment>>(
+      `${this.baseUrl}/deals/${dealId}/dispute/attachments`,
+      { filePublicId },
+    );
+  }
+
+  proposeSettlement(
+    dealId: number,
+    resolution: string,
+    sellerPercent?: number,
+  ): Observable<ApiResponse<SettlementProposal>> {
+    return this.http.post<ApiResponse<SettlementProposal>>(
+      `${this.baseUrl}/deals/${dealId}/dispute/settlement/propose`,
+      { resolution, ...(sellerPercent !== undefined ? { sellerPercent } : {}) },
+    );
+  }
+
+  acceptSettlement(dealId: number, proposalId: number): Observable<ApiResponse<unknown>> {
+    return this.http.post<ApiResponse<unknown>>(
+      `${this.baseUrl}/deals/${dealId}/dispute/settlement/${proposalId}/accept`,
+      null,
+    );
+  }
+
+  rejectSettlement(dealId: number, proposalId: number): Observable<ApiResponse<unknown>> {
+    return this.http.post<ApiResponse<unknown>>(
+      `${this.baseUrl}/deals/${dealId}/dispute/settlement/${proposalId}/reject`,
+      null,
+    );
   }
 
   rateDeal(id: number, stars: number, comment?: string): Observable<ApiResponse<unknown>> {

@@ -148,5 +148,20 @@
   "COMPANY_INSTALLMENT_APPROVED": "تمت الموافقة على الدفعة.",
   "COMPANY_INSTALLMENT_REJECTED": "تم رفض الدفعة وإعادتها للمراجعة.",
   "COMPANY_INSTALLMENT_FUNDING_STARTED": "تم بدء تمويل الدفعة في الضمان.",
-  "COMPANY_PENALTY_WAIVED": "تم إعفاء الغرامة."
+  "COMPANY_PENALTY_WAIVED": "تم إعفاء الغرامة.",
+  "DISPUTE_NOT_FOUND": "النزاع غير موجود.",
+  "DISPUTE_INVALID_STATE": "لا يمكن تنفيذ هذا الإجراء على النزاع في حالته الحالية.",
+  "DISPUTE_ACTION_NOT_ALLOWED": "لا يمكنك تنفيذ هذا الإجراء على هذا النزاع.",
+  "DISPUTE_NOT_OPERATOR": "هذا الإجراء مخصص لمشغّلي النزاعات فقط.",
+  "DISPUTE_ALREADY_RESOLVED": "تم الفصل في هذا النزاع بالفعل.",
+  "SETTLEMENT_ALREADY_OPEN": "يوجد بالفعل اقتراح تسوية مفتوح على هذا النزاع.",
+  "SETTLEMENT_PROPOSAL_NOT_FOUND": "اقتراح التسوية غير موجود.",
+  "SETTLEMENT_PROPOSAL_NOT_OPEN": "اقتراح التسوية لم يعد مفتوحاً.",
+  "DISPUTE_MESSAGE_SENT": "تم إرسال الرسالة.",
+  "DISPUTE_ATTACHMENT_ADDED": "تمت إضافة المرفق.",
+  "DISPUTE_SETTLEMENT_PROPOSED": "تم إرسال اقتراح التسوية.",
+  "DISPUTE_SETTLEMENT_ACCEPTED": "تم قبول التسوية وتنفيذها.",
+  "DISPUTE_SETTLEMENT_REJECTED": "تم رفض اقتراح التسوية.",
+  "DISPUTE_INFO_REQUESTED": "تم طلب معلومات إضافية من الطرفين.",
+  "DISPUTE_DECIDED": "تم الفصل في النزاع وتنفيذ القرار."
 }

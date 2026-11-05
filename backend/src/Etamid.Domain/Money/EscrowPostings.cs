@@ -64,4 +64,49 @@ public static class EscrowPostings
             ? Result.Failure<IReadOnlyList<PostingLine>>(check.Error)
             : Result.Success<IReadOnlyList<PostingLine>>(lines);
     }
+
+    /// <summary>
+    /// Full refund to the buyer: Dr PlatformEscrow (release the hold, full amount) /
+    /// Cr buyer wallet (full amount). No platform fee is taken: the fee is only
+    /// realized on a release to the seller, so a refunded deal earns the platform nothing.
+    /// </summary>
+    public static Result<IReadOnlyList<PostingLine>> Refund(
+        decimal amount, long platformEscrowAccountId, long buyerWalletAccountId)
+    {
+        IReadOnlyList<PostingLine> lines =
+        [
+            new(platformEscrowAccountId, LedgerDirection.Debit, amount),
+            new(buyerWalletAccountId, LedgerDirection.Credit, amount)
+        ];
+
+        var check = LedgerPosting.Validate(lines);
+        return check.IsFailure ? Result.Failure<IReadOnlyList<PostingLine>>(check.Error) : Result.Success(lines);
+    }
+
+    /// <summary>
+    /// Partial split of a disputed deal: Dr PlatformEscrow (close the hold, full amount) /
+    /// Cr seller wallet (seller share minus the one platform fee) / Cr PlatformRevenue (fee) /
+    /// Cr buyer wallet (the rest). The seller share must exceed the fee and the buyer share
+    /// must be positive, otherwise the split cannot be posted as balanced positive lines.
+    /// </summary>
+    public static Result<IReadOnlyList<PostingLine>> Split(
+        decimal amount, decimal fee, decimal sellerShare,
+        long platformEscrowAccountId, long sellerWalletAccountId, long platformRevenueAccountId, long buyerWalletAccountId)
+    {
+        var buyerShare = amount - sellerShare;
+        if (sellerShare <= fee || buyerShare <= 0) return Etamid.Domain.Deals.DealErrors.AmountTooLow;
+
+        var lines = new List<PostingLine>
+        {
+            new(platformEscrowAccountId, LedgerDirection.Debit, amount),
+            new(sellerWalletAccountId, LedgerDirection.Credit, sellerShare - fee),
+            new(buyerWalletAccountId, LedgerDirection.Credit, buyerShare)
+        };
+        if (fee > 0) lines.Add(new PostingLine(platformRevenueAccountId, LedgerDirection.Credit, fee));
+
+        var check = LedgerPosting.Validate(lines);
+        return check.IsFailure
+            ? Result.Failure<IReadOnlyList<PostingLine>>(check.Error)
+            : Result.Success<IReadOnlyList<PostingLine>>(lines);
+    }
 }

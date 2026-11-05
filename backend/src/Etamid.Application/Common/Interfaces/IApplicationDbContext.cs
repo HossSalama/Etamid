@@ -50,6 +50,8 @@ public interface IApplicationDbContext
     DbSet<IdempotencyRecord> IdempotencyKeys { get; }
     DbSet<Dispute> Disputes { get; }
     DbSet<DisputeMessage> DisputeMessages { get; }
+    DbSet<DisputeAttachment> DisputeAttachments { get; }
+    DbSet<DisputeSettlementProposal> DisputeSettlementProposals { get; }
     DbSet<Rating> Ratings { get; }
     // The Shipments table already exists (Initial migration); only the interface
     // exposure was missing, so no new migration is needed for tracking.

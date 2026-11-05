@@ -285,7 +285,7 @@ public sealed class OpenDisputeHandler(IApplicationDbContext db, ICurrentUser cu
             Number = $"DSP-{deal.Id:D6}",
             DealId = deal.Id,
             OpenedById = userId,
-            AgainstUserId = deal.SellerId,
+            AgainstUserId = userId == deal.BuyerId ? deal.SellerId : deal.BuyerId,
             ReasonId = r.ReasonId,
             Details = r.Details.Trim(),
             Status = DisputeStatus.UnderReview,

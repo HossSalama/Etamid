@@ -148,5 +148,20 @@
   "COMPANY_INSTALLMENT_APPROVED": "Installment approved.",
   "COMPANY_INSTALLMENT_REJECTED": "Installment rejected and returned for revision.",
   "COMPANY_INSTALLMENT_FUNDING_STARTED": "Installment escrow funding started.",
-  "COMPANY_PENALTY_WAIVED": "Penalty waived."
+  "COMPANY_PENALTY_WAIVED": "Penalty waived.",
+  "DISPUTE_NOT_FOUND": "Dispute not found.",
+  "DISPUTE_INVALID_STATE": "This action cannot be performed on the dispute in its current state.",
+  "DISPUTE_ACTION_NOT_ALLOWED": "You cannot perform this action on this dispute.",
+  "DISPUTE_NOT_OPERATOR": "This action is for dispute operators only.",
+  "DISPUTE_ALREADY_RESOLVED": "This dispute has already been decided.",
+  "SETTLEMENT_ALREADY_OPEN": "There is already an open settlement proposal on this dispute.",
+  "SETTLEMENT_PROPOSAL_NOT_FOUND": "Settlement proposal not found.",
+  "SETTLEMENT_PROPOSAL_NOT_OPEN": "The settlement proposal is no longer open.",
+  "DISPUTE_MESSAGE_SENT": "Message sent.",
+  "DISPUTE_ATTACHMENT_ADDED": "Attachment added.",
+  "DISPUTE_SETTLEMENT_PROPOSED": "Settlement proposal sent.",
+  "DISPUTE_SETTLEMENT_ACCEPTED": "Settlement accepted and executed.",
+  "DISPUTE_SETTLEMENT_REJECTED": "Settlement proposal rejected.",
+  "DISPUTE_INFO_REQUESTED": "More information was requested from the parties.",
+  "DISPUTE_DECIDED": "The dispute was decided and the decision executed."
 }

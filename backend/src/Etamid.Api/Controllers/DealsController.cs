@@ -1,5 +1,6 @@
 using Etamid.Application.Deals.Commands;
 using Etamid.Application.Deals.Queries;
+using Etamid.Application.Disputes;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -78,6 +79,30 @@ public sealed class DealsController : BaseApiController
     [HttpPost("{id:long}/dispute")]
     public async Task<IActionResult> Dispute(long id, OpenDisputeCommand command, CancellationToken ct)
         => Respond(await Sender.Send(command with { DealId = id }, ct), "DEAL_DISPUTE_OPENED", StatusCodes.Status201Created);
+
+    [HttpGet("{id:long}/dispute")]
+    public async Task<IActionResult> GetDispute(long id, CancellationToken ct)
+        => Respond(await Sender.Send(new GetDisputeQuery(id), ct));
+
+    [HttpPost("{id:long}/dispute/messages")]
+    public async Task<IActionResult> PostDisputeMessage(long id, PostDisputeMessageCommand command, CancellationToken ct)
+        => Respond(await Sender.Send(command with { DealId = id }, ct), "DISPUTE_MESSAGE_SENT", StatusCodes.Status201Created);
+
+    [HttpPost("{id:long}/dispute/attachments")]
+    public async Task<IActionResult> AddDisputeAttachment(long id, AddDisputeAttachmentCommand command, CancellationToken ct)
+        => Respond(await Sender.Send(command with { DealId = id }, ct), "DISPUTE_ATTACHMENT_ADDED", StatusCodes.Status201Created);
+
+    [HttpPost("{id:long}/dispute/settlement/propose")]
+    public async Task<IActionResult> ProposeSettlement(long id, ProposeSettlementCommand command, CancellationToken ct)
+        => Respond(await Sender.Send(command with { DealId = id }, ct), "DISPUTE_SETTLEMENT_PROPOSED", StatusCodes.Status201Created);
+
+    [HttpPost("{id:long}/dispute/settlement/{proposalId:long}/accept")]
+    public async Task<IActionResult> AcceptSettlement(long id, long proposalId, CancellationToken ct)
+        => Respond(await Sender.Send(new AcceptSettlementCommand(id, proposalId), ct), "DISPUTE_SETTLEMENT_ACCEPTED");
+
+    [HttpPost("{id:long}/dispute/settlement/{proposalId:long}/reject")]
+    public async Task<IActionResult> RejectSettlement(long id, long proposalId, CancellationToken ct)
+        => Respond(await Sender.Send(new RejectSettlementCommand(id, proposalId), ct), "DISPUTE_SETTLEMENT_REJECTED");
 
     [HttpPost("{id:long}/rating")]
     public async Task<IActionResult> Rate(long id, RateDealCommand command, CancellationToken ct)

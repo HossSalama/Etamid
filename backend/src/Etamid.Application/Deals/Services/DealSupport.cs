@@ -81,8 +81,8 @@ public static class DealActions
             case DealStatus.Released when isBuyer && !alreadyRated:
                 actions.Add("rate");
                 break;
-            case DealStatus.Inspection when isBuyer:
-                actions.Add("release");
+            case DealStatus.Inspection:
+                if (isBuyer) actions.Add("release");
                 if (deal.InspectionEndsAt is { } ends && now <= ends) actions.Add("dispute");
                 break;
         }

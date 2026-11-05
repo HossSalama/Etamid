@@ -168,9 +168,10 @@ public class DealDomainTests
     }
 
     [Fact]
-    public void Only_the_buyer_can_dispute_and_only_during_inspection()
+    public void Either_party_can_dispute_but_only_during_inspection()
     {
-        Inspecting().OpenDispute(Seller, T0).Error.Code.Should().Be("DEAL_ACTION_NOT_ALLOWED");
+        Inspecting().OpenDispute(Seller, T0).IsSuccess.Should().BeTrue();
+        Inspecting().OpenDispute(Stranger, T0).Error.Code.Should().Be("DEAL_ACTION_NOT_ALLOWED");
         Inspecting().OpenDispute(Buyer, T0.AddHours(25)).Error.Code.Should().Be("DEAL_INSPECTION_ENDED");
 
         var funded = NewDeal();

@@ -64,6 +64,7 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
     public DbSet<Dispute> Disputes => Set<Dispute>();
     public DbSet<DisputeMessage> DisputeMessages => Set<DisputeMessage>();
     public DbSet<DisputeAttachment> DisputeAttachments => Set<DisputeAttachment>();
+    public DbSet<DisputeSettlementProposal> DisputeSettlementProposals => Set<DisputeSettlementProposal>();
     public DbSet<SupportTicket> SupportTickets => Set<SupportTicket>();
     public DbSet<SupportTicketMessage> SupportTicketMessages => Set<SupportTicketMessage>();
 

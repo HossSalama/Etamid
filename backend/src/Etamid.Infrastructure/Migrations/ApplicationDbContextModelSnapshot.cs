@@ -1584,6 +1584,9 @@ namespace Etamid.Infrastructure.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
+                    b.Property<DateTime?>("InfoDeadlineAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("Number")
                         .IsRequired()
                         .HasMaxLength(20)
@@ -1723,6 +1726,56 @@ namespace Etamid.Infrastructure.Migrations
                     b.HasIndex("DisputeId", "CreatedAt");
 
                     b.ToTable("DisputeMessages");
+                });
+
+            modelBuilder.Entity("Etamid.Domain.Disputes.DisputeSettlementProposal", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("DecidedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<long?>("DecidedByUserId")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("DisputeId")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("ProposedByUserId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Resolution")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<int?>("SellerPercent")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DecidedByUserId");
+
+                    b.HasIndex("DisputeId");
+
+                    b.HasIndex("ProposedByUserId");
+
+                    b.ToTable("DisputeSettlementProposals");
                 });
 
             modelBuilder.Entity("Etamid.Domain.Files.StoredFile", b =>
@@ -3834,6 +3887,26 @@ namespace Etamid.Infrastructure.Migrations
                         .WithMany()
                         .HasForeignKey("SenderUserId")
                         .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("Etamid.Domain.Disputes.DisputeSettlementProposal", b =>
+                {
+                    b.HasOne("Etamid.Domain.Identity.User", null)
+                        .WithMany()
+                        .HasForeignKey("DecidedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Etamid.Domain.Disputes.Dispute", null)
+                        .WithMany()
+                        .HasForeignKey("DisputeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Etamid.Domain.Identity.User", null)
+                        .WithMany()
+                        .HasForeignKey("ProposedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Etamid.Domain.Files.StoredFile", b =>
