@@ -126,6 +126,13 @@ export const routes: Routes = [
       ),
   },
   {
+    path: 'notifications',
+    loadComponent: () =>
+      import('./features/notifications/notifications-page.component').then(
+        (m) => m.NotificationsPageComponent,
+      ),
+  },
+  {
     path: 'addresses',
     loadComponent: () =>
       import('./features/profile/my-addresses.component').then(

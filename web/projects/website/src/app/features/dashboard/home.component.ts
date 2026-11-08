@@ -4,6 +4,7 @@ import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
 import { DealEdit, DealSummary, DealsService, LookupItem, Wallet, WalletTransaction, Withdrawal } from '../../core/services/deals.service';
 import { LanguageService } from '../../core/services/language.service';
+import { NotificationsService } from '../../core/services/notifications.service';
 import { MyAddressesComponent } from '../profile/my-addresses.component';
 import { StoreEditorComponent } from '../profile/store-editor.component';
 
@@ -63,7 +64,7 @@ export interface DealItem {
 
           <div class="header-actions">
             @if (authService.isAuthenticated()) {
-              <button class="icon-btn" title="الإشعارات">
+              <button class="icon-btn" title="الإشعارات" (click)="openNotifications()">
                 <span class="bell-icon">🔔</span>
                 @if (unreadNotifications()) {
                   <span class="unread-dot"></span>
@@ -1962,6 +1963,7 @@ export class HomeComponent {
   private readonly fb = inject(FormBuilder);
   private readonly router = inject(Router);
   private readonly dealsApi = inject(DealsService);
+  private readonly notificationsApi = inject(NotificationsService);
   readonly lang = inject(LanguageService);
 
   readonly selectedTab = signal<'new' | 'in_progress' | 'completed'>('new');
@@ -2041,7 +2043,24 @@ export class HomeComponent {
       this.authService.refreshProfile().subscribe({ error: () => {} });
       this.loadDeals();
       this.loadWallet();
+      this.loadUnreadNotifications();
     }
+  }
+
+  openNotifications(): void {
+    void this.router.navigate(['/notifications']);
+  }
+
+  loadUnreadNotifications(): void {
+    if (!this.authService.isAuthenticated()) return;
+    this.notificationsApi.getUnreadCount().subscribe({
+      next: (response) => {
+        if (response.success && response.data) {
+          this.unreadNotifications.set(response.data.count > 0);
+        }
+      },
+      error: () => {},
+    });
   }
 
   loadWallet(): void {

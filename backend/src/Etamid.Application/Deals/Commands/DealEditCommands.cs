@@ -2,7 +2,9 @@ using Etamid.Application.Common.Errors;
 using Etamid.Application.Common.Interfaces;
 using Etamid.Application.Deals.Services;
 using Etamid.Application.Identity.Validation;
+using Etamid.Application.Notifications;
 using Etamid.Domain.Deals;
+using Etamid.Domain.Notifications;
 using Etamid.SharedKernel;
 using FluentValidation;
 using MediatR;
@@ -78,7 +80,7 @@ public sealed class ProposeDealEditValidator : AbstractValidator<ProposeDealEdit
     }
 }
 
-public sealed class ProposeDealEditHandler(IApplicationDbContext db, ICurrentUser currentUser)
+public sealed class ProposeDealEditHandler(IApplicationDbContext db, ICurrentUser currentUser, NotificationService notifications)
     : IRequestHandler<ProposeDealEditCommand, Result<DealEditDto>>
 {
     public async Task<Result<DealEditDto>> Handle(ProposeDealEditCommand r, CancellationToken ct)
@@ -118,6 +120,8 @@ public sealed class ProposeDealEditHandler(IApplicationDbContext db, ICurrentUse
             Status = EditStatus.Pending
         };
         db.DealEditRequests.Add(edit);
+        notifications.Create(userId == deal.BuyerId ? deal.SellerId : deal.BuyerId, NotificationType.DealEdit,
+            "NOTIF_DEAL_EDIT_TITLE", "NOTIF_DEAL_EDIT_BODY", deal.Title, dealId: deal.Id);
 
         var saved = await db.SaveGuardedAsync(ct);
         if (saved.IsFailure) return saved.Error;

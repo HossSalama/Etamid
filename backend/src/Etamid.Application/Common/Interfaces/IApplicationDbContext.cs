@@ -5,6 +5,7 @@ using Etamid.Domain.Disputes;
 using Etamid.Domain.Files;
 using Etamid.Domain.Identity;
 using Etamid.Domain.Money;
+using Etamid.Domain.Notifications;
 using Microsoft.EntityFrameworkCore;
 
 namespace Etamid.Application.Common.Interfaces;
@@ -61,6 +62,10 @@ public interface IApplicationDbContext
     // Company deals: the tables already exist (Initial migration); only the
     // interface exposure was missing, so no new migration is needed.
     DbSet<CompanyDeal> CompanyDeals { get; }
+
+    // Notifications: the table already exists (Initial migration); only the
+    // interface exposure was missing, so no new migration is needed.
+    DbSet<Notification> Notifications { get; }
     DbSet<CompanyDealStatusHistory> CompanyDealStatusHistory { get; }
     DbSet<PaymentInstallment> PaymentInstallments { get; }
     DbSet<InstallmentApproval> InstallmentApprovals { get; }

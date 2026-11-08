@@ -46,6 +46,9 @@ public static class DependencyInjection
         // Files
         services.AddScoped<Etamid.Application.Files.FileUploadService>();
 
+        // Notifications (Layer 1, in-app only)
+        services.AddScoped<Etamid.Application.Notifications.NotificationService>();
+
         return services;
     }
 }

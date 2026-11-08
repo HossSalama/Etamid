@@ -2,8 +2,10 @@ using Etamid.Application.Common.Errors;
 using Etamid.Application.Common.Interfaces;
 using Etamid.Application.Common.Models;
 using Etamid.Application.Deals.Services;
+using Etamid.Application.Notifications;
 using Etamid.Domain.Deals;
 using Etamid.Domain.Money;
+using Etamid.Domain.Notifications;
 using Etamid.SharedKernel;
 using FluentValidation;
 using MediatR;
@@ -152,7 +154,7 @@ public sealed class RequestWithdrawalValidator : AbstractValidator<RequestWithdr
     }
 }
 
-public sealed class RequestWithdrawalHandler(IApplicationDbContext db, ICurrentUser currentUser)
+public sealed class RequestWithdrawalHandler(IApplicationDbContext db, ICurrentUser currentUser, NotificationService notifications)
     : IRequestHandler<RequestWithdrawalCommand, Result<WithdrawalDto>>
 {
     public async Task<Result<WithdrawalDto>> Handle(RequestWithdrawalCommand r, CancellationToken ct)
@@ -188,6 +190,9 @@ public sealed class RequestWithdrawalHandler(IApplicationDbContext db, ICurrentU
             IdempotencyKey = r.IdempotencyKey
         };
         db.WithdrawalRequests.Add(request);
+        notifications.Create(userId, NotificationType.Wallet,
+            "NOTIF_WALLET_WITHDRAWAL_TITLE", "NOTIF_WALLET_WITHDRAWAL_BODY",
+            $"{request.Amount} SAR");
         await db.SaveChangesAsync(ct);
         return Result.Success(WalletQueries.ToDto(request));
     }
@@ -263,7 +268,7 @@ public sealed class ListWithdrawalsHandler(IApplicationDbContext db, ICurrentUse
 
 public sealed record ApproveWithdrawalCommand(long Id) : IRequest<Result<WithdrawalDto>>;
 
-public sealed class ApproveWithdrawalHandler(IApplicationDbContext db, ICurrentUser currentUser, IClock clock)
+public sealed class ApproveWithdrawalHandler(IApplicationDbContext db, ICurrentUser currentUser, IClock clock, NotificationService notifications)
     : IRequestHandler<ApproveWithdrawalCommand, Result<WithdrawalDto>>
 {
     public async Task<Result<WithdrawalDto>> Handle(ApproveWithdrawalCommand r, CancellationToken ct)
@@ -283,6 +288,9 @@ public sealed class ApproveWithdrawalHandler(IApplicationDbContext db, ICurrentU
         request.ApprovedAt = clock.UtcNow;
         // ApprovedByAdminId stays null: its foreign key points at AdminUsers
         // (the separate Cycle 9 admin identity), not at app users.
+        notifications.Create(request.UserId, NotificationType.Wallet,
+            "NOTIF_WALLET_WITHDRAWAL_TITLE", "NOTIF_WALLET_WITHDRAWAL_BODY",
+            $"{request.Amount} SAR");
         await db.SaveChangesAsync(ct);
         return Result.Success(WalletQueries.ToDto(request));
     }
@@ -298,7 +306,7 @@ public sealed class RejectWithdrawalValidator : AbstractValidator<RejectWithdraw
     }
 }
 
-public sealed class RejectWithdrawalHandler(IApplicationDbContext db, ICurrentUser currentUser)
+public sealed class RejectWithdrawalHandler(IApplicationDbContext db, ICurrentUser currentUser, NotificationService notifications)
     : IRequestHandler<RejectWithdrawalCommand, Result<WithdrawalDto>>
 {
     public async Task<Result<WithdrawalDto>> Handle(RejectWithdrawalCommand r, CancellationToken ct)
@@ -312,6 +320,9 @@ public sealed class RejectWithdrawalHandler(IApplicationDbContext db, ICurrentUs
 
         request.Status = WithdrawalStatus.Rejected;
         request.RejectionReason = r.Reason;
+        notifications.Create(request.UserId, NotificationType.Wallet,
+            "NOTIF_WALLET_WITHDRAWAL_TITLE", "NOTIF_WALLET_WITHDRAWAL_BODY",
+            $"{request.Amount} SAR");
         await db.SaveChangesAsync(ct);
         return Result.Success(WalletQueries.ToDto(request));
     }
@@ -328,7 +339,8 @@ public sealed class CompleteWithdrawalValidator : AbstractValidator<CompleteWith
 }
 
 public sealed class CompleteWithdrawalHandler(
-    IApplicationDbContext db, ICurrentUser currentUser, IClock clock, EscrowLedgerService ledger)
+    IApplicationDbContext db, ICurrentUser currentUser, IClock clock, EscrowLedgerService ledger,
+    NotificationService notifications)
     : IRequestHandler<CompleteWithdrawalCommand, Result<WithdrawalDto>>
 {
     public async Task<Result<WithdrawalDto>> Handle(CompleteWithdrawalCommand r, CancellationToken ct)
@@ -386,6 +398,9 @@ public sealed class CompleteWithdrawalHandler(
         request.Status = WithdrawalStatus.Completed;
         request.ProcessedAt = clock.UtcNow;
         request.BankReference = r.BankReference;
+        notifications.Create(request.UserId, NotificationType.Wallet,
+            "NOTIF_WALLET_WITHDRAWAL_TITLE", "NOTIF_WALLET_WITHDRAWAL_BODY",
+            $"{request.Amount} SAR");
         await db.SaveChangesAsync(ct);
         return Result.Success(WalletQueries.ToDto(request));
     }

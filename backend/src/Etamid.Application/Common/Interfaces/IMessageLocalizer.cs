@@ -4,4 +4,7 @@ namespace Etamid.Application.Common.Interfaces;
 public interface IMessageLocalizer
 {
     string Get(string key);
+
+    /// <summary>Resolves a message by its key in the given language ("ar" or "en"), falling back to English.</summary>
+    string Get(string key, string language);
 }

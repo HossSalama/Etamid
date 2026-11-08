@@ -3,9 +3,11 @@ using Etamid.Application.Common.Errors;
 using Etamid.Application.Common.Interfaces;
 using Etamid.Application.CompanyDeals;
 using Etamid.Application.Deals.Services;
+using Etamid.Application.Notifications;
 using Etamid.Domain.CompanyDeals;
 using Etamid.Domain.Deals;
 using Etamid.Domain.Money;
+using Etamid.Domain.Notifications;
 using Etamid.SharedKernel;
 using FluentValidation;
 using MediatR;
@@ -105,7 +107,7 @@ public sealed record ProcessPaymentWebhookCommand(string RawBody, string? Signat
 
 public sealed class ProcessPaymentWebhookHandler(
     IApplicationDbContext db, IClock clock, IPaymentGateway gateway, IWebhookSignatureVerifier verifier, EscrowLedgerService ledger,
-    CompanyEscrowService companyEscrow)
+    CompanyEscrowService companyEscrow, NotificationService notifications)
     : IRequestHandler<ProcessPaymentWebhookCommand, Result<WebhookResultDto>>
 {
     private const string SucceededType = "payment.succeeded";
@@ -259,6 +261,9 @@ public sealed class ProcessPaymentWebhookHandler(
         if (staged.IsFailure)
             return staged.Error;
 
+        notifications.Create(deal.SellerId, NotificationType.DealFunded,
+            "NOTIF_DEAL_FUNDED_TITLE", "NOTIF_DEAL_FUNDED_BODY", deal.Title, dealId: deal.Id);
+
         await FinishAsync(evt, WebhookStatus.Processed, null, now, ct);
         return new WebhookResultDto("processed");
     }
@@ -307,11 +312,22 @@ public sealed class ProcessPaymentWebhookHandler(
         if (staged.IsFailure)
             return staged.Error;
 
+        // The counterparty funded the installment: the creator (payee) hears about the funding,
+        // and when the installment was already approved the money releases to them in this same save.
+        notifications.Create(deal.CreatorUserId, NotificationType.PaymentApproval,
+            "NOTIF_INSTALLMENT_FUNDED_TITLE", "NOTIF_INSTALLMENT_FUNDED_BODY",
+            installment.Label ?? deal.Title, companyDealId: deal.Id, installmentId: installment.Id);
+
         if (installment.Status == InstallmentStatus.Approved)
         {
             var released = await companyEscrow.StageInstallmentReleaseAsync(deal, installment, ct);
             if (released.IsFailure)
                 return released.Error;
+
+            notifications.Create(deal.CreatorUserId, NotificationType.Wallet,
+                "NOTIF_WALLET_RELEASE_TITLE", "NOTIF_WALLET_RELEASE_BODY",
+                $"{payment.Amount} {deal.Currency} — {deal.Title}",
+                companyDealId: deal.Id, installmentId: installment.Id);
         }
 
         await FinishAsync(evt, WebhookStatus.Processed, null, now, ct);
@@ -336,7 +352,8 @@ public sealed class ReleaseEscrowValidator : AbstractValidator<ReleaseEscrowComm
 }
 
 public sealed class ReleaseEscrowHandler(
-    IApplicationDbContext db, ICurrentUser currentUser, IClock clock, IdempotencyService idempotency, EscrowReleaseService release)
+    IApplicationDbContext db, ICurrentUser currentUser, IClock clock, IdempotencyService idempotency, EscrowReleaseService release,
+    NotificationService notifications)
     : IRequestHandler<ReleaseEscrowCommand, Result<ReleaseResultDto>>
 {
     public async Task<Result<ReleaseResultDto>> Handle(ReleaseEscrowCommand r, CancellationToken ct)
@@ -356,6 +373,10 @@ public sealed class ReleaseEscrowHandler(
         var staged = await release.StageReleaseAsync(
             deal, d => d.ConfirmReceipt(userId, now), ReleaseReason.BuyerConfirmed, ct);
         if (staged.IsFailure) return staged.Error;
+
+        notifications.Create(deal.SellerId, NotificationType.Wallet,
+            "NOTIF_WALLET_RELEASE_TITLE", "NOTIF_WALLET_RELEASE_BODY",
+            $"{deal.Amount} {deal.Currency} — {deal.Title}", dealId: deal.Id);
 
         var dto = new ReleaseResultDto(
             deal.Id, ApiNames.Of(deal.Status), deal.Amount, deal.FeeAmount ?? 0m, deal.SellerNetAmount ?? deal.Amount);
@@ -394,7 +415,7 @@ public sealed class GetDueDealsHandler(IApplicationDbContext db, IClock clock) :
 
 public sealed record AutoReleaseDealCommand(long DealId) : IRequest<Result>;
 
-public sealed class AutoReleaseDealHandler(IApplicationDbContext db, IClock clock, EscrowReleaseService release)
+public sealed class AutoReleaseDealHandler(IApplicationDbContext db, IClock clock, EscrowReleaseService release, NotificationService notifications)
     : IRequestHandler<AutoReleaseDealCommand, Result>
 {
     public async Task<Result> Handle(AutoReleaseDealCommand r, CancellationToken ct)
@@ -405,6 +426,10 @@ public sealed class AutoReleaseDealHandler(IApplicationDbContext db, IClock cloc
         var now = clock.UtcNow;
         var staged = await release.StageReleaseAsync(deal, d => d.AutoRelease(now), ReleaseReason.AutoRelease, ct);
         if (staged.IsFailure) return staged;
+
+        notifications.Create(deal.SellerId, NotificationType.Wallet,
+            "NOTIF_WALLET_RELEASE_TITLE", "NOTIF_WALLET_RELEASE_BODY",
+            $"{deal.Amount} {deal.Currency} — {deal.Title}", dealId: deal.Id);
 
         return await db.SaveGuardedAsync(ct);
     }

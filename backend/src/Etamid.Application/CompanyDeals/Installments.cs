@@ -2,9 +2,11 @@ using System.Text.Json;
 using Etamid.Application.Common.Errors;
 using Etamid.Application.Common.Interfaces;
 using Etamid.Application.Deals.Services;
+using Etamid.Application.Notifications;
 using Etamid.Domain.CompanyDeals;
 using Etamid.Domain.Deals;
 using Etamid.Domain.Money;
+using Etamid.Domain.Notifications;
 using Etamid.SharedKernel;
 using FluentValidation;
 using MediatR;
@@ -17,7 +19,8 @@ public sealed record RequestInstallmentApprovalCommand(long DealId, long Install
     : IRequest<Result<CompanyDealDetailDto>>;
 
 public sealed class RequestInstallmentApprovalHandler(
-    IApplicationDbContext db, ICurrentUser currentUser, IClock clock, IFileUrlResolver files)
+    IApplicationDbContext db, ICurrentUser currentUser, IClock clock, IFileUrlResolver files,
+    NotificationService notifications)
     : IRequestHandler<RequestInstallmentApprovalCommand, Result<CompanyDealDetailDto>>
 {
     public async Task<Result<CompanyDealDetailDto>> Handle(RequestInstallmentApprovalCommand r, CancellationToken ct)
@@ -42,6 +45,12 @@ public sealed class RequestInstallmentApprovalHandler(
         installment.ApprovalRequestedAt = now;
         installment.ApprovalDeadlineAt = now.AddDays(deal.ApprovalResponseDays ?? 7);
 
+        // The counterparty is the approver: the request is theirs to answer.
+        if (deal.CounterpartyUserId is { } counterpartyId)
+            notifications.Create(counterpartyId, NotificationType.PaymentApproval,
+                "NOTIF_PAYMENT_APPROVAL_TITLE", "NOTIF_PAYMENT_APPROVAL_BODY",
+                installment.Label ?? deal.Title, companyDealId: deal.Id, installmentId: installment.Id);
+
         var saved = await db.SaveGuardedAsync(ct);
         if (saved.IsFailure) return saved.Error;
         return await CompanyDealMapper.DetailAsync(db, deal, creatorId, ct, files);
@@ -54,7 +63,7 @@ public sealed record ApproveInstallmentCommand(long DealId, long InstallmentId)
 
 public sealed class ApproveInstallmentHandler(
     IApplicationDbContext db, ICurrentUser currentUser, IClock clock, IFileUrlResolver files,
-    CompanyEscrowService escrow)
+    CompanyEscrowService escrow, NotificationService notifications)
     : IRequestHandler<ApproveInstallmentCommand, Result<CompanyDealDetailDto>>
 {
     public async Task<Result<CompanyDealDetailDto>> Handle(ApproveInstallmentCommand r, CancellationToken ct)
@@ -83,11 +92,21 @@ public sealed class ApproveInstallmentHandler(
         // Release on approval: when the money is already in escrow, approving
         // moves it to the creator now. When it is not funded yet, the
         // installment waits in Approved and the funding webhook releases it.
-        if (await CompanyDealSupport.HasSucceededPaymentAsync(db, installment.Id, ct))
+        var alreadyFunded = await CompanyDealSupport.HasSucceededPaymentAsync(db, installment.Id, ct);
+        if (alreadyFunded)
         {
             var released = await escrow.StageInstallmentReleaseAsync(deal, installment, ct);
             if (released.IsFailure) return released.Error;
         }
+
+        notifications.Create(deal.CreatorUserId, NotificationType.PaymentApproval,
+            "NOTIF_PAYMENT_APPROVAL_TITLE", "NOTIF_PAYMENT_APPROVAL_BODY",
+            installment.Label ?? deal.Title, companyDealId: deal.Id, installmentId: installment.Id);
+        if (alreadyFunded)
+            notifications.Create(deal.CreatorUserId, NotificationType.Wallet,
+                "NOTIF_WALLET_RELEASE_TITLE", "NOTIF_WALLET_RELEASE_BODY",
+                $"{installment.Amount} {deal.Currency} — {deal.Title}",
+                companyDealId: deal.Id, installmentId: installment.Id);
 
         var saved = await db.SaveGuardedAsync(ct);
         if (saved.IsFailure) return saved.Error;
@@ -106,7 +125,8 @@ public sealed class RejectInstallmentValidator : AbstractValidator<RejectInstall
 }
 
 public sealed class RejectInstallmentHandler(
-    IApplicationDbContext db, ICurrentUser currentUser, IClock clock, IFileUrlResolver files)
+    IApplicationDbContext db, ICurrentUser currentUser, IClock clock, IFileUrlResolver files,
+    NotificationService notifications)
     : IRequestHandler<RejectInstallmentCommand, Result<CompanyDealDetailDto>>
 {
     public async Task<Result<CompanyDealDetailDto>> Handle(RejectInstallmentCommand r, CancellationToken ct)
@@ -134,6 +154,10 @@ public sealed class RejectInstallmentHandler(
             Reason = r.Reason,
             DecidedAt = now
         });
+
+        notifications.Create(deal.CreatorUserId, NotificationType.PaymentApproval,
+            "NOTIF_PAYMENT_APPROVAL_TITLE", "NOTIF_PAYMENT_APPROVAL_BODY",
+            installment.Label ?? deal.Title, companyDealId: deal.Id, installmentId: installment.Id);
 
         var saved = await db.SaveGuardedAsync(ct);
         if (saved.IsFailure) return saved.Error;

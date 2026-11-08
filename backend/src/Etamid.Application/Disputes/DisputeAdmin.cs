@@ -3,9 +3,11 @@ using Etamid.Application.Common.Interfaces;
 using Etamid.Application.Common.Models;
 using Etamid.Application.Deals.Services;
 using Etamid.Application.Identity.Validation;
+using Etamid.Application.Notifications;
 using Etamid.Domain.Deals;
 using Etamid.Domain.Disputes;
 using Etamid.Domain.Money;
+using Etamid.Domain.Notifications;
 using Etamid.SharedKernel;
 using FluentValidation;
 using MediatR;
@@ -87,7 +89,8 @@ public sealed class RequestDisputeInfoValidator : AbstractValidator<RequestDispu
 }
 
 public sealed class RequestDisputeInfoHandler(
-    IApplicationDbContext db, ICurrentUser currentUser, IClock clock, IFileUrlResolver files)
+    IApplicationDbContext db, ICurrentUser currentUser, IClock clock, IFileUrlResolver files,
+    NotificationService notifications)
     : IRequestHandler<RequestDisputeInfoCommand, Result<DisputeDetailDto>>
 {
     public async Task<Result<DisputeDetailDto>> Handle(RequestDisputeInfoCommand r, CancellationToken ct)
@@ -114,10 +117,21 @@ public sealed class RequestDisputeInfoHandler(
             IsInternalNote = false
         });
 
+        var deal = await db.Deals.FirstOrDefaultAsync(d => d.Id == dispute.DealId, ct);
+        if (deal is not null)
+        {
+            notifications.Create(deal.BuyerId, NotificationType.DisputeUpdate,
+                "NOTIF_DISPUTE_UPDATE_TITLE", "NOTIF_DISPUTE_UPDATE_BODY", deal.Title,
+                dealId: deal.Id, disputeId: dispute.Id);
+            notifications.Create(deal.SellerId, NotificationType.DisputeUpdate,
+                "NOTIF_DISPUTE_UPDATE_TITLE", "NOTIF_DISPUTE_UPDATE_BODY", deal.Title,
+                dealId: deal.Id, disputeId: dispute.Id);
+        }
+
         var saved = await db.SaveGuardedAsync(ct);
         if (saved.IsFailure) return saved.Error;
 
-        var deal = await db.Deals.AsNoTracking().FirstAsync(d => d.Id == dispute.DealId, ct);
+        deal = await db.Deals.AsNoTracking().FirstAsync(d => d.Id == dispute.DealId, ct);
         return await DisputeMapper.DetailAsync(
             db, dispute, deal.BuyerId, deal.SellerId, deal.Title, deal.Amount, deal.Currency,
             userId, true, ct, files);
@@ -140,7 +154,8 @@ public sealed class DecideDisputeValidator : AbstractValidator<DecideDisputeComm
 }
 
 public sealed class DecideDisputeHandler(
-    IApplicationDbContext db, ICurrentUser currentUser, DisputeExecutionService execution)
+    IApplicationDbContext db, ICurrentUser currentUser, DisputeExecutionService execution,
+    NotificationService notifications)
     : IRequestHandler<DecideDisputeCommand, Result<DisputeExecutionDto>>
 {
     public async Task<Result<DisputeExecutionDto>> Handle(DecideDisputeCommand r, CancellationToken ct)
@@ -177,6 +192,9 @@ public sealed class DecideDisputeHandler(
             Message = $"Decision: {ApiNames.Of(resolution)} — {r.Note.Trim()}",
             IsInternalNote = false
         });
+
+        // Both parties hear about the decision; whoever received money hears about the wallet movement too.
+        notifications.NotifyDisputeDecision(deal, dispute.Id, executed.Value.SellerAmount, executed.Value.BuyerAmount);
 
         var saved = await db.SaveGuardedAsync(ct);
         if (saved.IsFailure) return saved.Error;

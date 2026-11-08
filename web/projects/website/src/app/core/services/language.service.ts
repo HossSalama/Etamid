@@ -444,6 +444,15 @@ export class LanguageService {
       dispute_sender_buyer: 'المشتري',
       dispute_sender_seller: 'البائع',
       dispute_action_failed: 'تعذّر تنفيذ الإجراء، حاول مرة أخرى.',
+
+      // Notifications
+      notif_title: 'الإشعارات',
+      notif_loading: 'جارٍ تحميل الإشعارات...',
+      notif_error: 'تعذر تحميل الإشعارات. تحقق من الاتصال وحاول مرة أخرى.',
+      notif_empty_title: 'لا توجد إشعارات بعد',
+      notif_empty_desc: 'عندما يحدث جديد في صفقاتك أو محفظتك ستظهر الإشعارات هنا.',
+      notif_mark_all_read: 'تعليم الكل كمقروء',
+      notif_load_more: 'عرض المزيد',
       home_deal_rate: 'قيّم البائع',
       home_deal_rate_stars: 'التقييم بالنجوم',
       home_deal_rate_comment: 'اكتب تعليقًا (اختياري)',
@@ -1160,6 +1169,15 @@ export class LanguageService {
       dispute_sender_buyer: 'Buyer',
       dispute_sender_seller: 'Seller',
       dispute_action_failed: 'The action could not be completed, please try again.',
+
+      // Notifications
+      notif_title: 'Notifications',
+      notif_loading: 'Loading notifications...',
+      notif_error: 'Could not load notifications. Check your connection and try again.',
+      notif_empty_title: 'No notifications yet',
+      notif_empty_desc: 'When something new happens in your deals or wallet, notifications will show here.',
+      notif_mark_all_read: 'Mark all as read',
+      notif_load_more: 'Load more',
       home_deal_rate: 'Rate seller',
       home_deal_rate_stars: 'Star rating',
       home_deal_rate_comment: 'Write a comment (optional)',

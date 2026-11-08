@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Etamid (اعتمد) Mobile API
-  version: 1.2.1
+  version: 1.2.2
   description: |
     عقد الـ API بين الـ Backend (.NET) وتطبيق الموبايل.
     - كل الردود بصيغة موحدة: { success, message, data, errors, meta }
@@ -639,10 +639,9 @@ paths:
 
   # ---------------- Notifications ----------------
   /notifications:
-    # [NOT IMPLEMENTED] غير منفذ في الكود الحالي — لا يستخدمه الموبايل
     get:
       tags: [Notifications]
-      summary: قائمة الإشعارات
+      summary: قائمة الإشعارات (إشعاراتي فقط، الأحدث أولًا)
       parameters:
         - $ref: '#/components/parameters/Page'
         - $ref: '#/components/parameters/PageSize'
@@ -658,7 +657,6 @@ paths:
                     properties:
                       data: { type: array, items: { $ref: '#/components/schemas/Notification' } }
   /notifications/unread-count:
-    # [NOT IMPLEMENTED] غير منفذ في الكود الحالي — لا يستخدمه الموبايل
     get:
       tags: [Notifications]
       summary: عدد غير المقروء (نقطة الجرس)
@@ -677,17 +675,15 @@ paths:
                         properties:
                           count: { type: integer }
   /notifications/{id}/read:
-    # [NOT IMPLEMENTED] غير منفذ في الكود الحالي — لا يستخدمه الموبايل
-    put:
+    post:
       tags: [Notifications]
-      summary: تعليم إشعار كمقروء
+      summary: تعليم إشعار كمقروء (إشعار غير خاص بي ← 404)
       parameters:
         - { name: id, in: path, required: true, schema: { type: integer } }
       responses:
         "200": { $ref: '#/components/responses/Ok' }
   /notifications/read-all:
-    # [NOT IMPLEMENTED] غير منفذ في الكود الحالي — لا يستخدمه الموبايل
-    put:
+    post:
       tags: [Notifications]
       summary: تعليم الكل كمقروء
       responses:
@@ -2794,6 +2790,7 @@ components:
         company: { $ref: '#/components/schemas/CompanyDashboard' }
     Notification:
       type: object
+      description: العنوان والنص بلغة الطلب (Accept-Language)؛ الروابط تحدد الشاشة (صفقة / نزاع / صفقة شركة / محفظة).
       properties:
         id: { type: integer }
         type: { type: string, enum: [deal_request, deal_accepted, deal_rejected, deal_edit, deal_funded, deal_shipped, deal_delivered, dispute_update, payment_approval, payment_due, penalty, wallet, system] }
@@ -2801,7 +2798,9 @@ components:
         body: { type: string }
         isRead: { type: boolean }
         dealId: { type: integer, nullable: true }
-        paymentId: { type: integer, nullable: true }
+        companyDealId: { type: integer, nullable: true }
+        installmentId: { type: integer, nullable: true }
+        disputeId: { type: integer, nullable: true }
         createdAt: { type: string, format: date-time }
     Counterparty:
       type: object

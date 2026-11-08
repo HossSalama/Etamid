@@ -22,9 +22,11 @@ public sealed class JsonMessageLocalizer : IMessageLocalizer
     }
 
     public string Get(string key)
+        => Get(key, CultureInfo.CurrentUICulture.TwoLetterISOLanguageName);
+
+    public string Get(string key, string language)
     {
-        var lang = CultureInfo.CurrentUICulture.TwoLetterISOLanguageName;
-        if (_messages.TryGetValue(lang, out var table) && table.TryGetValue(key, out var value))
+        if (_messages.TryGetValue(language, out var table) && table.TryGetValue(key, out var value))
             return value;
         if (_messages["en"].TryGetValue(key, out var fallback))
             return fallback;

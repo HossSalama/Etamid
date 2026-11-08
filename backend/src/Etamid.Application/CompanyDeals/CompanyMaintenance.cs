@@ -2,9 +2,11 @@ using Etamid.Application.Common.Errors;
 using Etamid.Application.Common.Interfaces;
 using Etamid.Application.Common.Models;
 using Etamid.Application.Deals.Services;
+using Etamid.Application.Notifications;
 using Etamid.Domain.CompanyDeals;
 using Etamid.Domain.Deals;
 using Etamid.Domain.Money;
+using Etamid.Domain.Notifications;
 using Etamid.SharedKernel;
 using FluentValidation;
 using MediatR;
@@ -42,7 +44,7 @@ public sealed record CompanyMaintenanceDto(int OverdueCount, int PenaltiesApplie
 
 public sealed record RunCompanyInstallmentMaintenanceCommand : IRequest<Result<CompanyMaintenanceDto>>;
 
-public sealed class RunCompanyInstallmentMaintenanceHandler(IApplicationDbContext db, IClock clock)
+public sealed class RunCompanyInstallmentMaintenanceHandler(IApplicationDbContext db, IClock clock, NotificationService notifications)
     : IRequestHandler<RunCompanyInstallmentMaintenanceCommand, Result<CompanyMaintenanceDto>>
 {
     public async Task<Result<CompanyMaintenanceDto>> Handle(RunCompanyInstallmentMaintenanceCommand request, CancellationToken ct)
@@ -89,6 +91,12 @@ public sealed class RunCompanyInstallmentMaintenanceHandler(IApplicationDbContex
             {
                 installment.Status = InstallmentStatus.Overdue;
                 overdue++;
+
+                // The payer is late: the counterparty (funder) is the one who must act.
+                if (deal.CounterpartyUserId is { } payerId)
+                    notifications.Create(payerId, NotificationType.PaymentDue,
+                        "NOTIF_PAYMENT_DUE_TITLE", "NOTIF_PAYMENT_DUE_BODY",
+                        installment.Label ?? deal.Title, companyDealId: deal.Id, installmentId: installment.Id);
             }
 
             // One penalty per installment (unique index): past due date +
@@ -117,6 +125,11 @@ public sealed class RunCompanyInstallmentMaintenanceHandler(IApplicationDbContex
             });
             installment.Status = InstallmentStatus.PenaltyApplied;
             penalties++;
+
+            // The penalty is owed to the harmed party — the creator (payee) — not the platform.
+            notifications.Create(deal.CreatorUserId, NotificationType.Penalty,
+                "NOTIF_PENALTY_TITLE", "NOTIF_PENALTY_BODY",
+                installment.Label ?? deal.Title, companyDealId: deal.Id, installmentId: installment.Id);
         }
 
         var saved = await db.SaveGuardedAsync(ct);

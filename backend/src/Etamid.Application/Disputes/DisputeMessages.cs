@@ -2,9 +2,11 @@ using Etamid.Application.Common.Errors;
 using Etamid.Application.Common.Interfaces;
 using Etamid.Application.Deals.Services;
 using Etamid.Application.Identity.Validation;
+using Etamid.Application.Notifications;
 using Etamid.Domain.Deals;
 using Etamid.Domain.Disputes;
 using Etamid.Domain.Files;
+using Etamid.Domain.Notifications;
 using Etamid.SharedKernel;
 using FluentValidation;
 using MediatR;
@@ -27,7 +29,7 @@ public sealed class PostDisputeMessageValidator : AbstractValidator<PostDisputeM
 }
 
 public sealed class PostDisputeMessageHandler(
-    IApplicationDbContext db, ICurrentUser currentUser, IFileUrlResolver files)
+    IApplicationDbContext db, ICurrentUser currentUser, IFileUrlResolver files, NotificationService notifications)
     : IRequestHandler<PostDisputeMessageCommand, Result<DisputeMessageDto>>
 {
     public async Task<Result<DisputeMessageDto>> Handle(PostDisputeMessageCommand r, CancellationToken ct)
@@ -61,6 +63,29 @@ public sealed class PostDisputeMessageHandler(
             IsInternalNote = r.IsInternalNote
         };
         db.DisputeMessages.Add(message);
+
+        // Internal notes are operator-only and never visible to the parties,
+        // so they never notify anyone. A party message notifies the other party;
+        // an operator message notifies both parties.
+        if (!r.IsInternalNote)
+        {
+            if (isOperator)
+            {
+                notifications.Create(deal.BuyerId, NotificationType.DisputeUpdate,
+                    "NOTIF_DISPUTE_UPDATE_TITLE", "NOTIF_DISPUTE_UPDATE_BODY", deal.Title,
+                    dealId: deal.Id, disputeId: dispute.Id);
+                notifications.Create(deal.SellerId, NotificationType.DisputeUpdate,
+                    "NOTIF_DISPUTE_UPDATE_TITLE", "NOTIF_DISPUTE_UPDATE_BODY", deal.Title,
+                    dealId: deal.Id, disputeId: dispute.Id);
+            }
+            else
+            {
+                notifications.Create(userId == deal.BuyerId ? deal.SellerId : deal.BuyerId,
+                    NotificationType.DisputeUpdate,
+                    "NOTIF_DISPUTE_UPDATE_TITLE", "NOTIF_DISPUTE_UPDATE_BODY", deal.Title,
+                    dealId: deal.Id, disputeId: dispute.Id);
+            }
+        }
 
         var saved = await db.SaveGuardedAsync(ct);
         if (saved.IsFailure) return saved.Error;

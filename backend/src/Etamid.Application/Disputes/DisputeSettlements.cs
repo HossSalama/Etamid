@@ -2,9 +2,11 @@ using Etamid.Application.Common.Errors;
 using Etamid.Application.Common.Interfaces;
 using Etamid.Application.Deals.Services;
 using Etamid.Application.Identity.Validation;
+using Etamid.Application.Notifications;
 using Etamid.Domain.Deals;
 using Etamid.Domain.Disputes;
 using Etamid.Domain.Money;
+using Etamid.Domain.Notifications;
 using Etamid.SharedKernel;
 using FluentValidation;
 using MediatR;
@@ -26,7 +28,7 @@ public sealed class ProposeSettlementValidator : AbstractValidator<ProposeSettle
     }
 }
 
-public sealed class ProposeSettlementHandler(IApplicationDbContext db, ICurrentUser currentUser)
+public sealed class ProposeSettlementHandler(IApplicationDbContext db, ICurrentUser currentUser, NotificationService notifications)
     : IRequestHandler<ProposeSettlementCommand, Result<SettlementProposalDto>>
 {
     public async Task<Result<SettlementProposalDto>> Handle(ProposeSettlementCommand r, CancellationToken ct)
@@ -62,6 +64,9 @@ public sealed class ProposeSettlementHandler(IApplicationDbContext db, ICurrentU
             Status = SettlementProposalStatus.Open
         };
         db.DisputeSettlementProposals.Add(proposal);
+        notifications.Create(userId == deal.BuyerId ? deal.SellerId : deal.BuyerId, NotificationType.DisputeUpdate,
+            "NOTIF_DISPUTE_UPDATE_TITLE", "NOTIF_DISPUTE_UPDATE_BODY", deal.Title,
+            dealId: deal.Id, disputeId: dispute.Id);
 
         var saved = await db.SaveGuardedAsync(ct);
         if (saved.IsFailure) return saved.Error;
@@ -80,7 +85,8 @@ public sealed record AcceptSettlementCommand(long DealId, long ProposalId)
     : IRequest<Result<DisputeExecutionDto>>;
 
 public sealed class AcceptSettlementHandler(
-    IApplicationDbContext db, ICurrentUser currentUser, IClock clock, DisputeExecutionService execution)
+    IApplicationDbContext db, ICurrentUser currentUser, IClock clock, DisputeExecutionService execution,
+    NotificationService notifications)
     : IRequestHandler<AcceptSettlementCommand, Result<DisputeExecutionDto>>
 {
     public async Task<Result<DisputeExecutionDto>> Handle(AcceptSettlementCommand r, CancellationToken ct)
@@ -100,6 +106,8 @@ public sealed class AcceptSettlementHandler(
         proposal.Status = SettlementProposalStatus.Accepted;
         proposal.DecidedAt = clock.UtcNow;
         proposal.DecidedByUserId = userId;
+
+        notifications.NotifyDisputeDecision(deal, dispute.Id, executed.Value.SellerAmount, executed.Value.BuyerAmount);
 
         var saved = await db.SaveGuardedAsync(ct);
         if (saved.IsFailure) return saved.Error;
@@ -132,7 +140,7 @@ public sealed record RejectSettlementCommand(long DealId, long ProposalId)
     : IRequest<Result<SettlementProposalDto>>;
 
 public sealed class RejectSettlementHandler(
-    IApplicationDbContext db, ICurrentUser currentUser, IClock clock)
+    IApplicationDbContext db, ICurrentUser currentUser, IClock clock, NotificationService notifications)
     : IRequestHandler<RejectSettlementCommand, Result<SettlementProposalDto>>
 {
     public async Task<Result<SettlementProposalDto>> Handle(RejectSettlementCommand r, CancellationToken ct)
@@ -147,6 +155,10 @@ public sealed class RejectSettlementHandler(
         proposal.Status = SettlementProposalStatus.Rejected;
         proposal.DecidedAt = clock.UtcNow;
         proposal.DecidedByUserId = userId;
+
+        notifications.Create(proposal.ProposedByUserId, NotificationType.DisputeUpdate,
+            "NOTIF_DISPUTE_UPDATE_TITLE", "NOTIF_DISPUTE_UPDATE_BODY", deal.Title,
+            dealId: deal.Id, disputeId: dispute.Id);
 
         var saved = await db.SaveGuardedAsync(ct);
         if (saved.IsFailure) return saved.Error;

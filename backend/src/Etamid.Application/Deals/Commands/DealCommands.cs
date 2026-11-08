@@ -2,10 +2,12 @@ using Etamid.Application.Common.Errors;
 using Etamid.Application.Common.Interfaces;
 using Etamid.Application.Deals.Services;
 using Etamid.Application.Identity.Validation;
+using Etamid.Application.Notifications;
 using Etamid.Domain.Deals;
 using Etamid.Domain.Disputes;
 using Etamid.Domain.Files;
 using Etamid.Domain.Money;
+using Etamid.Domain.Notifications;
 using Etamid.SharedKernel;
 using FluentValidation;
 using MediatR;
@@ -44,7 +46,7 @@ public sealed class CreateDealValidator : AbstractValidator<CreateDealCommand>
     }
 }
 
-public sealed class CreateDealHandler(IApplicationDbContext db, ICurrentUser currentUser, IClock clock, IFileUrlResolver files)
+public sealed class CreateDealHandler(IApplicationDbContext db, ICurrentUser currentUser, IClock clock, IFileUrlResolver files, NotificationService notifications)
     : IRequestHandler<CreateDealCommand, Result<DealDetailDto>>
 {
     public async Task<Result<DealDetailDto>> Handle(CreateDealCommand r, CancellationToken ct)
@@ -100,6 +102,11 @@ public sealed class CreateDealHandler(IApplicationDbContext db, ICurrentUser cur
         if (created.IsFailure) return created.Error;
 
         db.Deals.Add(created.Value);
+        // The new deal's id is a temporary EF value until the save below;
+        // the notification's DealId is fixed up to the real id with it.
+        notifications.Create(created.Value.SellerId, NotificationType.DealRequest,
+            "NOTIF_DEAL_REQUEST_TITLE", "NOTIF_DEAL_REQUEST_BODY", created.Value.Title, dealId: created.Value.Id);
+
         var saved = await db.SaveGuardedAsync(ct);
         if (saved.IsFailure) return saved.Error;
 
@@ -115,7 +122,7 @@ public sealed class AcceptDealValidator : AbstractValidator<AcceptDealCommand>
     public AcceptDealValidator() => RuleFor(x => x.AcceptTerms).Equal(true).WithErrorCode("TERMS_NOT_ACCEPTED");
 }
 
-public sealed class AcceptDealHandler(IApplicationDbContext db, ICurrentUser currentUser, IClock clock, IFileUrlResolver files)
+public sealed class AcceptDealHandler(IApplicationDbContext db, ICurrentUser currentUser, IClock clock, IFileUrlResolver files, NotificationService notifications)
     : IRequestHandler<AcceptDealCommand, Result<DealDetailDto>>
 {
     public async Task<Result<DealDetailDto>> Handle(AcceptDealCommand r, CancellationToken ct)
@@ -136,6 +143,9 @@ public sealed class AcceptDealHandler(IApplicationDbContext db, ICurrentUser cur
         var accepted = deal.Accept(userId, settings.PlatformFee, now, settings.FundingWindow);
         if (accepted.IsFailure) return accepted.Error;
 
+        notifications.Create(deal.BuyerId, NotificationType.DealAccepted,
+            "NOTIF_DEAL_ACCEPTED_TITLE", "NOTIF_DEAL_ACCEPTED_BODY", deal.Title, dealId: deal.Id);
+
         var saved = await db.SaveGuardedAsync(ct);
         if (saved.IsFailure) return saved.Error;
 
@@ -155,7 +165,7 @@ public sealed class RejectDealValidator : AbstractValidator<RejectDealCommand>
     }
 }
 
-public sealed class RejectDealHandler(IApplicationDbContext db, ICurrentUser currentUser, IClock clock, IFileUrlResolver files)
+public sealed class RejectDealHandler(IApplicationDbContext db, ICurrentUser currentUser, IClock clock, IFileUrlResolver files, NotificationService notifications)
     : IRequestHandler<RejectDealCommand, Result<DealDetailDto>>
 {
     public async Task<Result<DealDetailDto>> Handle(RejectDealCommand r, CancellationToken ct)
@@ -183,6 +193,9 @@ public sealed class RejectDealHandler(IApplicationDbContext db, ICurrentUser cur
             edit.RespondedById = userId;
         }
 
+        notifications.Create(deal.BuyerId, NotificationType.DealRejected,
+            "NOTIF_DEAL_REJECTED_TITLE", "NOTIF_DEAL_REJECTED_BODY", deal.Title, dealId: deal.Id);
+
         var saved = await db.SaveGuardedAsync(ct);
         if (saved.IsFailure) return saved.Error;
 
@@ -204,7 +217,7 @@ public sealed class DeliverDealValidator : AbstractValidator<DeliverDealCommand>
     }
 }
 
-public sealed class DeliverDealHandler(IApplicationDbContext db, ICurrentUser currentUser, IClock clock, IFileUrlResolver files)
+public sealed class DeliverDealHandler(IApplicationDbContext db, ICurrentUser currentUser, IClock clock, IFileUrlResolver files, NotificationService notifications)
     : IRequestHandler<DeliverDealCommand, Result<DealDetailDto>>
 {
     public async Task<Result<DealDetailDto>> Handle(DeliverDealCommand r, CancellationToken ct)
@@ -239,6 +252,13 @@ public sealed class DeliverDealHandler(IApplicationDbContext db, ICurrentUser cu
             });
         }
 
+        if (deal.NeedShipping)
+            notifications.Create(deal.BuyerId, NotificationType.DealShipped,
+                "NOTIF_DEAL_SHIPPED_TITLE", "NOTIF_DEAL_SHIPPED_BODY", deal.Title, dealId: deal.Id);
+        else
+            notifications.Create(deal.BuyerId, NotificationType.DealDelivered,
+                "NOTIF_DEAL_DELIVERED_TITLE", "NOTIF_DEAL_DELIVERED_BODY", deal.Title, dealId: deal.Id);
+
         var saved = await db.SaveGuardedAsync(ct);
         if (saved.IsFailure) return saved.Error;
 
@@ -258,7 +278,7 @@ public sealed class OpenDisputeValidator : AbstractValidator<OpenDisputeCommand>
     }
 }
 
-public sealed class OpenDisputeHandler(IApplicationDbContext db, ICurrentUser currentUser, IClock clock)
+public sealed class OpenDisputeHandler(IApplicationDbContext db, ICurrentUser currentUser, IClock clock, NotificationService notifications)
     : IRequestHandler<OpenDisputeCommand, Result<DisputeDto>>
 {
     public async Task<Result<DisputeDto>> Handle(OpenDisputeCommand r, CancellationToken ct)
@@ -292,6 +312,11 @@ public sealed class OpenDisputeHandler(IApplicationDbContext db, ICurrentUser cu
             Resolution = DisputeResolution.None
         };
         db.Disputes.Add(dispute);
+        // The dispute's id is a temporary EF value until the save below;
+        // the notification's DisputeId is fixed up to the real id with it.
+        notifications.Create(dispute.AgainstUserId, NotificationType.DisputeUpdate,
+            "NOTIF_DISPUTE_UPDATE_TITLE", "NOTIF_DISPUTE_UPDATE_BODY", deal.Title,
+            dealId: deal.Id, disputeId: dispute.Id);
 
         var saved = await db.SaveGuardedAsync(ct);
         if (saved.IsFailure) return saved.Error;
