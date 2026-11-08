@@ -18,6 +18,32 @@ public sealed class AdminUser : AuditableEntity<long>
     public int FailedLoginCount { get; set; }
     public DateTime? LockedUntil { get; set; }
     public DateTime? LastLoginAt { get; set; }
+
+    public const int MaxFailedLogins = 5;
+    public static readonly TimeSpan LockoutDuration = TimeSpan.FromMinutes(15);
+
+    public bool IsLocked(DateTime now) => LockedUntil.HasValue && LockedUntil.Value > now;
+
+    public int RemainingLockSeconds(DateTime now)
+        => IsLocked(now) ? (int)Math.Ceiling((LockedUntil!.Value - now).TotalSeconds) : 0;
+
+    /// <returns>true when this failure locked the account.</returns>
+    public bool RecordFailedLogin(DateTime now)
+    {
+        FailedLoginCount++;
+        if (FailedLoginCount < MaxFailedLogins) return false;
+
+        LockedUntil = now.Add(LockoutDuration);
+        FailedLoginCount = 0;
+        return true;
+    }
+
+    public void RecordSuccessfulLogin(DateTime now)
+    {
+        FailedLoginCount = 0;
+        LockedUntil = null;
+        LastLoginAt = now;
+    }
 }
 
 public sealed class AdminRole : Entity<long>

@@ -42,6 +42,10 @@ if (app.Configuration.GetValue<bool>("Persistence:UseInMemory"))
     scope.ServiceProvider.GetRequiredService<Etamid.Infrastructure.Persistence.ApplicationDbContext>().Database.EnsureCreated();
 }
 
+// Local-only first super-admin (Development only; needs AdminSeed:Email/Password from user-secrets or env).
+if (app.Environment.IsDevelopment())
+    await Etamid.Infrastructure.Persistence.AdminBootstrapSeeder.RunAsync(app.Services, app.Configuration);
+
 app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseRequestLocalization();
 app.UseSerilogRequestLogging();

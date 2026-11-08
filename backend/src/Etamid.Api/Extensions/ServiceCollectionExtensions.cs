@@ -2,6 +2,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
+using Etamid.Api.AdminApi;
 using Etamid.Api.Localization;
 using Etamid.Application.Common.Interfaces;
 using Etamid.Application.Common.Models;
@@ -78,7 +79,7 @@ public static class ServiceCollectionExtensions
 
     private static void AddAuthentication(IServiceCollection services)
     {
-        services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer();
+        services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer().AddJwtBearer(AdminAuthSchemes.Jwt, _ => { });
         services.AddAuthorization();
 
         // Configured from DI so the same JwtOptions drive both token creation and validation.
@@ -99,11 +100,31 @@ public static class ServiceCollectionExtensions
                     IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(o.Secret))
                 };
             });
+
+        // Separate scheme for admins: own issuer, audience and secret. App tokens and admin tokens never validate on each other's routes.
+        services.AddOptions<JwtBearerOptions>(AdminAuthSchemes.Jwt)
+            .Configure<IOptions<AdminJwtOptions>>((bearer, jwt) =>
+            {
+                var o = jwt.Value;
+                bearer.MapInboundClaims = false;
+                bearer.TokenValidationParameters = new TokenValidationParameters
+                {
+                    ValidateIssuer = true,
+                    ValidIssuer = o.Issuer,
+                    ValidateAudience = true,
+                    ValidAudience = o.Audience,
+                    ValidateLifetime = true,
+                    ClockSkew = TimeSpan.FromSeconds(30),
+                    ValidateIssuerSigningKey = true,
+                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(o.Secret))
+                };
+            });
     }
 
     private static void AddRateLimiting(IServiceCollection services, IConfiguration configuration)
     {
         var permitsPerMinute = configuration.GetValue<int?>("RateLimiting:AuthPerMinute") ?? 20;
+        var adminPermitsPerMinute = configuration.GetValue<int?>("RateLimiting:AdminAuthPerMinute") ?? 10;
 
         services.AddRateLimiter(options =>
         {
@@ -114,6 +135,15 @@ public static class ServiceCollectionExtensions
                 _ => new FixedWindowRateLimiterOptions
                 {
                     PermitLimit = permitsPerMinute,
+                    Window = TimeSpan.FromMinutes(1),
+                    QueueLimit = 0
+                }));
+
+            options.AddPolicy("admin-auth", http => RateLimitPartition.GetFixedWindowLimiter(
+                http.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                _ => new FixedWindowRateLimiterOptions
+                {
+                    PermitLimit = adminPermitsPerMinute,
                     Window = TimeSpan.FromMinutes(1),
                     QueueLimit = 0
                 }));

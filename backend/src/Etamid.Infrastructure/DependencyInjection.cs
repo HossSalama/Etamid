@@ -26,6 +26,7 @@ public static class DependencyInjection
 
         AddPersistence(services, configuration, environment);
         AddIdentity(services, configuration, environment);
+        AddAdminIdentity(services, configuration);
         AddPlatformServices(services, configuration, environment);
 
         return services;
@@ -83,6 +84,19 @@ public static class DependencyInjection
 
             services.AddSingleton<IPhoneVerifier, FirebasePhoneVerifier>();
         }
+    }
+
+    private static void AddAdminIdentity(IServiceCollection services, IConfiguration configuration)
+    {
+        services.AddOptions<AdminJwtOptions>()
+            .Bind(configuration.GetSection(AdminJwtOptions.Section))
+            .Validate(o => o.Secret.Length >= 32, "AdminJwt:Secret must be at least 32 characters.")
+            .Validate(o => o.Secret != configuration["Jwt:Secret"], "AdminJwt:Secret must differ from Jwt:Secret.")
+            .ValidateOnStart();
+
+        services.AddSingleton<IAdminAccessTokenGenerator, JwtAdminAccessTokenGenerator>();
+        services.AddSingleton<ITotpService, OtpNetTotpService>();
+        services.AddScoped<ICurrentAdmin, CurrentAdmin>();
     }
 
     private static void AddPlatformServices(IServiceCollection services, IConfiguration configuration, IHostEnvironment environment)

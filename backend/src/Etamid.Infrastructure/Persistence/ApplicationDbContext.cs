@@ -88,6 +88,8 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
     public DbSet<AdminUserRole> AdminUserRoles => Set<AdminUserRole>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
     public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
+    public DbSet<AdminRefreshToken> AdminRefreshTokens => Set<AdminRefreshToken>();
+    public DbSet<AdminTwoFactorChallenge> AdminTwoFactorChallenges => Set<AdminTwoFactorChallenge>();
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {

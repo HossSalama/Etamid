@@ -23,6 +23,8 @@ public sealed class EtamidFactory : WebApplicationFactory<Program>
         Environment.SetEnvironmentVariable("Auth__PhoneVerifier", "Fake");
         Environment.SetEnvironmentVariable("Jwt__Secret", "integration-tests-secret-0123456789-abcdef");
         Environment.SetEnvironmentVariable("RateLimiting__AuthPerMinute", "10000");
+        Environment.SetEnvironmentVariable("RateLimiting__AdminAuthPerMinute", "10000");
+        Environment.SetEnvironmentVariable("AdminJwt__Secret", "integration-tests-ADMIN-secret-0123456789-abcdef");
         Environment.SetEnvironmentVariable("Security__DataKey", "ZXRhbWlkLWRldi1kYXRhLWtleS0zMi1ieXRlcy14eCE=");
         Environment.SetEnvironmentVariable("Storage__LocalPath", Path.Combine(Path.GetTempPath(), "etamid-tests-" + Guid.NewGuid().ToString("N")));
         Environment.SetEnvironmentVariable("Storage__PublicBaseUrl", "http://localhost/files");
