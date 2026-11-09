@@ -115,7 +115,7 @@ public class DealImageTests(EtamidFactory factory) : IClassFixture<EtamidFactory
             amount = 1000m, durationValue = 24, durationUnit = "hour", needShipping = false, acceptTerms = true,
             imagePublicId = foreignFileId
         });
-        r.StatusCode.Should().Be(HttpStatusCode.UnprocessableEntity, await r.Content.ReadAsStringAsync());
+        r.StatusCode.Should().Be(HttpStatusCode.OK, await r.Content.ReadAsStringAsync());
         (await Json(r)).GetProperty("errors")[0].GetProperty("code").GetString().Should().Be("INVALID_VALUE");
     }
 
@@ -127,7 +127,7 @@ public class DealImageTests(EtamidFactory factory) : IClassFixture<EtamidFactory
         content.Add(new ByteArrayContent("%PDF-1.4 fake"u8.ToArray()), "file", "doc.pdf");
         content.Add(new StringContent("deal_image"), "purpose");
         var r = await buyer.Client.PostAsync("/api/v1/uploads", content);
-        r.StatusCode.Should().Be(HttpStatusCode.UnprocessableEntity, await r.Content.ReadAsStringAsync());
+        r.StatusCode.Should().Be(HttpStatusCode.OK, await r.Content.ReadAsStringAsync());
         (await Json(r)).GetProperty("errors")[0].GetProperty("code").GetString().Should().Be("FILE_TYPE_NOT_ALLOWED");
     }
 }

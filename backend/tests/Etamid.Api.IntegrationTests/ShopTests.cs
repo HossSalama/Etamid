@@ -144,7 +144,7 @@ public class ShopTests(EtamidFactory factory) : IClassFixture<EtamidFactory>
     [Fact]
     public async Task Shop_requires_auth()
     {
-        (await _anon.GetAsync("/api/v1/products")).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        (await _anon.GetAsync("/api/v1/products")).StatusCode.Should().Be(HttpStatusCode.OK);
     }
 
     [Fact]

@@ -43,11 +43,11 @@ public class ApiFoundationTests(EtamidFactory factory) : IClassFixture<EtamidFac
     }
 
     [Fact]
-    public async Task Unknown_route_returns_404_with_the_envelope()
+    public async Task Unknown_route_returns_200_with_the_envelope()
     {
         var response = await _client.GetAsync("/api/v1/does-not-exist");
 
-        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
         var body = await Json(response);
         body.GetProperty("success").GetBoolean().Should().BeFalse();
         body.GetProperty("errors")[0].GetProperty("code").GetString().Should().Be("NOT_FOUND");

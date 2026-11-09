@@ -10,6 +10,14 @@ public static class IdentityErrors
     public static readonly Error InvalidPhone = Error.Validation("INVALID_PHONE", "phone");
 
     public static readonly Error InvalidCredentials = Error.Unauthorized("INVALID_CREDENTIALS");
+
+    // Login failures are specific since 2026-11-09 (owner decision): the
+    // caller learns whether the phone is registered and whether the password
+    // was wrong, so phone registration is probeable by design. The dummy
+    // password verify is still done on the unknown-phone path so the timing
+    // does not leak the answer any faster than the message does.
+    public static readonly Error PhoneNotRegistered = Error.Unauthorized("PHONE_NOT_REGISTERED", "phone");
+    public static readonly Error WrongPassword = Error.Unauthorized("WRONG_PASSWORD", "password");
     public static readonly Error AccountNotVerified = Error.Forbidden("ACCOUNT_NOT_VERIFIED");
     public static readonly Error AccountSuspended = Error.Forbidden("ACCOUNT_SUSPENDED");
 
@@ -24,7 +32,7 @@ public static class IdentityErrors
     public static readonly Error PhoneAlreadyVerified = Error.Conflict("PHONE_ALREADY_VERIFIED", "phone");
 
     public static readonly Error UserNotFound = Error.NotFound("USER_NOT_FOUND");
-    public static readonly Error WrongCurrentPassword = Error.Validation("INVALID_CREDENTIALS", "currentPassword");
+    public static readonly Error WrongCurrentPassword = Error.Validation("WRONG_PASSWORD", "currentPassword");
     public static readonly Error TermsNotFound = Error.NotFound("TERMS_NOT_FOUND");
     public static readonly Error InvalidTermsType = Error.Validation("INVALID_VALUE", "type");
 
@@ -38,5 +46,6 @@ public static class IdentityErrors
         => Error.TooManyRequests("OTP_COOLDOWN", new Dictionary<string, object?> { ["retryAfterSeconds"] = retryAfterSeconds });
 
     public static readonly Error ResetTokenInvalid = Error.Failure("RESET_TOKEN_INVALID", "resetToken");
+    public static readonly Error ResetTokenExpired = Error.Failure("RESET_TOKEN_EXPIRED", "resetToken");
     public static readonly Error AccountAlreadyVerified = Error.Conflict("ACCOUNT_ALREADY_VERIFIED", "email");
 }

@@ -38,9 +38,9 @@ public sealed class PaymentsController(
     {
         if (!(environment.IsDevelopment() || environment.IsEnvironment("Testing"))
             || !string.Equals(configuration["Payments:Provider"] ?? "Fake", "Fake", StringComparison.OrdinalIgnoreCase))
-            return NotFound();
+            return ErrorEnvelope("NOT_FOUND");
 
-        if (currentUser.UserId is not { } userId) return Unauthorized();
+        if (currentUser.UserId is not { } userId) return ErrorEnvelope("UNAUTHORIZED");
 
         var payment = await db.Payments.AsNoTracking()
             .Where(p => p.DealId == dealId && p.UserId == userId && p.Provider == "Fake"
@@ -49,12 +49,15 @@ public sealed class PaymentsController(
             .Select(p => new { p.ProviderPaymentId, p.Amount, p.Currency })
             .FirstOrDefaultAsync(ct);
 
-        if (payment is null || string.IsNullOrWhiteSpace(payment.ProviderPaymentId)) return NotFound();
+        if (payment is null || string.IsNullOrWhiteSpace(payment.ProviderPaymentId)) return ErrorEnvelope("NOT_FOUND");
 
         var secret = configuration["Payments:WebhookSecret"];
         if (string.IsNullOrWhiteSpace(secret) || secret.Length < 32)
-            return Problem(statusCode: StatusCodes.Status503ServiceUnavailable,
-                detail: "Set Payments:WebhookSecret (at least 32 characters) in the Development environment to simulate a payment.");
+            // Dev-only config error: still HTTP 200 with the envelope, like
+            // every other API error (owner decision 2026-11-09). The detail
+            // is kept as the message because it tells the developer the fix.
+            return ErrorEnvelope("INTERNAL_ERROR",
+                "Set Payments:WebhookSecret (at least 32 characters) in the Development environment to simulate a payment.");
 
         var body = JsonSerializer.Serialize(new
         {

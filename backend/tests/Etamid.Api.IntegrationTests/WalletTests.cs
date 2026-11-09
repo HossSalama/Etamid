@@ -21,7 +21,7 @@ public class WalletTests(EtamidFactory factory) : IClassFixture<EtamidFactory>
     private const string Password = "Pass#123";
     private const string IbanRajhi = "SA6180000000608010167542";
     // Distinct valid Rajhi IBANs: tests in one class share one database, and
-    // saving the same IBAN for two users is a 409, so each bank-saving test
+    // saving the same IBAN for two users is an IBAN_EXISTS conflict, so each bank-saving test
     // needs its own (all pass the mod-97 check, bank code 80 = Al Rajhi).
     private const string IbanRajhi2 = "SA7380000000608010167520";
     private const string IbanRajhi3 = "SA6780000000608010167531";
@@ -226,21 +226,21 @@ public class WalletTests(EtamidFactory factory) : IClassFixture<EtamidFactory>
         save.StatusCode.Should().Be(HttpStatusCode.OK);
 
         var tooMuch = await Post(seller.Client, "/api/v1/me/wallet/withdrawals", new { amount = 10000m, idempotencyKey = Key() });
-        tooMuch.StatusCode.Should().Be(HttpStatusCode.UnprocessableEntity);
+        tooMuch.StatusCode.Should().Be(HttpStatusCode.OK);
         ErrorCode(await Json(tooMuch)).Should().Be("WALLET_INSUFFICIENT_BALANCE");
 
         var noBank = await NewUser();
         (await Post(noBank.Client, "/api/v1/me/wallet/activate")).StatusCode.Should().Be(HttpStatusCode.OK);
         var noBankReq = await Post(noBank.Client, "/api/v1/me/wallet/withdrawals", new { amount = 10m, idempotencyKey = Key() });
-        noBankReq.StatusCode.Should().Be(HttpStatusCode.UnprocessableEntity);
+        noBankReq.StatusCode.Should().Be(HttpStatusCode.OK);
         ErrorCode(await Json(noBankReq)).Should().Be("WALLET_BANK_ACCOUNT_REQUIRED");
 
         var inactive = await NewUser();
         var inactiveReq = await Post(inactive.Client, "/api/v1/me/wallet/withdrawals", new { amount = 10m, idempotencyKey = Key() });
-        inactiveReq.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        inactiveReq.StatusCode.Should().Be(HttpStatusCode.OK);
         ErrorCode(await Json(inactiveReq)).Should().Be("WALLET_NOT_ACTIVATED");
         var inactiveTx = await inactive.Client.GetAsync("/api/v1/me/wallet/transactions");
-        inactiveTx.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        inactiveTx.StatusCode.Should().Be(HttpStatusCode.OK);
     }
 
     [Fact]
@@ -257,13 +257,13 @@ public class WalletTests(EtamidFactory factory) : IClassFixture<EtamidFactory>
 
         var stranger = await NewUser();
         var denied = await Post(stranger.Client, $"/api/v1/admin/withdrawals/{withdrawalId}/approve");
-        denied.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        denied.StatusCode.Should().Be(HttpStatusCode.OK);
         ErrorCode(await Json(denied)).Should().Be("WALLET_NOT_OPERATOR");
 
         var operatorUser = await NewUser();
         await MakeOperator(await UserIdOf(operatorUser.Phone));
         var missing = await Post(operatorUser.Client, "/api/v1/admin/withdrawals/999999999/approve");
-        missing.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        missing.StatusCode.Should().Be(HttpStatusCode.OK);
         ErrorCode(await Json(missing)).Should().Be("WALLET_WITHDRAWAL_NOT_FOUND");
     }
 }

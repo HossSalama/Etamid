@@ -1,4 +1,3 @@
-using Etamid.Api.Common;
 using Etamid.Application.Common.Interfaces;
 using Etamid.Application.Common.Models;
 using Etamid.SharedKernel;
@@ -34,6 +33,24 @@ public abstract class BaseApiController : ControllerBase
     private IActionResult Success(object? data, string key, int status)
         => StatusCode(status, ApiResponse.Ok(data, Localizer.Get(key)));
 
+    /// <summary>
+    /// A 200 error envelope for the rare endpoints that fail before they
+    /// reach a handler (e.g. the dev-only fake-payment endpoint): same shape
+    /// as <see cref="Failure"/>, HTTP 200 with the code in the body.
+    /// </summary>
+    protected IActionResult ErrorEnvelope(string code, string? message = null)
+    {
+        var text = message ?? Localizer.Get(code);
+        return StatusCode(StatusCodes.Status200OK,
+            ApiResponse.Fail(text, [new ApiError { Code = code, Message = text }]));
+    }
+
+    /// <summary>
+    /// Every API error returns HTTP 200 with the error in the envelope
+    /// ({ success: false, errors: [{ code, message, field }] }); the error
+    /// code identifies the failure, not the HTTP status (owner decision
+    /// 2026-11-09). Success paths still return 200/201 as before.
+    /// </summary>
     private IActionResult Failure(Error error)
     {
         var message = Localizer.Get(error.Code);
@@ -48,6 +65,6 @@ public abstract class BaseApiController : ControllerBase
             Field = error.Field,
             Extras = error.Extras is null ? null : new Dictionary<string, object?>(error.Extras)
         };
-        return StatusCode(HttpStatusMapper.ToStatusCode(error.Type), ApiResponse.Fail(message, [apiError]));
+        return StatusCode(StatusCodes.Status200OK, ApiResponse.Fail(message, [apiError]));
     }
 }

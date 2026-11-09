@@ -2,6 +2,12 @@ using Etamid.SharedKernel;
 
 namespace Etamid.Api.Common;
 
+/// <summary>
+/// Retained for reference only. Since 2026-11-09 (owner decision) every API
+/// error returns HTTP 200 with the error in the envelope, so no controller
+/// maps an error type to an HTTP status anymore; the code in the body
+/// identifies the failure.
+/// </summary>
 public static class HttpStatusMapper
 {
     public static int ToStatusCode(ErrorType type) => type switch

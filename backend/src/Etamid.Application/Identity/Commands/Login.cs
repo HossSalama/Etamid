@@ -33,18 +33,22 @@ public sealed class LoginHandler(
 {
     public async Task<Result<AuthResultDto>> Handle(LoginCommand r, CancellationToken ct)
     {
-        // Every failure looks the same to the caller, so phone numbers cannot be probed.
+        // Login failures are specific on purpose (owner decision 2026-11-09):
+        // an unregistered phone and a wrong password get different codes, so
+        // phone registration is probeable by design. The dummy verify is
+        // still done on the unknown-phone path so the timing does not leak
+        // the answer any faster than the message does.
         if (!PhoneNumber.TryParse(r.Phone, out var phone))
         {
             hasher.VerifyDummy(r.Password);
-            return IdentityErrors.InvalidCredentials;
+            return IdentityErrors.InvalidPhone;
         }
 
         var user = await db.Users.FirstOrDefaultAsync(u => u.PhoneNormalized == phone.E164 && u.DeletedAt == null, ct);
         if (user is null)
         {
             hasher.VerifyDummy(r.Password);
-            return IdentityErrors.InvalidCredentials;
+            return IdentityErrors.PhoneNotRegistered;
         }
 
         var now = clock.UtcNow;
@@ -61,7 +65,7 @@ public sealed class LoginHandler(
 
             return locked
                 ? IdentityErrors.AccountLocked((int)User.LockoutDuration.TotalSeconds)
-                : IdentityErrors.InvalidCredentials;
+                : IdentityErrors.WrongPassword;
         }
 
         if (user.Status == AccountStatus.PendingVerification) return IdentityErrors.AccountNotVerified;

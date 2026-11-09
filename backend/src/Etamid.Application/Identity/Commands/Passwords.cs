@@ -68,11 +68,13 @@ public sealed class VerifyResetCodeHandler(
 {
     public async Task<Result<ResetTokenDto>> Handle(VerifyResetCodeCommand r, CancellationToken ct)
     {
-        if (!PhoneNumber.TryParse(r.Phone, out var phone)) return IdentityErrors.OtpInvalid;
+        // Like login, the failure names the actual problem instead of
+        // blaming the code (owner decision 2026-11-09).
+        if (!PhoneNumber.TryParse(r.Phone, out var phone)) return IdentityErrors.InvalidPhone;
 
         var user = await db.Users.FirstOrDefaultAsync(
             u => u.PhoneNormalized == phone.E164 && u.DeletedAt == null && u.Status == AccountStatus.Active, ct);
-        if (user is null) return IdentityErrors.OtpInvalid;
+        if (user is null) return IdentityErrors.PhoneNotRegistered;
 
         var check = await otps.CheckAsync(user, OtpPurpose.PasswordReset, r.Code, ct);
         if (check.IsFailure)
@@ -121,8 +123,10 @@ public sealed class ResetPasswordHandler(
 
         var otp = await db.EmailOtps.FirstOrDefaultAsync(
             o => o.ResetTokenHash == tokenHash && o.Purpose == OtpPurpose.PasswordReset && o.ResetTokenUsedAt == null, ct);
-        if (otp is null || otp.ResetTokenExpiresAt is null || otp.ResetTokenExpiresAt <= now)
+        if (otp is null)
             return IdentityErrors.ResetTokenInvalid;
+        if (otp.ResetTokenExpiresAt is null || otp.ResetTokenExpiresAt <= now)
+            return IdentityErrors.ResetTokenExpired;
 
         var user = await db.Users.FirstOrDefaultAsync(
             u => u.Id == otp.UserId && u.DeletedAt == null && u.Status == AccountStatus.Active, ct);

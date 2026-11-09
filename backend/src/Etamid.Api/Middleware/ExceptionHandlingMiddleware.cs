@@ -23,14 +23,18 @@ public sealed class ExceptionHandlingMiddleware(RequestDelegate next, ILogger<Ex
                 .Select(f => new ApiError { Code = f.Code, Field = f.Field, Message = localizer.Get(f.Code) })
                 .ToList();
 
-            await Write(context, StatusCodes.Status422UnprocessableEntity,
+            // Like every other API error, validation failures return HTTP 200
+            // with the error in the envelope (owner decision 2026-11-09).
+            await Write(context, StatusCodes.Status200OK,
                 ApiResponse.Fail(localizer.Get("VALIDATION_FAILED"), errors));
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Unhandled exception for {Method} {Path}", context.Request.Method, context.Request.Path);
 
-            await Write(context, StatusCodes.Status500InternalServerError,
+            // Unhandled exceptions also return HTTP 200 with the envelope
+            // (owner decision 2026-11-09); the detail is only in the log.
+            await Write(context, StatusCodes.Status200OK,
                 ApiResponse.Fail(localizer.Get("INTERNAL_ERROR"),
                     [new ApiError { Code = "INTERNAL_ERROR", Message = localizer.Get("INTERNAL_ERROR") }]));
         }

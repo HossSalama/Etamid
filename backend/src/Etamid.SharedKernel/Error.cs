@@ -28,7 +28,7 @@ public sealed record Error(
     public static Error Validation(string code, string? field = null) => new(code, ErrorType.Validation, field);
     public static Error NotFound(string code, string? field = null) => new(code, ErrorType.NotFound, field);
     public static Error Conflict(string code, string? field = null) => new(code, ErrorType.Conflict, field);
-    public static Error Unauthorized(string code) => new(code, ErrorType.Unauthorized);
+    public static Error Unauthorized(string code, string? field = null) => new(code, ErrorType.Unauthorized, field);
     public static Error Forbidden(string code) => new(code, ErrorType.Forbidden);
     public static Error PaymentRequired(string code) => new(code, ErrorType.PaymentRequired);
     public static Error TooManyRequests(string code, IReadOnlyDictionary<string, object?>? extras = null)

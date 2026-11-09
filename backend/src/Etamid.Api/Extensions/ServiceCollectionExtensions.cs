@@ -41,9 +41,11 @@ public static class ServiceCollectionExtensions
                         })
                         .ToList();
 
+                    // Model-binding errors also return HTTP 200 with the envelope
+                    // (owner decision 2026-11-09), like every other API error.
                     return new Microsoft.AspNetCore.Mvc.ObjectResult(ApiResponse.Fail(localizer.Get("VALIDATION_FAILED"), errors))
                     {
-                        StatusCode = StatusCodes.Status422UnprocessableEntity
+                        StatusCode = StatusCodes.Status200OK
                     };
                 };
             });
@@ -107,7 +109,9 @@ public static class ServiceCollectionExtensions
 
         services.AddRateLimiter(options =>
         {
-            options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+            // Rate-limit rejections also return HTTP 200 with the envelope
+            // (owner decision 2026-11-09); the Retry-After header is still sent.
+            options.RejectionStatusCode = StatusCodes.Status200OK;
 
             options.AddPolicy("auth", http => RateLimitPartition.GetFixedWindowLimiter(
                 http.Connection.RemoteIpAddress?.ToString() ?? "unknown",
@@ -122,7 +126,7 @@ public static class ServiceCollectionExtensions
             {
                 var localizer = context.HttpContext.RequestServices.GetRequiredService<IMessageLocalizer>();
                 var message = localizer.Get("RATE_LIMITED");
-                context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+                context.HttpContext.Response.StatusCode = StatusCodes.Status200OK;
                 context.HttpContext.Response.Headers.RetryAfter = "60";
                 await context.HttpContext.Response.WriteAsJsonAsync(
                     ApiResponse.Fail(message, [new ApiError { Code = "RATE_LIMITED", Message = message }]), ct);

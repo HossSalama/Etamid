@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Etamid (اعتمد) Mobile API
-  version: 1.2.2
+  version: 1.2.3
   description: |
     عقد الـ API بين الـ Backend (.NET) وتطبيق الموبايل.
     - كل الردود بصيغة موحدة: { success, message, data, errors, meta }
@@ -10,6 +10,12 @@ info:
     - المبالغ: number بالريال السعودي (SAR) بخانتين عشريتين
     - الجوال: بصيغة 05XXXXXXXX
     - الأخطاء: errors[].code ثابت للبرمجة، و message مترجم للعرض
+    - [1.2.3] كل الأخطاء — بما فيها أخطاء الدخول والتحقق وعدم الوجود والتعارض
+      وتجاوز الحد — ترجع الآن HTTP 200 دائمًا مع success:false؛ الكود في
+      errors[0].code هو اللي يحدد نوع الخطأ، مش الـ status. النجاح يفضل
+      200/201 زي ما هو. أخطاء الدخول بالذات بقت محددة: PHONE_NOT_REGISTERED
+      (التليفون مش مسجل) و WRONG_PASSWORD (كلمة المرور غلط) بدل
+      INVALID_CREDENTIALS العام.
     - الإجراءات المتاحة لكل معاملة تأتي جاهزة في availableActions ولا يحسبها الموبايل
     - [تثبيت العقد 2026-10-29] هذا الملف يعكس الكود الفعلي على main (بعد تنظيف
       Cycle 3). المسارات المعلمة [NOT IMPLEMENTED] غير منفذة في الباك إند ويجب
@@ -120,8 +126,9 @@ paths:
                 acceptTerms: { type: boolean, description: يجب أن تكون true }
       responses:
         "201": { $ref: '#/components/responses/OtpSent' }
-        "422": { $ref: '#/components/responses/ValidationError' }
-        "409": { $ref: '#/components/responses/Conflict' }
+        default:
+          description: 'خطأ — الرد HTTP 200 دائمًا مع success:false؛ الكود في errors[0].code يحدد نوع الخطأ (ValidationError، Conflict)'
+          content: { application/json: { schema: { $ref: '#/components/schemas/Envelope' } } }
   /auth/register/company:
     post:
       tags: [Auth]
@@ -144,8 +151,9 @@ paths:
                 acceptTerms: { type: boolean }
       responses:
         "201": { $ref: '#/components/responses/OtpSent' }
-        "422": { $ref: '#/components/responses/ValidationError' }
-        "409": { $ref: '#/components/responses/Conflict' }
+        default:
+          description: 'خطأ — الرد HTTP 200 دائمًا مع success:false؛ الكود في errors[0].code يحدد نوع الخطأ (ValidationError، Conflict)'
+          content: { application/json: { schema: { $ref: '#/components/schemas/Envelope' } } }
   /auth/otp/verify:
     post:
       tags: [Auth]
@@ -163,8 +171,8 @@ paths:
                 code: { type: string, minLength: 6, maxLength: 6, example: "123456" }
       responses:
         "200": { $ref: '#/components/responses/AuthTokens' }
-        "400":
-          description: كود خاطئ أو منتهي (OTP_INVALID | OTP_EXPIRED | OTP_ATTEMPTS_EXCEEDED)
+        default:
+          description: 'خطأ — الرد HTTP 200 دائمًا مع success:false؛ الكود في errors[0].code يحدد نوع الخطأ (كود خاطئ أو منتهي (OTP_INVALID | OTP_EXPIRED | OTP_ATTEMPTS_EXCEEDED))'
           content: { application/json: { schema: { $ref: '#/components/schemas/Envelope' } } }
   /auth/otp/resend:
     post:
@@ -186,7 +194,9 @@ paths:
                 phone: { type: string }
       responses:
         "200": { $ref: '#/components/responses/OtpSent' }
-        "429": { $ref: '#/components/responses/TooManyRequests' }
+        default:
+          description: 'خطأ — الرد HTTP 200 دائمًا مع success:false؛ الكود في errors[0].code يحدد نوع الخطأ (TooManyRequests)'
+          content: { application/json: { schema: { $ref: '#/components/schemas/Envelope' } } }
   /auth/logout-all:
     post:
       tags: [Auth]
@@ -227,11 +237,8 @@ paths:
                 password: { type: string, format: password }
       responses:
         "200": { $ref: '#/components/responses/AuthTokens' }
-        "401":
-          description: INVALID_CREDENTIALS
-          content: { application/json: { schema: { $ref: '#/components/schemas/Envelope' } } }
-        "403":
-          description: ACCOUNT_NOT_VERIFIED (يجب تفعيل الحساب) أو ACCOUNT_SUSPENDED
+        default:
+          description: 'خطأ — الرد HTTP 200 دائمًا مع success:false؛ الكود في errors[0].code يحدد نوع الخطأ (PHONE_NOT_REGISTERED | WRONG_PASSWORD | ACCOUNT_NOT_VERIFIED (يجب تفعيل الحساب) أو ACCOUNT_SUSPENDED | ACCOUNT_LOCKED)'
           content: { application/json: { schema: { $ref: '#/components/schemas/Envelope' } } }
   /auth/refresh:
     post:
@@ -249,7 +256,9 @@ paths:
                 refreshToken: { type: string }
       responses:
         "200": { $ref: '#/components/responses/AuthTokens' }
-        "401": { $ref: '#/components/responses/Unauthorized' }
+        default:
+          description: 'خطأ — الرد HTTP 200 دائمًا مع success:false؛ الكود في errors[0].code يحدد نوع الخطأ (Unauthorized)'
+          content: { application/json: { schema: { $ref: '#/components/schemas/Envelope' } } }
   /auth/logout:
     post:
       tags: [Auth]
@@ -280,7 +289,9 @@ paths:
                 phone: { type: string }
       responses:
         "200": { $ref: '#/components/responses/OtpSent' }
-        "404": { $ref: '#/components/responses/NotFound' }
+        default:
+          description: 'خطأ — الرد HTTP 200 دائمًا مع success:false؛ الكود في errors[0].code يحدد نوع الخطأ (NotFound)'
+          content: { application/json: { schema: { $ref: '#/components/schemas/Envelope' } } }
   /auth/password/verify-otp:
     post:
       tags: [Auth]
@@ -310,7 +321,9 @@ paths:
                         type: object
                         properties:
                           resetToken: { type: string }
-        "400": { $ref: '#/components/responses/ValidationError' }
+        default:
+          description: 'خطأ — الرد HTTP 200 دائمًا مع success:false؛ الكود في errors[0].code يحدد نوع الخطأ (ValidationError)'
+          content: { application/json: { schema: { $ref: '#/components/schemas/Envelope' } } }
   /auth/password/reset:
     post:
       tags: [Auth]
@@ -329,7 +342,9 @@ paths:
                 confirmPassword: { type: string, format: password }
       responses:
         "200": { $ref: '#/components/responses/Ok' }
-        "422": { $ref: '#/components/responses/ValidationError' }
+        default:
+          description: 'خطأ — الرد HTTP 200 دائمًا مع success:false؛ الكود في errors[0].code يحدد نوع الخطأ (ValidationError)'
+          content: { application/json: { schema: { $ref: '#/components/schemas/Envelope' } } }
 
   # ---------------- Profile ----------------
   /me:
@@ -376,14 +391,18 @@ paths:
                   - type: object
                     properties:
                       data: { $ref: '#/components/schemas/UpdateProfileResult' }
-        "422": { $ref: '#/components/responses/ValidationError' }
+        default:
+          description: 'خطأ — الرد HTTP 200 دائمًا مع success:false؛ الكود في errors[0].code يحدد نوع الخطأ (ValidationError)'
+          content: { application/json: { schema: { $ref: '#/components/schemas/Envelope' } } }
     delete:
       tags: [Profile]
       summary: '[NOT IMPLEMENTED] حذف الحساب — غير منفذ في الكود الحالي، لا تستخدمه'
       description: لا يوجد endpoint لحذف الحساب في الباك إند الحالي (الدومين فقط فيه MarkDeleted).
       responses:
         "200": { $ref: '#/components/responses/Ok' }
-        "409": { $ref: '#/components/responses/Conflict' }
+        default:
+          description: 'خطأ — الرد HTTP 200 دائمًا مع success:false؛ الكود في errors[0].code يحدد نوع الخطأ (Conflict)'
+          content: { application/json: { schema: { $ref: '#/components/schemas/Envelope' } } }
   /me/password:
     put:
       tags: [Profile]
@@ -400,7 +419,9 @@ paths:
                 newPassword: { type: string, format: password }
       responses:
         "200": { $ref: '#/components/responses/Ok' }
-        "422": { $ref: '#/components/responses/ValidationError' }
+        default:
+          description: 'خطأ — الرد HTTP 200 دائمًا مع success:false؛ الكود في errors[0].code يحدد نوع الخطأ (ValidationError)'
+          content: { application/json: { schema: { $ref: '#/components/schemas/Envelope' } } }
   /me/language:
     put:
       tags: [Profile]
@@ -500,7 +521,9 @@ paths:
                 iban: { type: string, example: "SA0380000000608010167519" }
       responses:
         "200": { $ref: '#/components/responses/Ok' }
-        "422": { $ref: '#/components/responses/ValidationError' }
+        default:
+          description: 'خطأ — الرد HTTP 200 دائمًا مع success:false؛ الكود في errors[0].code يحدد نوع الخطأ (ValidationError)'
+          content: { application/json: { schema: { $ref: '#/components/schemas/Envelope' } } }
   /me/home:
     get:
       tags: [Profile]
@@ -677,7 +700,7 @@ paths:
   /notifications/{id}/read:
     post:
       tags: [Notifications]
-      summary: تعليم إشعار كمقروء (إشعار غير خاص بي ← 404)
+      summary: تعليم إشعار كمقروء (إشعار غير خاص بي ← خطأ NOT_FOUND)
       parameters:
         - { name: id, in: path, required: true, schema: { type: integer } }
       responses:
@@ -725,7 +748,7 @@ paths:
   /me/wallet/transactions:
     get:
       tags: [Wallet]
-      summary: سجل عمليات المحفظة من دفتر الأستاذ (يتطلب التفعيل، وإلا 403 WALLET_NOT_ACTIVATED)
+      summary: سجل عمليات المحفظة من دفتر الأستاذ (يتطلب التفعيل، وإلا خطأ WALLET_NOT_ACTIVATED)
       parameters:
         - $ref: '#/components/parameters/Page'
         - $ref: '#/components/parameters/PageSize'
@@ -816,7 +839,7 @@ paths:
   /admin/withdrawals:
     get:
       tags: [Wallet]
-      summary: كل طلبات السحب (للمشغّلين فقط — user ids في إعداد wallet.operators، وإلا 403 WALLET_NOT_OPERATOR)
+      summary: كل طلبات السحب (للمشغّلين فقط — user ids في إعداد wallet.operators، وإلا خطأ WALLET_NOT_OPERATOR)
       parameters:
         - name: status
           in: query
@@ -840,7 +863,7 @@ paths:
   /admin/disputes:
     get:
       tags: [Disputes]
-      summary: كل النزاعات (للمشغّلين فقط — user ids في إعداد disputes.operators، وإلا 403 DISPUTE_NOT_OPERATOR)
+      summary: كل النزاعات (للمشغّلين فقط — user ids في إعداد disputes.operators، وإلا خطأ DISPUTE_NOT_OPERATOR)
       parameters:
         - name: status
           in: query
@@ -891,8 +914,9 @@ paths:
                   - type: object
                     properties:
                       data: { $ref: '#/components/schemas/DisputeDetail' }
-        "404": { $ref: '#/components/responses/NotFound' }
-        "409": { $ref: '#/components/responses/Conflict' }
+        default:
+          description: 'خطأ — الرد HTTP 200 دائمًا مع success:false؛ الكود في errors[0].code يحدد نوع الخطأ (NotFound، Conflict)'
+          content: { application/json: { schema: { $ref: '#/components/schemas/Envelope' } } }
   /admin/disputes/{disputeId}/decide:
     post:
       tags: [Disputes]
@@ -900,7 +924,7 @@ paths:
       description: |
         الاسترداد الكامل يعيد المبلغ كاملاً للمشتري بلا رسوم (الرسوم تُحصَّل مرة
         واحدة فقط عند الإفراج للبائع). التقسيم الجزئي: البائع يأخذ نسبته ناقص
-        رسوم المنصة (50)، والمشتري يأخذ الباقي. قرار ثانٍ على نزاع مغلق يرجع 409.
+        رسوم المنصة (50)، والمشتري يأخذ الباقي. قرار ثانٍ على نزاع مغلق يرجع خطأ.
       parameters:
         - name: disputeId
           in: path
@@ -928,8 +952,9 @@ paths:
                   - type: object
                     properties:
                       data: { $ref: '#/components/schemas/DisputeExecution' }
-        "404": { $ref: '#/components/responses/NotFound' }
-        "409": { $ref: '#/components/responses/Conflict' }
+        default:
+          description: 'خطأ — الرد HTTP 200 دائمًا مع success:false؛ الكود في errors[0].code يحدد نوع الخطأ (NotFound، Conflict)'
+          content: { application/json: { schema: { $ref: '#/components/schemas/Envelope' } } }
   /admin/withdrawals/{id}/approve:
     post:
       tags: [Wallet]
@@ -1013,7 +1038,7 @@ paths:
   /company-deals:
     post:
       tags: [Company]
-      summary: إنشاء مسودة صفقة شركة (الأقساط يجب أن تساوي الإجمالي، وإلا 422 COMPANY_INSTALLMENTS_SUM_MISMATCH)
+      summary: إنشاء مسودة صفقة شركة (الأقساط يجب أن تساوي الإجمالي، وإلا خطأ بكود COMPANY_INSTALLMENTS_SUM_MISMATCH)
       requestBody:
         required: true
         content:
@@ -1032,7 +1057,9 @@ paths:
                     properties:
                       data:
                         $ref: '#/components/schemas/CompanyDealDetail'
-        "422": { $ref: '#/components/responses/ValidationError' }
+        default:
+          description: 'خطأ — الرد HTTP 200 دائمًا مع success:false؛ الكود في errors[0].code يحدد نوع الخطأ (ValidationError)'
+          content: { application/json: { schema: { $ref: '#/components/schemas/Envelope' } } }
     get:
       tags: [Company]
       summary: صفقات الشركة الخاصة بي (منشئاً أو طرفاً آخر)
@@ -1059,7 +1086,7 @@ paths:
   /company-deals/{id}:
     get:
       tags: [Company]
-      summary: تفاصيل صفقة الشركة مع الأقساط والغرامات (للمشاركين فقط، وإلا 404)
+      summary: تفاصيل صفقة الشركة مع الأقساط والغرامات (للمشاركين فقط، وإلا خطأ NOT_FOUND)
       parameters:
         - $ref: '#/components/parameters/DealId'
       responses:
@@ -1206,7 +1233,7 @@ paths:
   /admin/company-deals/penalties:
     get:
       tags: [Company]
-      summary: كل الغرامات (للمشغّلين فقط — user ids في إعداد company.operators، وإلا 403 COMPANY_NOT_OPERATOR)
+      summary: كل الغرامات (للمشغّلين فقط — user ids في إعداد company.operators، وإلا خطأ COMPANY_NOT_OPERATOR)
       parameters:
         - name: status
           in: query
@@ -1261,7 +1288,7 @@ paths:
       description: |
         بحث دقيق (exact) بالجوال السعودي أو الكود العام فقط — نفس مطابقة أمر
         الإنشاء — وليس بحثا جزئيا، حتى لا يمكن تعداد الحسابات. المتصل نفسه
-        مستثنى (404). الرد لا يحتوي جوال ولا بريد، فقط ما يلزم للتأكد
+        مستثنى (خطأ NOT_FOUND). الرد لا يحتوي جوال ولا بريد، فقط ما يلزم للتأكد
         من هوية البائع قبل الإنشاء، بالإضافة إلى sellerId لربط المعاينة
         بصفحة المتجر.
       parameters:
@@ -1277,7 +1304,9 @@ paths:
                   - type: object
                     properties:
                       data: { $ref: '#/components/schemas/Counterparty' }
-        "404": { $ref: '#/components/responses/NotFound' }
+        default:
+          description: 'خطأ — الرد HTTP 200 دائمًا مع success:false؛ الكود في errors[0].code يحدد نوع الخطأ (NotFound)'
+          content: { application/json: { schema: { $ref: '#/components/schemas/Envelope' } } }
   /deals:
     post:
       tags: [Deals]
@@ -1312,7 +1341,9 @@ paths:
                   - type: object
                     properties:
                       data: { $ref: '#/components/schemas/Deal' }
-        "422": { $ref: '#/components/responses/ValidationError' }
+        default:
+          description: 'خطأ — الرد HTTP 200 دائمًا مع success:false؛ الكود في errors[0].code يحدد نوع الخطأ (ValidationError)'
+          content: { application/json: { schema: { $ref: '#/components/schemas/Envelope' } } }
     get:
       tags: [Deals]
       summary: قائمة المعاملات
@@ -1349,7 +1380,9 @@ paths:
                   - type: object
                     properties:
                       data: { $ref: '#/components/schemas/Deal' }
-        "404": { $ref: '#/components/responses/NotFound' }
+        default:
+          description: 'خطأ — الرد HTTP 200 دائمًا مع success:false؛ الكود في errors[0].code يحدد نوع الخطأ (NotFound)'
+          content: { application/json: { schema: { $ref: '#/components/schemas/Envelope' } } }
   /deals/{id}/accept:
     post:
       tags: [Deals]
@@ -1367,7 +1400,9 @@ paths:
                 acceptTerms: { type: boolean }
       responses:
         "200": { $ref: '#/components/responses/DealResult' }
-        "409": { $ref: '#/components/responses/Conflict' }
+        default:
+          description: 'خطأ — الرد HTTP 200 دائمًا مع success:false؛ الكود في errors[0].code يحدد نوع الخطأ (Conflict)'
+          content: { application/json: { schema: { $ref: '#/components/schemas/Envelope' } } }
   /deals/{id}/reject:
     post:
       tags: [Deals]
@@ -1386,7 +1421,9 @@ paths:
                 note: { type: string, maxLength: 200, description: مطلوب عند اختيار سبب آخر }
       responses:
         "200": { $ref: '#/components/responses/DealResult' }
-        "409": { $ref: '#/components/responses/Conflict' }
+        default:
+          description: 'خطأ — الرد HTTP 200 دائمًا مع success:false؛ الكود في errors[0].code يحدد نوع الخطأ (Conflict)'
+          content: { application/json: { schema: { $ref: '#/components/schemas/Envelope' } } }
   /deals/{id}/cancel:
     post:
       tags: [Deals]
@@ -1398,7 +1435,9 @@ paths:
         - $ref: '#/components/parameters/DealId'
       responses:
         "200": { $ref: '#/components/responses/DealResult' }
-        "409": { $ref: '#/components/responses/Conflict' }
+        default:
+          description: 'خطأ — الرد HTTP 200 دائمًا مع success:false؛ الكود في errors[0].code يحدد نوع الخطأ (Conflict)'
+          content: { application/json: { schema: { $ref: '#/components/schemas/Envelope' } } }
   /deals/{id}/edits:
     post:
       tags: [Deals]
@@ -1433,7 +1472,9 @@ paths:
                   - type: object
                     properties:
                       data: { $ref: '#/components/schemas/DealEdit' }
-        "409": { $ref: '#/components/responses/Conflict' }
+        default:
+          description: 'خطأ — الرد HTTP 200 دائمًا مع success:false؛ الكود في errors[0].code يحدد نوع الخطأ (Conflict)'
+          content: { application/json: { schema: { $ref: '#/components/schemas/Envelope' } } }
   /deals/{id}/edits/{editId}/approve:
     post:
       tags: [Deals]
@@ -1487,7 +1528,9 @@ paths:
                   - type: object
                     properties:
                       data: { $ref: '#/components/schemas/FundSession' }
-        "409": { $ref: '#/components/responses/Conflict' }
+        default:
+          description: 'خطأ — الرد HTTP 200 دائمًا مع success:false؛ الكود في errors[0].code يحدد نوع الخطأ (Conflict)'
+          content: { application/json: { schema: { $ref: '#/components/schemas/Envelope' } } }
   /deals/{id}/deliver:
     post:
       tags: [Deals]
@@ -1520,7 +1563,7 @@ paths:
         (created بدون رقم تتبع، in_transit برقم تتبع) وأحداث الشحنة
         (فارغة في التتبع اليدوي v1 — الأحداث تأتي مع تكامل شركة شحن
         مستقبلي). صفقة بلا شحن أو بلا شحنة تعيد حقولا null وقائمة
-        أحداث فارغة، لا 404. غير الطرفين يأخذ 404.
+        أحداث فارغة، لا خطأ NOT_FOUND. غير الطرفين يأخذ خطأ NOT_FOUND.
       parameters:
         - $ref: '#/components/parameters/DealId'
       responses:
@@ -1572,7 +1615,9 @@ paths:
                   - type: object
                     properties:
                       data: { $ref: '#/components/schemas/ReleaseResult' }
-        "409": { $ref: '#/components/responses/Conflict' }
+        default:
+          description: 'خطأ — الرد HTTP 200 دائمًا مع success:false؛ الكود في errors[0].code يحدد نوع الخطأ (Conflict)'
+          content: { application/json: { schema: { $ref: '#/components/schemas/Envelope' } } }
   /deals/{id}/not-received:
     post:
       tags: [Deals]
@@ -1599,7 +1644,9 @@ paths:
                 comment: { type: string, maxLength: 300, nullable: true }
       responses:
         "200": { $ref: '#/components/responses/Ok' }
-        "409": { $ref: '#/components/responses/Conflict' }
+        default:
+          description: 'خطأ — الرد HTTP 200 دائمًا مع success:false؛ الكود في errors[0].code يحدد نوع الخطأ (Conflict)'
+          content: { application/json: { schema: { $ref: '#/components/schemas/Envelope' } } }
   /deals/{id}/timeline:
     get:
       tags: [Deals]
@@ -1631,7 +1678,7 @@ paths:
       description: |
         يرجع 201 مع { id, number, dealId, status } حيث number بصيغة DSP-{dealId}.
         أي طرف (مشتري أو بائع) يفتح أثناء الفحص وقبل انتهاء مهلته؛ الطرف المقابل
-        هو الطرف الآخر تلقائياً. فتح نزاع ثانٍ على نفس الصفقة يرجع 409 DEAL_DISPUTED.
+        هو الطرف الآخر تلقائياً. فتح نزاع ثانٍ على نفس الصفقة يرجع خطأ DEAL_DISPUTED.
         فتح النزاع يجمّد الضمان ويمنع الإفراج التلقائي.
       parameters:
         - $ref: '#/components/parameters/DealId'
@@ -1656,7 +1703,9 @@ paths:
                   - type: object
                     properties:
                       data: { $ref: '#/components/schemas/DisputeResult' }
-        "409": { $ref: '#/components/responses/Conflict' }
+        default:
+          description: 'خطأ — الرد HTTP 200 دائمًا مع success:false؛ الكود في errors[0].code يحدد نوع الخطأ (Conflict)'
+          content: { application/json: { schema: { $ref: '#/components/schemas/Envelope' } } }
     get:
       tags: [Deals]
       summary: تفاصيل النزاع على الصفقة (للطرفين والمشغّل فقط) — رسائل ومرفقات واقتراحات تسوية
@@ -1673,7 +1722,9 @@ paths:
                   - type: object
                     properties:
                       data: { $ref: '#/components/schemas/DisputeDetail' }
-        "404": { $ref: '#/components/responses/NotFound' }
+        default:
+          description: 'خطأ — الرد HTTP 200 دائمًا مع success:false؛ الكود في errors[0].code يحدد نوع الخطأ (NotFound)'
+          content: { application/json: { schema: { $ref: '#/components/schemas/Envelope' } } }
   /deals/{id}/dispute/messages:
     post:
       tags: [Deals]
@@ -1689,7 +1740,7 @@ paths:
               properties:
                 message: { type: string, maxLength: 1000, description: 'نص الرسالة؛ أو filePublicId وحده لرسالة بمرفق فقط' }
                 filePublicId: { type: string, description: 'معرّف عام من /uploads بغرض dispute، ملك المُرسل وحالته Uploaded' }
-                isInternalNote: { type: boolean, description: 'true للمشغّل فقط — يرجع 403 DISPUTE_ACTION_NOT_ALLOWED لغير المشغّل' }
+                isInternalNote: { type: boolean, description: 'true للمشغّل فقط — يرجع خطأ DISPUTE_ACTION_NOT_ALLOWED لغير المشغّل' }
       responses:
         "201":
           description: رسالة مرسلة
@@ -1701,7 +1752,9 @@ paths:
                   - type: object
                     properties:
                       data: { $ref: '#/components/schemas/DisputeMessage' }
-        "404": { $ref: '#/components/responses/NotFound' }
+        default:
+          description: 'خطأ — الرد HTTP 200 دائمًا مع success:false؛ الكود في errors[0].code يحدد نوع الخطأ (NotFound)'
+          content: { application/json: { schema: { $ref: '#/components/schemas/Envelope' } } }
   /deals/{id}/dispute/attachments:
     post:
       tags: [Deals]
@@ -1729,11 +1782,13 @@ paths:
                   - type: object
                     properties:
                       data: { $ref: '#/components/schemas/DisputeAttachment' }
-        "404": { $ref: '#/components/responses/NotFound' }
+        default:
+          description: 'خطأ — الرد HTTP 200 دائمًا مع success:false؛ الكود في errors[0].code يحدد نوع الخطأ (NotFound)'
+          content: { application/json: { schema: { $ref: '#/components/schemas/Envelope' } } }
   /deals/{id}/dispute/settlement/propose:
     post:
       tags: [Deals]
-      summary: اقتراح تسوية ودية (طرف فقط؛ اقتراح مفتوح واحد في كل مرة، وإلا 409 SETTLEMENT_ALREADY_OPEN)
+      summary: اقتراح تسوية ودية (طرف فقط؛ اقتراح مفتوح واحد في كل مرة، وإلا خطأ SETTLEMENT_ALREADY_OPEN)
       parameters:
         - $ref: '#/components/parameters/DealId'
       requestBody:
@@ -1757,8 +1812,9 @@ paths:
                   - type: object
                     properties:
                       data: { $ref: '#/components/schemas/SettlementProposal' }
-        "404": { $ref: '#/components/responses/NotFound' }
-        "409": { $ref: '#/components/responses/Conflict' }
+        default:
+          description: 'خطأ — الرد HTTP 200 دائمًا مع success:false؛ الكود في errors[0].code يحدد نوع الخطأ (NotFound، Conflict)'
+          content: { application/json: { schema: { $ref: '#/components/schemas/Envelope' } } }
   /deals/{id}/dispute/settlement/{proposalId}/accept:
     post:
       tags: [Deals]
@@ -1780,8 +1836,9 @@ paths:
                   - type: object
                     properties:
                       data: { $ref: '#/components/schemas/DisputeExecution' }
-        "404": { $ref: '#/components/responses/NotFound' }
-        "409": { $ref: '#/components/responses/Conflict' }
+        default:
+          description: 'خطأ — الرد HTTP 200 دائمًا مع success:false؛ الكود في errors[0].code يحدد نوع الخطأ (NotFound، Conflict)'
+          content: { application/json: { schema: { $ref: '#/components/schemas/Envelope' } } }
   /deals/{id}/dispute/settlement/{proposalId}/reject:
     post:
       tags: [Deals]
@@ -1803,7 +1860,9 @@ paths:
                   - type: object
                     properties:
                       data: { $ref: '#/components/schemas/SettlementProposal' }
-        "404": { $ref: '#/components/responses/NotFound' }
+        default:
+          description: 'خطأ — الرد HTTP 200 دائمًا مع success:false؛ الكود في errors[0].code يحدد نوع الخطأ (NotFound)'
+          content: { application/json: { schema: { $ref: '#/components/schemas/Envelope' } } }
   /sellers/{id}/store:
     get:
       tags: [Deals]
@@ -1811,7 +1870,7 @@ paths:
       description: |
         تعرض كل حاجة ما عدا صفقات البائع: البانر والاسم والتصنيف والتقييم
         وعدد الصفقات الناجحة. بائع بلا ملف متجر يرجع صفحة افتراضية (اسم
-        حسابه وتقييم صفر) بدل 404؛ بائع غير موجود فقط هو 404.
+        حسابه وتقييم صفر) بدل خطأ NOT_FOUND؛ بائع غير موجود فقط هو خطأ NOT_FOUND.
       parameters:
         - { name: id, in: path, required: true, schema: { type: integer } }
       responses:
@@ -1882,7 +1941,7 @@ paths:
       summary: منتجات المتجر (للعرض فقط، لا تبدأ صفقات)
       description: |
         كتالوج البائع المعروض في صفحة متجره، مرتب بالأحدث. بائع غير موجود
-        هو 404؛ يتطلب تسجيل دخول مثل باقي صفحة المتجر.
+        هو خطأ NOT_FOUND؛ يتطلب تسجيل دخول مثل باقي صفحة المتجر.
       parameters:
         - { name: id, in: path, required: true, schema: { type: integer } }
         - $ref: '#/components/parameters/Page'
@@ -1938,7 +1997,7 @@ paths:
   /me/products/{id}:
     put:
       tags: [Deals]
-      summary: تعديل منتج (مالكه فقط، غير المالك 404)
+      summary: تعديل منتج (مالكه فقط، غير المالك خطأ NOT_FOUND)
       parameters:
         - { name: id, in: path, required: true, schema: { type: integer } }
       requestBody:
@@ -1973,7 +2032,7 @@ paths:
         ملف .xlsx، ورقته الأولى بأعمدة: الاسم، الوصف، السعر، الكمية
         (وتُقبل الأسماء الإنجليزية name/description/price/quantity).
         الاستيراد كلي أو لا شيء: أي صف غلط يرفض الملف كله ولا يُحفظ
-        شيء، والرد 422 بكود PRODUCT_IMPORT_FAILED وقائمة أخطاء الصفوف
+        شيء، والرد خطأ بكود PRODUCT_IMPORT_FAILED وقائمة أخطاء الصفوف
         في extras.errors (رقم الصف في Excel، الحقل، الكود). حد أقصى 500 صف.
       requestBody:
         required: true
@@ -1998,8 +2057,9 @@ paths:
                         properties:
                           imported: { type: integer }
                           errors: { type: array, items: { type: object } }
-        "422":
-          description: ملف مرفوض — راجع extras.errors في أول خطأ
+        default:
+          description: 'خطأ — الرد HTTP 200 دائمًا مع success:false؛ الكود في errors[0].code يحدد نوع الخطأ (ملف مرفوض — راجع extras.errors في أول خطأ)'
+          content: { application/json: { schema: { $ref: '#/components/schemas/Envelope' } } }
   /me/products/template:
     get:
       tags: [Deals]
@@ -2068,8 +2128,8 @@ paths:
                 amount: { type: number }
       responses:
         "200": { $ref: '#/components/responses/Ok' }
-        "422":
-          description: INSUFFICIENT_BALANCE | BANK_ACCOUNT_REQUIRED | KYC_REQUIRED
+        default:
+          description: 'خطأ — الرد HTTP 200 دائمًا مع success:false؛ الكود في errors[0].code يحدد نوع الخطأ (INSUFFICIENT_BALANCE | BANK_ACCOUNT_REQUIRED | KYC_REQUIRED)'
           content: { application/json: { schema: { $ref: '#/components/schemas/Envelope' } } }
   /wallet/withdrawals:
     # [NOT IMPLEMENTED] غير منفذ في الكود الحالي — لا يستخدمه الموبايل
@@ -2124,7 +2184,9 @@ paths:
                         properties:
                           fileId: { type: string }
                           url: { type: string }
-        "422": { $ref: '#/components/responses/ValidationError' }
+        default:
+          description: 'خطأ — الرد HTTP 200 دائمًا مع success:false؛ الكود في errors[0].code يحدد نوع الخطأ (ValidationError)'
+          content: { application/json: { schema: { $ref: '#/components/schemas/Envelope' } } }
   /disputes:
     # [NOT IMPLEMENTED] غير منفذ في الكود الحالي — لا يستخدمه الموبايل
     post:
@@ -2154,7 +2216,9 @@ paths:
                   - type: object
                     properties:
                       data: { $ref: '#/components/schemas/Dispute' }
-        "409": { $ref: '#/components/responses/Conflict' }
+        default:
+          description: 'خطأ — الرد HTTP 200 دائمًا مع success:false؛ الكود في errors[0].code يحدد نوع الخطأ (Conflict)'
+          content: { application/json: { schema: { $ref: '#/components/schemas/Envelope' } } }
     get:
       tags: [Disputes]
       summary: نزاعاتي
@@ -2320,7 +2384,9 @@ paths:
                         type: object
                         properties:
                           draftId: { type: integer }
-        "422": { $ref: '#/components/responses/ValidationError' }
+        default:
+          description: 'خطأ — الرد HTTP 200 دائمًا مع success:false؛ الكود في errors[0].code يحدد نوع الخطأ (ValidationError)'
+          content: { application/json: { schema: { $ref: '#/components/schemas/Envelope' } } }
   /company/deals/drafts/{draftId}:
     # [NOT IMPLEMENTED] غير منفذ في الكود الحالي — لا يستخدمه الموبايل
     put:
@@ -2362,8 +2428,8 @@ paths:
                       dueDate: { type: string, format: date, example: "2026-11-15" }
       responses:
         "200": { $ref: '#/components/responses/Ok' }
-        "422":
-          description: PAYMENTS_TOTAL_MISMATCH أو تاريخ قبل تاريخ البدء
+        default:
+          description: 'خطأ — الرد HTTP 200 دائمًا مع success:false؛ الكود في errors[0].code يحدد نوع الخطأ (PAYMENTS_TOTAL_MISMATCH أو تاريخ قبل تاريخ البدء)'
           content: { application/json: { schema: { $ref: '#/components/schemas/Envelope' } } }
   /company/deals/drafts/{draftId}/approval-settings:
     # [NOT IMPLEMENTED] غير منفذ في الكود الحالي — لا يستخدمه الموبايل
@@ -2441,7 +2507,9 @@ paths:
                   - type: object
                     properties:
                       data: { $ref: '#/components/schemas/CompanyDeal' }
-        "422": { $ref: '#/components/responses/ValidationError' }
+        default:
+          description: 'خطأ — الرد HTTP 200 دائمًا مع success:false؛ الكود في errors[0].code يحدد نوع الخطأ (ValidationError)'
+          content: { application/json: { schema: { $ref: '#/components/schemas/Envelope' } } }
   /company/deals:
     # [NOT IMPLEMENTED] غير منفذ في الكود الحالي — لا يستخدمه الموبايل
     get:
@@ -2576,7 +2644,9 @@ paths:
         - { name: id, in: path, required: true, schema: { type: integer } }
       responses:
         "200": { $ref: '#/components/responses/Ok' }
-        "409": { $ref: '#/components/responses/Conflict' }
+        default:
+          description: 'خطأ — الرد HTTP 200 دائمًا مع success:false؛ الكود في errors[0].code يحدد نوع الخطأ (Conflict)'
+          content: { application/json: { schema: { $ref: '#/components/schemas/Envelope' } } }
   /company/payments/{id}/reject:
     # [NOT IMPLEMENTED] غير منفذ في الكود الحالي — لا يستخدمه الموبايل
     post:
@@ -2669,23 +2739,23 @@ components:
                 properties:
                   data: { $ref: '#/components/schemas/Deal' }
     Unauthorized:
-      description: UNAUTHORIZED / TOKEN_EXPIRED
+      description: UNAUTHORIZED / TOKEN_EXPIRED — يرجع الآن مع HTTP 200
       content:
         application/json:
           schema: { $ref: '#/components/schemas/Envelope' }
           example: { success: false, message: "انتهت الجلسة", data: null, errors: [{ code: "TOKEN_EXPIRED", message: "انتهت الجلسة" }] }
     NotFound:
-      description: NOT_FOUND
+      description: NOT_FOUND — يرجع الآن مع HTTP 200
       content:
         application/json:
           schema: { $ref: '#/components/schemas/Envelope' }
     Conflict:
-      description: تعارض (مثل PHONE_EXISTS أو INVALID_DEAL_STATE)
+      description: تعارض (مثل PHONE_EXISTS أو INVALID_DEAL_STATE) — يرجع الآن مع HTTP 200
       content:
         application/json:
           schema: { $ref: '#/components/schemas/Envelope' }
     ValidationError:
-      description: أخطاء التحقق، كل خطأ مع الحقل
+      description: أخطاء التحقق، كل خطأ مع الحقل — ترجع الآن مع HTTP 200
       content:
         application/json:
           schema: { $ref: '#/components/schemas/Envelope' }
@@ -2695,10 +2765,16 @@ components:
             data: null
             errors: [{ code: "REQUIRED", field: "phone", message: "رقم الجوال مطلوب" }]
     TooManyRequests:
-      description: TOO_MANY_REQUESTS (هيدر Retry-After بالثواني)
+      description: TOO_MANY_REQUESTS (هيدر Retry-After بالثواني) — يرجع الآن مع HTTP 200
       content:
         application/json:
           schema: { $ref: '#/components/schemas/Envelope' }
+    ErrorResponse:
+      description: أي خطأ — الرد HTTP 200 دائمًا مع success:false؛ الكود في errors[0].code يحدد نوع الخطأ
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Envelope' }
+          example: { success: false, message: "بيانات غير صحيحة", data: null, errors: [{ code: "INVALID_VALUE", message: "بيانات غير صحيحة" }] }
 
   schemas:
     Envelope:
@@ -3210,12 +3286,12 @@ components:
       type: object
       required: [counterpartyPhoneOrCode, title, details, totalAmount, startDate, installments]
       properties:
-        counterpartyPhoneOrCode: { type: string, description: 'جوال أو كود الطرف الآخر — يجب أن يكون مستخدماً مسجّلاً، وإلا 404 COUNTERPARTY_NOT_FOUND' }
+        counterpartyPhoneOrCode: { type: string, description: 'جوال أو كود الطرف الآخر — يجب أن يكون مستخدماً مسجّلاً، وإلا خطأ COUNTERPARTY_NOT_FOUND' }
         title: { type: string, maxLength: 150 }
         details: { type: string, maxLength: 200 }
         totalAmount: { type: number, description: 'بالريال، ويجب أن يساوي مجموع الدفعات' }
         startDate: { type: string, format: date }
-        contractFilePublicId: { type: string, nullable: true, description: 'من POST /uploads بغرض contract، وإلا 422' }
+        contractFilePublicId: { type: string, nullable: true, description: 'من POST /uploads بغرض contract، وإلا خطأ' }
         approvalSendDaysBefore: { type: integer, nullable: true, description: 'النافذة الموصى بها لإرسال طلب الموافقة قبل الاستحقاق (ليست قيداً صارماً)' }
         approvalResponseDays: { type: integer, nullable: true, description: 'مهلة رد الطرف الآخر بالأيام (7 عند عدم التحديد)' }
         approvalNotes: { type: string, maxLength: 200, nullable: true }

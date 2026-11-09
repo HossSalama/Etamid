@@ -56,7 +56,11 @@ app.UseStaticFiles(new StaticFileOptions
     OnPrepareResponse = ctx => ctx.Context.Response.Headers["X-Content-Type-Options"] = "nosniff"
 });
 
-// Bodyless 401/403/404/405 responses also use the standard envelope.
+// Bodyless 401/403/404/405 responses also use the standard envelope — and,
+// like every other API error, they are rewritten to HTTP 200 with the error
+// in the body (owner decision 2026-11-09). The code is read from the
+// original status before it is overwritten, so TOKEN_EXPIRED is still
+// distinguished from a plain UNAUTHORIZED.
 app.UseStatusCodePages(async ctx =>
 {
     var http = ctx.HttpContext;
@@ -73,6 +77,7 @@ app.UseStatusCodePages(async ctx =>
     };
 
     var message = localizer.Get(code);
+    http.Response.StatusCode = StatusCodes.Status200OK;
     await http.Response.WriteAsJsonAsync(
         ApiResponse.Fail(message, [new ApiError { Code = code, Message = message }]));
 });

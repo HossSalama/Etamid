@@ -52,12 +52,12 @@ public class AuthJourneyTests(EtamidFactory factory) : IClassFixture<EtamidFacto
 
         // Not activated yet
         var early = await Post("/api/v1/auth/login", new { phone = "0501110001", password = Password });
-        early.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        early.StatusCode.Should().Be(HttpStatusCode.OK);
         Code(await Json(early)).Should().Be("ACCOUNT_NOT_VERIFIED");
 
         var real = factory.Emails.CodeFor("a1@example.com");
         var wrong = await VerifyEmail("0501110001", WrongCode(real));
-        wrong.StatusCode.Should().Be(HttpStatusCode.UnprocessableEntity);
+        wrong.StatusCode.Should().Be(HttpStatusCode.OK);
         Code(await Json(wrong)).Should().Be("OTP_INVALID");
 
         var verify = await VerifyEmail("0501110001", real);
@@ -74,7 +74,7 @@ public class AuthJourneyTests(EtamidFactory factory) : IClassFixture<EtamidFacto
         (await Post("/api/v1/auth/refresh", new { refreshToken = refresh })).StatusCode.Should().Be(HttpStatusCode.OK);
 
         var reused = await Post("/api/v1/auth/refresh", new { refreshToken = refresh });
-        reused.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        reused.StatusCode.Should().Be(HttpStatusCode.OK);
         Code(await Json(reused)).Should().Be("REFRESH_REUSED");
 
         (await Post("/api/v1/auth/login", new { phone = "0501110001", password = Password })).StatusCode.Should().Be(HttpStatusCode.OK);
@@ -88,17 +88,17 @@ public class AuthJourneyTests(EtamidFactory factory) : IClassFixture<EtamidFacto
 
         (await VerifyEmail("0501110008", code)).StatusCode.Should().Be(HttpStatusCode.OK);
         var again = await VerifyEmail("0501110008", code);
-        again.StatusCode.Should().Be(HttpStatusCode.Conflict);
+        again.StatusCode.Should().Be(HttpStatusCode.OK);
         Code(await Json(again)).Should().Be("ACCOUNT_ALREADY_VERIFIED");
     }
 
     [Fact]
-    public async Task Duplicate_verified_phone_is_a_409()
+    public async Task Duplicate_verified_phone_is_rejected()
     {
         await RegisterAndVerify("0501110002", "b1@example.com");
 
         var dup = await Register("0501110002", "b2@example.com");
-        dup.StatusCode.Should().Be(HttpStatusCode.Conflict);
+        dup.StatusCode.Should().Be(HttpStatusCode.OK);
         Code(await Json(dup)).Should().Be("PHONE_EXISTS");
     }
 
@@ -107,7 +107,7 @@ public class AuthJourneyTests(EtamidFactory factory) : IClassFixture<EtamidFacto
     {
         (await Register("0501110007", "g1@example.com")).StatusCode.Should().Be(HttpStatusCode.Created);
         var retry = await Register("0501110007", "g2@example.com");
-        retry.StatusCode.Should().Be(HttpStatusCode.TooManyRequests);
+        retry.StatusCode.Should().Be(HttpStatusCode.OK);
         Code(await Json(retry)).Should().Be("OTP_COOLDOWN");
 
         var verify = await VerifyEmail("0501110007", factory.Emails.CodeFor("g1@example.com"));
@@ -140,28 +140,28 @@ public class AuthJourneyTests(EtamidFactory factory) : IClassFixture<EtamidFacto
         var real = factory.Emails.CodeFor("j1@example.com");
 
         for (var i = 0; i < 5; i++)
-            (await VerifyEmail("0501110010", WrongCode(real))).StatusCode.Should().Be(HttpStatusCode.UnprocessableEntity);
+            (await VerifyEmail("0501110010", WrongCode(real))).StatusCode.Should().Be(HttpStatusCode.OK);
 
         var locked = await VerifyEmail("0501110010", real);
-        locked.StatusCode.Should().Be(HttpStatusCode.TooManyRequests);
+        locked.StatusCode.Should().Be(HttpStatusCode.OK);
         Code(await Json(locked)).Should().Be("OTP_ATTEMPTS_EXCEEDED");
     }
 
     [Fact]
-    public async Task Malformed_code_is_a_422()
+    public async Task Malformed_code_is_rejected()
     {
         await Register("0501110011", "k1@example.com");
         var r = await VerifyEmail("0501110011", "12ab");
-        r.StatusCode.Should().Be(HttpStatusCode.UnprocessableEntity);
+        r.StatusCode.Should().Be(HttpStatusCode.OK);
         Code(await Json(r)).Should().Be("OTP_INVALID");
     }
 
     [Fact]
-    public async Task Weak_password_is_a_422_with_a_field()
+    public async Task Weak_password_is_rejected_with_a_field()
     {
         var r = await Post("/api/v1/auth/register/individual",
             new { username = "A", phone = "0501110004", email = "d@example.com", password = "abcdef", acceptTerms = true });
-        r.StatusCode.Should().Be(HttpStatusCode.UnprocessableEntity);
+        r.StatusCode.Should().Be(HttpStatusCode.OK);
         var err = (await Json(r)).GetProperty("errors")[0];
         err.GetProperty("code").GetString().Should().Be("WEAK_PASSWORD");
         err.GetProperty("field").GetString().Should().Be("password");
@@ -176,7 +176,7 @@ public class AuthJourneyTests(EtamidFactory factory) : IClassFixture<EtamidFacto
             await Post("/api/v1/auth/login", new { phone = "0501110005", password = "Wrong#999" });
 
         var locked = await Post("/api/v1/auth/login", new { phone = "0501110005", password = Password });
-        locked.StatusCode.Should().Be(HttpStatusCode.TooManyRequests);
+        locked.StatusCode.Should().Be(HttpStatusCode.OK);
         Code(await Json(locked)).Should().Be("ACCOUNT_LOCKED");
         locked.Headers.Contains("Retry-After").Should().BeTrue();
     }
@@ -190,7 +190,7 @@ public class AuthJourneyTests(EtamidFactory factory) : IClassFixture<EtamidFacto
         var code = factory.Emails.CodeFor("f1@example.com");
 
         var wrong = await Post("/api/v1/auth/password/verify-otp", new { phone = "0501110006", code = WrongCode(code) });
-        wrong.StatusCode.Should().Be(HttpStatusCode.UnprocessableEntity);
+        wrong.StatusCode.Should().Be(HttpStatusCode.OK);
 
         var verified = await Post("/api/v1/auth/password/verify-otp", new { phone = "0501110006", code });
         verified.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -201,12 +201,16 @@ public class AuthJourneyTests(EtamidFactory factory) : IClassFixture<EtamidFacto
         reset.StatusCode.Should().Be(HttpStatusCode.OK);
 
         (await Post("/api/v1/auth/login", new { phone = "0501110006", password = "New#4567" })).StatusCode.Should().Be(HttpStatusCode.OK);
-        (await Post("/api/v1/auth/login", new { phone = "0501110006", password = Password })).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+
+        // The old password is now wrong — and the error says so specifically.
+        var oldPassword = await Post("/api/v1/auth/login", new { phone = "0501110006", password = Password });
+        oldPassword.StatusCode.Should().Be(HttpStatusCode.OK);
+        Code(await Json(oldPassword)).Should().Be("WRONG_PASSWORD");
 
         // The token is single-use.
         var again = await Post("/api/v1/auth/password/reset",
             new { resetToken = token, newPassword = "Other#4567", confirmPassword = "Other#4567" });
-        again.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        again.StatusCode.Should().Be(HttpStatusCode.OK);
         Code(await Json(again)).Should().Be("RESET_TOKEN_INVALID");
     }
 
@@ -224,15 +228,37 @@ public class AuthJourneyTests(EtamidFactory factory) : IClassFixture<EtamidFacto
     {
         var r = await Post("/api/v1/auth/password/reset",
             new { resetToken = "not-a-real-token", newPassword = "New#4567", confirmPassword = "New#4567" });
-        r.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        r.StatusCode.Should().Be(HttpStatusCode.OK);
         Code(await Json(r)).Should().Be("RESET_TOKEN_INVALID");
     }
 
+    /// <summary>
+    /// Login failures name the actual problem: an unregistered phone, a
+    /// wrong password, and a malformed phone each get their own code
+    /// (owner decision 2026-11-09 — phone registration is probeable).
+    /// </summary>
     [Fact]
-    public async Task Me_without_token_is_401_with_the_envelope()
+    public async Task Login_errors_are_specific_to_the_failure()
+    {
+        var unknown = await Post("/api/v1/auth/login", new { phone = "0501110012", password = Password });
+        unknown.StatusCode.Should().Be(HttpStatusCode.OK);
+        Code(await Json(unknown)).Should().Be("PHONE_NOT_REGISTERED");
+
+        await RegisterAndVerify("0501110013", "m1@example.com");
+        var wrongPassword = await Post("/api/v1/auth/login", new { phone = "0501110013", password = "Wrong#999" });
+        wrongPassword.StatusCode.Should().Be(HttpStatusCode.OK);
+        Code(await Json(wrongPassword)).Should().Be("WRONG_PASSWORD");
+
+        var malformed = await Post("/api/v1/auth/login", new { phone = "123", password = Password });
+        malformed.StatusCode.Should().Be(HttpStatusCode.OK);
+        Code(await Json(malformed)).Should().Be("INVALID_PHONE");
+    }
+
+    [Fact]
+    public async Task Me_without_token_is_200_with_the_envelope()
     {
         var r = await _client.GetAsync("/api/v1/me");
-        r.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        r.StatusCode.Should().Be(HttpStatusCode.OK);
         Code(await Json(r)).Should().Be("UNAUTHORIZED");
     }
 }

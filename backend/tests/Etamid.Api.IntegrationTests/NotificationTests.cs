@@ -217,9 +217,9 @@ public class NotificationTests(EtamidFactory factory) : IClassFixture<EtamidFact
         reread.StatusCode.Should().Be(HttpStatusCode.OK);
         (await UnreadCount(seller.Client)).Should().Be(1);
 
-        // Another user's notification id is 404: ids cannot be probed.
+        // Another user's notification id is NOT_FOUND: ids cannot be probed.
         var stranger = await Post(buyer.Client, $"/api/v1/notifications/{fundedId}/read");
-        stranger.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        stranger.StatusCode.Should().Be(HttpStatusCode.OK);
         ErrorCode(await Json(stranger)).Should().Be("NOT_FOUND");
     }
 

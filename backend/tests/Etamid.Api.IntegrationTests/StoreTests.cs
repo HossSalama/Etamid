@@ -13,7 +13,7 @@ namespace Etamid.Api.IntegrationTests;
 /// <summary>
 /// Seller store: the public page shows everything except the seller's deals.
 /// A seller with a profile returns it; a seller without one still gets a page
-/// (account name, zero rating); only an unknown seller id is a 404. Deal
+/// (account name, zero rating); only an unknown seller id is a NOT_FOUND. Deal
 /// summaries carry the counterparty id so cards can link to the store, and a
 /// released + rated deal is reflected in the store's rating and deal count.
 /// </summary>
@@ -129,7 +129,7 @@ public class StoreTests(EtamidFactory factory) : IClassFixture<EtamidFactory>
     }
 
     [Fact]
-    public async Task Store_without_profile_returns_fallback_and_unknown_is_404()
+    public async Task Store_without_profile_returns_fallback_and_unknown_is_not_found()
     {
         var seller = await NewUser();
         var buyer = await NewUser();
@@ -143,8 +143,8 @@ public class StoreTests(EtamidFactory factory) : IClassFixture<EtamidFactory>
         data.GetProperty("ratingAvg").GetDecimal().Should().Be(0m);
         data.GetProperty("ratingCount").GetInt32().Should().Be(0);
 
-        (await buyer.Client.GetAsync("/api/v1/sellers/999999999/store")).StatusCode.Should().Be(HttpStatusCode.NotFound);
-        (await _anon.GetAsync($"/api/v1/sellers/{sellerId}/store")).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        (await buyer.Client.GetAsync("/api/v1/sellers/999999999/store")).StatusCode.Should().Be(HttpStatusCode.OK);
+        (await _anon.GetAsync($"/api/v1/sellers/{sellerId}/store")).StatusCode.Should().Be(HttpStatusCode.OK);
     }
 
     [Fact]

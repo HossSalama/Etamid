@@ -37,12 +37,14 @@ public sealed class VerifyEmailHandler(
 {
     public async Task<Result<AuthResultDto>> Handle(VerifyEmailCommand r, CancellationToken ct)
     {
+        // Like login, the failure names the actual problem instead of
+        // blaming the code (owner decision 2026-11-09).
         if (!PhoneNumber.TryParse(r.Phone, out var phone))
-            return IdentityErrors.OtpInvalid;
+            return IdentityErrors.InvalidPhone;
 
         var user = await db.Users.FirstOrDefaultAsync(u => u.PhoneNormalized == phone.E164 && u.DeletedAt == null, ct);
         if (user is null)
-            return IdentityErrors.OtpInvalid;
+            return IdentityErrors.PhoneNotRegistered;
 
         if (user.Status is not (AccountStatus.PendingVerification or AccountStatus.Active))
             return IdentityErrors.AccountNotVerified;
