@@ -197,3 +197,56 @@ paths:
         - { name: page, in: query, schema: { type: integer } }
         - { name: pageSize, in: query, schema: { type: integer, maximum: 100 } }
       responses: { '200': { description: Paginated audit logs }, '403': { $ref: '#/components/responses/Forbidden' } }
+  # ---- Phase 2: operator points. These keep their /api/v1/admin paths (frozen mobile contract) but are now
+  # ---- gated by the AdminJwt token + a database-checked permission. App-user token: 403. No token: 401.
+  /api/v1/admin/withdrawals:
+    get:
+      summary: List withdrawal requests. Permission admin.withdrawals.view.
+      parameters:
+        - { name: status, in: query, schema: { type: string } }
+        - { name: page, in: query, schema: { type: integer } }
+        - { name: pageSize, in: query, schema: { type: integer } }
+      responses: { '200': { description: Paginated withdrawals }, '401': { $ref: '#/components/responses/Unauthorized' }, '403': { $ref: '#/components/responses/Forbidden' } }
+  /api/v1/admin/withdrawals/{id}/approve:
+    post:
+      summary: Approve a pending withdrawal (re-checks the balance). Permission admin.withdrawals.approve. Fills ApprovedByAdminId, audit action admin.withdrawal.approve.
+      parameters: [ { name: id, in: path, required: true, schema: { type: integer, format: int64 } } ]
+      responses: { '200': { description: Withdrawal }, '403': { $ref: '#/components/responses/Forbidden' } }
+  /api/v1/admin/withdrawals/{id}/reject:
+    post:
+      summary: Reject a pending withdrawal. Covered by admin.withdrawals.approve (there is no separate reject code). Audit action admin.withdrawal.reject.
+      parameters: [ { name: id, in: path, required: true, schema: { type: integer, format: int64 } } ]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [reason], properties: { reason: { type: string } } } } } }
+      responses: { '200': { description: Withdrawal }, '403': { $ref: '#/components/responses/Forbidden' } }
+  /api/v1/admin/withdrawals/{id}/complete:
+    post:
+      summary: Confirm the manual bank transfer; the money leaves the wallet here. Permission admin.withdrawals.complete. Audit action admin.withdrawal.complete.
+      parameters: [ { name: id, in: path, required: true, schema: { type: integer, format: int64 } } ]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [bankReference], properties: { bankReference: { type: string } } } } } }
+      responses: { '200': { description: Withdrawal }, '403': { $ref: '#/components/responses/Forbidden' } }
+  /api/v1/admin/company-deals/penalties:
+    get:
+      summary: List company-deal penalties. Permission admin.penalties.view.
+      responses: { '200': { description: Paginated penalties }, '401': { $ref: '#/components/responses/Unauthorized' }, '403': { $ref: '#/components/responses/Forbidden' } }
+  /api/v1/admin/company-deals/penalties/{penaltyId}/waive:
+    post:
+      summary: Waive an applied penalty. Permission admin.penalties.waive. Fills WaivedByAdminId, audit action admin.penalty.waive.
+      parameters: [ { name: penaltyId, in: path, required: true, schema: { type: integer, format: int64 } } ]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [reason], properties: { reason: { type: string } } } } } }
+      responses: { '200': { description: Penalty }, '403': { $ref: '#/components/responses/Forbidden' } }
+  /api/v1/admin/disputes:
+    get:
+      summary: List disputes. Permission admin.disputes.view.
+      responses: { '200': { description: Paginated disputes }, '401': { $ref: '#/components/responses/Unauthorized' }, '403': { $ref: '#/components/responses/Forbidden' } }
+  /api/v1/admin/disputes/{disputeId}/request-info:
+    post:
+      summary: Ask both parties for more information. Permission admin.disputes.decide. Audit action admin.dispute.request_info (there is no ByAdminId column for it).
+      parameters: [ { name: disputeId, in: path, required: true, schema: { type: integer, format: int64 } } ]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [deadlineDays], properties: { note: { type: string }, deadlineDays: { type: integer } } } } } }
+      responses: { '200': { description: Dispute detail }, '403': { $ref: '#/components/responses/Forbidden' } }
+  /api/v1/admin/disputes/{disputeId}/decide:
+    post:
+      summary: Decide the dispute (release / refund / partial); the money moves in the same request. Permission admin.disputes.decide. Fills ResolvedByAdminId, audit action admin.dispute.decide.
+      parameters: [ { name: disputeId, in: path, required: true, schema: { type: integer, format: int64 } } ]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [resolution, note], properties: { resolution: { type: string, enum: [ReleaseSeller, RefundBuyer, Partial] }, sellerPercent: { type: integer }, note: { type: string } } } } } }
+      responses: { '200': { description: Execution result }, '403': { $ref: '#/components/responses/Forbidden' } }

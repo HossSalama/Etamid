@@ -1,3 +1,5 @@
+using Etamid.Application.AdminAuth;
+using Etamid.Domain.Admin;
 using Etamid.Application.Common.Errors;
 using Etamid.Application.Common.Interfaces;
 using Etamid.Application.Common.Models;
@@ -11,30 +13,6 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 
 namespace Etamid.Application.CompanyDeals;
-
-// ---------- Operators ----------
-
-/// <summary>
-/// Penalty waiver is an operator endpoint with no admin login behind it yet
-/// (that is Cycle 9), so operators are the app user ids listed in the
-/// company.operators setting (comma-separated, AppSettings table — writable
-/// only from the database, so no API caller can grant themself operator
-/// rights). Same pattern as the wallet's wallet.operators key, including
-/// reading ALL rows with the key because the EF in-memory provider does not
-/// enforce the table PK. Empty setting = nobody.
-/// </summary>
-public static class CompanyOperatorPolicy
-{
-    public const string SettingKey = "company.operators";
-
-    public static async Task<bool> IsOperatorAsync(IApplicationDbContext db, long userId, CancellationToken ct)
-    {
-        var values = await db.AppSettings.AsNoTracking()
-            .Where(s => s.Key == SettingKey).Select(s => s.Value).ToListAsync(ct);
-        return values.SelectMany(v => v.Split(','))
-            .Select(p => long.TryParse(p.Trim(), out var id) ? id : -1).Contains(userId);
-    }
-}
 
 // ---------- Scheduled work (system, never exposed over HTTP except via the worker) ----------
 
@@ -126,17 +104,18 @@ public sealed class RunCompanyInstallmentMaintenanceHandler(IApplicationDbContex
 }
 
 // ---------- Operator: list penalties ----------
+// Cycle 9 phase 2: gated by an AdminJwt identity plus a database-checked permission.
 
 public sealed record ListCompanyPenaltiesQuery(string? Status, int Page = 1, int PageSize = 20)
     : IRequest<Result<PagedResult<CompanyPenaltyAdminDto>>>;
 
-public sealed class ListCompanyPenaltiesHandler(IApplicationDbContext db, ICurrentUser currentUser)
+public sealed class ListCompanyPenaltiesHandler(IApplicationDbContext db, AdminAccessService access)
     : IRequestHandler<ListCompanyPenaltiesQuery, Result<PagedResult<CompanyPenaltyAdminDto>>>
 {
     public async Task<Result<PagedResult<CompanyPenaltyAdminDto>>> Handle(ListCompanyPenaltiesQuery r, CancellationToken ct)
     {
-        if (currentUser.UserId is not { } userId) return CommonErrors.Unauthorized;
-        if (!await CompanyOperatorPolicy.IsOperatorAsync(db, userId, ct)) return CompanyDealErrors.NotOperator;
+        var guard = await access.RequireOperatorAsync(AdminPermissionCodes.PenaltiesView, ct);
+        if (guard.IsFailure) return guard.Error;
 
         PenaltyStatus? status = null;
         if (!string.IsNullOrWhiteSpace(r.Status))
@@ -181,29 +160,32 @@ public sealed class WaiveCompanyPenaltyValidator : AbstractValidator<WaiveCompan
         => RuleFor(x => x.Reason).NotEmpty().WithErrorCode("REQUIRED").MaximumLength(300).WithErrorCode("TOO_LONG");
 }
 
-public sealed class WaiveCompanyPenaltyHandler(IApplicationDbContext db, ICurrentUser currentUser)
+public sealed class WaiveCompanyPenaltyHandler(IApplicationDbContext db, AdminAccessService access, AdminAuditService audit)
     : IRequestHandler<WaiveCompanyPenaltyCommand, Result<CompanyPenaltyDto>>
 {
     public async Task<Result<CompanyPenaltyDto>> Handle(WaiveCompanyPenaltyCommand r, CancellationToken ct)
     {
-        if (currentUser.UserId is not { } userId) return CommonErrors.Unauthorized;
-        if (!await CompanyOperatorPolicy.IsOperatorAsync(db, userId, ct)) return CompanyDealErrors.NotOperator;
+        var guard = await access.RequireOperatorAsync(AdminPermissionCodes.PenaltiesWaive, ct);
+        if (guard.IsFailure) return guard.Error;
+        var admin = guard.Value;
 
         var penalty = await db.PenaltyCharges.FirstOrDefaultAsync(p => p.Id == r.PenaltyId, ct);
         if (penalty is null) return CompanyDealErrors.PenaltyNotFound;
         if (penalty.Status != PenaltyStatus.Applied) return CompanyDealErrors.InvalidState;
 
+        var before = penalty.Status;
         penalty.Status = PenaltyStatus.Waived;
         penalty.WaiverReason = r.Reason;
-        // WaivedByAdminId stays null: its foreign key points at AdminUsers
-        // (the separate Cycle 9 admin identity), not at app users — same as
-        // the wallet's ApprovedByAdminId.
+        penalty.WaivedByAdminId = admin.Id;
 
         // The installment is still owed, just without the penalty: it goes
         // back to Overdue so a later funding covers the plain amount.
         var installment = await db.PaymentInstallments.FirstOrDefaultAsync(i => i.Id == penalty.InstallmentId, ct);
         if (installment is not null && installment.Status == InstallmentStatus.PenaltyApplied)
             installment.Status = InstallmentStatus.Overdue;
+
+        audit.Record(AuditActorType.Admin, admin.Id, "admin.penalty.waive", "PenaltyCharge", penalty.Id,
+            new { status = before.ToString() }, new { status = penalty.Status.ToString(), reason = r.Reason });
 
         var saved = await db.SaveGuardedAsync(ct);
         if (saved.IsFailure) return saved.Error;

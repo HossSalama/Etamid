@@ -122,26 +122,6 @@ public class CompanyDealTests(EtamidFactory factory) : IClassFixture<EtamidFacto
         return await db.Users.AsNoTracking().Where(u => u.Phone == phone).Select(u => u.Id).FirstAsync();
     }
 
-    private async Task MakeCompanyOperator(long userId)
-    {
-        using var scope = factory.Services.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<IApplicationDbContext>();
-        var row = await db.AppSettings.FirstOrDefaultAsync(s => s.Key == "company.operators");
-        if (row is null)
-        {
-            db.AppSettings.Add(new AppSetting
-            {
-                Key = "company.operators", Value = userId.ToString(),
-                ValueType = SettingValueType.String, UpdatedAt = DateTime.UtcNow
-            });
-        }
-        else if (!row.Value.Split(',').Select(p => p.Trim()).Contains(userId.ToString()))
-        {
-            row.Value = row.Value + "," + userId;
-        }
-        await db.SaveChangesAsync();
-    }
-
     private async Task<CompanyMaintenanceDto> RunMaintenance()
     {
         using var scope = factory.Services.CreateScope();
@@ -336,8 +316,9 @@ public class CompanyDealTests(EtamidFactory factory) : IClassFixture<EtamidFacto
                 new { reason = "Goodwill" });
             denied.StatusCode.Should().Be(HttpStatusCode.Forbidden);
 
-            await MakeCompanyOperator(await UserIdOf(creator.Phone));
-            var waived = await Post(creator.Client, $"/api/v1/admin/company-deals/penalties/{penaltyId}/waive",
+            factory.Clock.Reset();
+            var waiver = await AdminTestKit.CreateAsync(factory, "admin.penalties.waive");
+            var waived = await Post(waiver.Client, $"/api/v1/admin/company-deals/penalties/{penaltyId}/waive",
                 new { reason = "Goodwill gesture" });
             waived.StatusCode.Should().Be(HttpStatusCode.OK, await waived.Content.ReadAsStringAsync());
             (await Data(waived)).GetProperty("status").GetString().Should().Be("waived");

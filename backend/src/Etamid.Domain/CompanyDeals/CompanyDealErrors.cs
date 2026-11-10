@@ -12,7 +12,6 @@ public static class CompanyDealErrors
     public static readonly Error InvalidState = Error.Conflict("COMPANY_DEAL_INVALID_STATE");
     public static readonly Error NotAllowed = Error.Forbidden("COMPANY_DEAL_ACTION_NOT_ALLOWED");
     public static readonly Error EscrowNotFunded = Error.Conflict("COMPANY_ESCROW_NOT_FUNDED");
-    public static readonly Error NotOperator = Error.Forbidden("COMPANY_NOT_OPERATOR");
 
     public static readonly Error CounterpartyNotFound = Error.NotFound("COUNTERPARTY_NOT_FOUND", "counterpartyPhoneOrCode");
     public static readonly Error SameParties = Error.Validation("COMPANY_DEAL_SAME_PARTIES", "counterpartyPhoneOrCode");

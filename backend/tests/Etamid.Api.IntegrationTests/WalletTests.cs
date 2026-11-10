@@ -96,27 +96,6 @@ public class WalletTests(EtamidFactory factory) : IClassFixture<EtamidFactory>
         return await db.Users.AsNoTracking().Where(u => u.Phone == phone).Select(u => u.Id).FirstAsync();
     }
 
-    /// <summary>Appends a user to the wallet.operators setting (single row per key in SQL Server).</summary>
-    private async Task MakeOperator(long userId)
-    {
-        using var scope = factory.Services.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<IApplicationDbContext>();
-        var row = await db.AppSettings.FirstOrDefaultAsync(s => s.Key == "wallet.operators");
-        if (row is null)
-        {
-            db.AppSettings.Add(new AppSetting
-            {
-                Key = "wallet.operators", Value = userId.ToString(),
-                ValueType = SettingValueType.String, UpdatedAt = DateTime.UtcNow
-            });
-        }
-        else if (!row.Value.Split(',').Select(p => p.Trim()).Contains(userId.ToString()))
-        {
-            row.Value = row.Value + "," + userId;
-        }
-        await db.SaveChangesAsync();
-    }
-
     private static async Task<JsonElement> Data(HttpResponseMessage r) => (await Json(r)).GetProperty("data");
 
     private static string ErrorCode(JsonElement root)
@@ -189,8 +168,8 @@ public class WalletTests(EtamidFactory factory) : IClassFixture<EtamidFactory>
         var replay = await Post(seller.Client, "/api/v1/me/wallet/withdrawals", new { amount = 400m, idempotencyKey = key });
         (await Data(replay)).GetProperty("id").GetInt64().Should().Be(withdrawalId);
 
-        var operatorUser = await NewUser();
-        await MakeOperator(await UserIdOf(operatorUser.Phone));
+        var operatorUser = await AdminTestKit.CreateAsync(factory,
+            "admin.withdrawals.view", "admin.withdrawals.approve", "admin.withdrawals.complete");
 
         var approve = await Post(operatorUser.Client, $"/api/v1/admin/withdrawals/{withdrawalId}/approve");
         approve.StatusCode.Should().Be(HttpStatusCode.OK, await approve.Content.ReadAsStringAsync());
@@ -258,10 +237,10 @@ public class WalletTests(EtamidFactory factory) : IClassFixture<EtamidFactory>
         var stranger = await NewUser();
         var denied = await Post(stranger.Client, $"/api/v1/admin/withdrawals/{withdrawalId}/approve");
         denied.StatusCode.Should().Be(HttpStatusCode.Forbidden);
-        ErrorCode(await Json(denied)).Should().Be("WALLET_NOT_OPERATOR");
+        ErrorCode(await Json(denied)).Should().Be("ADMIN_FORBIDDEN");
 
-        var operatorUser = await NewUser();
-        await MakeOperator(await UserIdOf(operatorUser.Phone));
+        var operatorUser = await AdminTestKit.CreateAsync(factory,
+            "admin.withdrawals.view", "admin.withdrawals.approve", "admin.withdrawals.complete");
         var missing = await Post(operatorUser.Client, "/api/v1/admin/withdrawals/999999999/approve");
         missing.StatusCode.Should().Be(HttpStatusCode.NotFound);
         ErrorCode(await Json(missing)).Should().Be("WALLET_WITHDRAWAL_NOT_FOUND");

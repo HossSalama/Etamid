@@ -5,7 +5,7 @@ namespace Etamid.Api.Controllers;
 
 public sealed partial class AdminController
 {
-    // ---------- Company-deal penalties (operators only, see CompanyOperatorPolicy) ----------
+    // ---------- Company-deal penalties (admin permissions) ----------
 
     [HttpGet("company-deals/penalties")]
     public async Task<IActionResult> ListCompanyPenalties(

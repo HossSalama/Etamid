@@ -183,6 +183,17 @@ public sealed class AdminAccessService(IApplicationDbContext db, ICurrentAdmin c
         return admin;
     }
 
+    /// <summary>
+    /// Gate for the operator endpoints under /api/v1/admin. Those routes authenticate with the app scheme AND the
+    /// AdminJwt scheme so that an app-user token reaches here and is refused with 403 (a missing token is already 401).
+    /// A caller that is authenticated but is not an admin never gets through.
+    /// </summary>
+    public async Task<Result<AdminUser>> RequireOperatorAsync(string permission, CancellationToken ct)
+    {
+        if (current.AdminId is null) return AdminErrors.Forbidden;
+        return await RequireAsync(permission, false, ct);
+    }
+
     public async Task<bool> IsSuperAdminAsync(long adminId, CancellationToken ct)
         => await (from ur in db.AdminUserRoles
                   join role in db.AdminRoles on ur.RoleId equals role.Id

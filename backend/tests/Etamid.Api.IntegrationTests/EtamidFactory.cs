@@ -1,10 +1,15 @@
-using System.Collections.Concurrent;
 using Etamid.Application.Common.Interfaces;
+using Etamid.Infrastructure.Persistence;
+using Etamid.Infrastructure.Persistence.Interceptors;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using System.Collections.Concurrent;
+
 
 namespace Etamid.Api.IntegrationTests;
 
@@ -16,10 +21,11 @@ public sealed class EtamidFactory : WebApplicationFactory<Program>
     public TestClock Clock { get; } = new();
     public CapturingEmailService Emails { get; } = new();
 
+    private readonly string _inMemoryName = "etamid-" + Guid.NewGuid();
+
     public EtamidFactory()
     {
         Environment.SetEnvironmentVariable("Persistence__UseInMemory", "true");
-        Environment.SetEnvironmentVariable("Persistence__InMemoryName", "etamid-" + Guid.NewGuid());
         Environment.SetEnvironmentVariable("Auth__PhoneVerifier", "Fake");
         Environment.SetEnvironmentVariable("Jwt__Secret", "integration-tests-secret-0123456789-abcdef");
         Environment.SetEnvironmentVariable("RateLimiting__AuthPerMinute", "10000");
@@ -43,6 +49,18 @@ public sealed class EtamidFactory : WebApplicationFactory<Program>
 
             foreach (var d in services.Where(d => d.ServiceType == typeof(IEmailService)).ToList()) services.Remove(d);
             services.AddSingleton<IEmailService>(Emails);
+
+            // Each factory gets its own in-memory database. The Persistence:InMemoryName
+            // setting in ConfigureAppConfiguration is read while Program.cs registers
+            // services, before that override is applied, so on its own it cannot
+            // isolate the databases. This replaces the DbContext options directly.
+            services.RemoveAll<DbContextOptions<ApplicationDbContext>>();
+            services.RemoveAll<ApplicationDbContext>();
+            services.AddDbContext<ApplicationDbContext>((sp, options) =>
+            {
+                options.UseInMemoryDatabase(_inMemoryName);
+                options.AddInterceptors(sp.GetRequiredService<AuditableEntitySaveChangesInterceptor>());
+            });
         });
         builder.ConfigureAppConfiguration((ctx, config) =>
         {
@@ -50,6 +68,7 @@ public sealed class EtamidFactory : WebApplicationFactory<Program>
             {
                 ["Auth:PhoneVerifier"] = "Fake",
                 ["Persistence:UseInMemory"] = "true",
+                ["Persistence:InMemoryName"] = _inMemoryName,
             });
         });
     }

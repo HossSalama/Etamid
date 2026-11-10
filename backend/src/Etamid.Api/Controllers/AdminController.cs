@@ -1,3 +1,5 @@
+using Etamid.Api.AdminApi;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Etamid.Application.Money;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -5,10 +7,11 @@ using Microsoft.AspNetCore.Mvc;
 namespace Etamid.Api.Controllers;
 
 /// <summary>
-/// Operator endpoints (no admin login exists yet — see WalletOperatorPolicy).
+/// Operator endpoints. Cycle 9 phase 2: gated by an AdminJwt identity plus a database-checked permission
+/// (AdminAccessService). The app scheme is listed too so an app-user token is refused with 403, not 401.
 /// Withdrawal approval is a manual bank transfer confirmed here, never automated.
 /// </summary>
-[Authorize]
+[Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme + "," + AdminAuthSchemes.Jwt)]
 public sealed partial class AdminController : BaseApiController
 {
     [HttpGet("withdrawals")]

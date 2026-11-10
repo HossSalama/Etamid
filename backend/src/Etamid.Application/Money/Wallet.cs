@@ -1,3 +1,5 @@
+using Etamid.Application.AdminAuth;
+using Etamid.Domain.Admin;
 using Etamid.Application.Common.Errors;
 using Etamid.Application.Common.Interfaces;
 using Etamid.Application.Common.Models;
@@ -32,29 +34,6 @@ public sealed record WithdrawalDto(
 public sealed record WithdrawalAdminDto(
     long Id, long UserId, string UserName, decimal Amount, decimal FeeAmount, string IbanSnapshotMasked, string Status,
     string? RejectionReason, string? BankReference, DateTime? ApprovedAt, DateTime? ProcessedAt, DateTime CreatedAt);
-
-// ---------- Operators ----------
-
-/// <summary>
-/// Admin endpoints have no admin login behind them yet (that is Cycle 9), so
-/// operators are the app user ids listed in the wallet.operators setting
-/// (comma-separated, AppSettings table — writable only from the database, so
-/// no API caller can grant themself operator rights). Empty setting = nobody.
-/// </summary>
-public static class WalletOperatorPolicy
-{
-    public const string SettingKey = "wallet.operators";
-
-    public static async Task<bool> IsOperatorAsync(IApplicationDbContext db, long userId, CancellationToken ct)
-    {
-        // All rows with the key count (the key is the table PK in SQL Server,
-        // but the in-memory provider does not enforce it, so never assume one).
-        var values = await db.AppSettings.AsNoTracking()
-            .Where(s => s.Key == SettingKey).Select(s => s.Value).ToListAsync(ct);
-        return values.SelectMany(v => v.Split(','))
-            .Select(p => long.TryParse(p.Trim(), out var id) ? id : -1).Contains(userId);
-    }
-}
 
 // ---------- GET /me/wallet ----------
 
@@ -219,17 +198,19 @@ public sealed class GetMyWithdrawalsHandler(IApplicationDbContext db, ICurrentUs
 }
 
 // ---------- Admin: GET /admin/withdrawals ----------
+// Cycle 9 phase 2: these endpoints are gated by an AdminJwt identity plus a permission checked from the database
+// (AdminAccessService).
 
 public sealed record ListWithdrawalsQuery(string? Status, int Page = 1, int PageSize = 20)
     : IRequest<Result<PagedResult<WithdrawalAdminDto>>>;
 
-public sealed class ListWithdrawalsHandler(IApplicationDbContext db, ICurrentUser currentUser)
+public sealed class ListWithdrawalsHandler(IApplicationDbContext db, AdminAccessService access)
     : IRequestHandler<ListWithdrawalsQuery, Result<PagedResult<WithdrawalAdminDto>>>
 {
     public async Task<Result<PagedResult<WithdrawalAdminDto>>> Handle(ListWithdrawalsQuery r, CancellationToken ct)
     {
-        if (currentUser.UserId is not { } userId) return CommonErrors.Unauthorized;
-        if (!await WalletOperatorPolicy.IsOperatorAsync(db, userId, ct)) return WalletErrors.NotOperator;
+        var guard = await access.RequireOperatorAsync(AdminPermissionCodes.WithdrawalsView, ct);
+        if (guard.IsFailure) return guard.Error;
 
         WithdrawalStatus? status = null;
         if (!string.IsNullOrWhiteSpace(r.Status))
@@ -263,13 +244,15 @@ public sealed class ListWithdrawalsHandler(IApplicationDbContext db, ICurrentUse
 
 public sealed record ApproveWithdrawalCommand(long Id) : IRequest<Result<WithdrawalDto>>;
 
-public sealed class ApproveWithdrawalHandler(IApplicationDbContext db, ICurrentUser currentUser, IClock clock)
+public sealed class ApproveWithdrawalHandler(
+    IApplicationDbContext db, AdminAccessService access, AdminAuditService audit, IClock clock)
     : IRequestHandler<ApproveWithdrawalCommand, Result<WithdrawalDto>>
 {
     public async Task<Result<WithdrawalDto>> Handle(ApproveWithdrawalCommand r, CancellationToken ct)
     {
-        if (currentUser.UserId is not { } userId) return CommonErrors.Unauthorized;
-        if (!await WalletOperatorPolicy.IsOperatorAsync(db, userId, ct)) return WalletErrors.NotOperator;
+        var guard = await access.RequireOperatorAsync(AdminPermissionCodes.WithdrawalsApprove, ct);
+        if (guard.IsFailure) return guard.Error;
+        var admin = guard.Value;
 
         var request = await db.WithdrawalRequests.FirstOrDefaultAsync(w => w.Id == r.Id, ct);
         if (request is null) return WalletErrors.WithdrawalNotFound;
@@ -279,10 +262,12 @@ public sealed class ApproveWithdrawalHandler(IApplicationDbContext db, ICurrentU
         var wallet = await db.Wallets.FirstOrDefaultAsync(w => w.Id == request.WalletId, ct);
         if (wallet is null || wallet.AvailableBalance < request.Amount) return WalletErrors.InsufficientBalance;
 
+        var before = request.Status;
         request.Status = WithdrawalStatus.Approved;
         request.ApprovedAt = clock.UtcNow;
-        // ApprovedByAdminId stays null: its foreign key points at AdminUsers
-        // (the separate Cycle 9 admin identity), not at app users.
+        request.ApprovedByAdminId = admin.Id;
+        audit.Record(AuditActorType.Admin, admin.Id, "admin.withdrawal.approve", "WithdrawalRequest", request.Id,
+            new { status = before.ToString() }, new { status = request.Status.ToString() });
         await db.SaveChangesAsync(ct);
         return Result.Success(WalletQueries.ToDto(request));
     }
@@ -298,20 +283,27 @@ public sealed class RejectWithdrawalValidator : AbstractValidator<RejectWithdraw
     }
 }
 
-public sealed class RejectWithdrawalHandler(IApplicationDbContext db, ICurrentUser currentUser)
+/// <summary>Reject is covered by admin.withdrawals.approve (there is no separate reject permission code).</summary>
+public sealed class RejectWithdrawalHandler(
+    IApplicationDbContext db, AdminAccessService access, AdminAuditService audit)
     : IRequestHandler<RejectWithdrawalCommand, Result<WithdrawalDto>>
 {
     public async Task<Result<WithdrawalDto>> Handle(RejectWithdrawalCommand r, CancellationToken ct)
     {
-        if (currentUser.UserId is not { } userId) return CommonErrors.Unauthorized;
-        if (!await WalletOperatorPolicy.IsOperatorAsync(db, userId, ct)) return WalletErrors.NotOperator;
+        var guard = await access.RequireOperatorAsync(AdminPermissionCodes.WithdrawalsApprove, ct);
+        if (guard.IsFailure) return guard.Error;
+        var admin = guard.Value;
 
         var request = await db.WithdrawalRequests.FirstOrDefaultAsync(w => w.Id == r.Id, ct);
         if (request is null) return WalletErrors.WithdrawalNotFound;
         if (request.Status != WithdrawalStatus.Pending) return WalletErrors.InvalidState;
 
+        var before = request.Status;
         request.Status = WithdrawalStatus.Rejected;
         request.RejectionReason = r.Reason;
+        request.ApprovedByAdminId = admin.Id;
+        audit.Record(AuditActorType.Admin, admin.Id, "admin.withdrawal.reject", "WithdrawalRequest", request.Id,
+            new { status = before.ToString() }, new { status = request.Status.ToString(), reason = r.Reason });
         await db.SaveChangesAsync(ct);
         return Result.Success(WalletQueries.ToDto(request));
     }
@@ -328,13 +320,14 @@ public sealed class CompleteWithdrawalValidator : AbstractValidator<CompleteWith
 }
 
 public sealed class CompleteWithdrawalHandler(
-    IApplicationDbContext db, ICurrentUser currentUser, IClock clock, EscrowLedgerService ledger)
+    IApplicationDbContext db, AdminAccessService access, AdminAuditService audit, IClock clock, EscrowLedgerService ledger)
     : IRequestHandler<CompleteWithdrawalCommand, Result<WithdrawalDto>>
 {
     public async Task<Result<WithdrawalDto>> Handle(CompleteWithdrawalCommand r, CancellationToken ct)
     {
-        if (currentUser.UserId is not { } userId) return CommonErrors.Unauthorized;
-        if (!await WalletOperatorPolicy.IsOperatorAsync(db, userId, ct)) return WalletErrors.NotOperator;
+        var guard = await access.RequireOperatorAsync(AdminPermissionCodes.WithdrawalsComplete, ct);
+        if (guard.IsFailure) return guard.Error;
+        var admin = guard.Value;
 
         var request = await db.WithdrawalRequests.FirstOrDefaultAsync(w => w.Id == r.Id, ct);
         if (request is null) return WalletErrors.WithdrawalNotFound;
@@ -369,7 +362,7 @@ public sealed class CompleteWithdrawalHandler(
             Description = $"Withdrawal {request.Id} to bank account",
             IdempotencyKey = key,
             CreatedByType = CreatedByType.Admin,
-            CreatedById = userId
+            CreatedById = admin.Id
         };
         transaction.Entries.Add(new LedgerEntry
         {
@@ -382,10 +375,15 @@ public sealed class CompleteWithdrawalHandler(
         });
         db.LedgerTransactions.Add(transaction);
 
+        var before = request.Status;
         wallet.AvailableBalance = balanceAfter;
         request.Status = WithdrawalStatus.Completed;
         request.ProcessedAt = clock.UtcNow;
         request.BankReference = r.BankReference;
+        // The approver stays recorded: only fill the field when nobody did (the completing admin is in the audit row).
+        request.ApprovedByAdminId ??= admin.Id;
+        audit.Record(AuditActorType.Admin, admin.Id, "admin.withdrawal.complete", "WithdrawalRequest", request.Id,
+            new { status = before.ToString() }, new { status = request.Status.ToString(), bankReference = r.BankReference });
         await db.SaveChangesAsync(ct);
         return Result.Success(WalletQueries.ToDto(request));
     }
