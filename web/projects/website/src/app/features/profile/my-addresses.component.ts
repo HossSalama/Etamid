@@ -1,147 +1,162 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { CommonModule } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { Router } from '@angular/router';
 import { AddressInput, DealsService, UserAddress } from '../../core/services/deals.service';
 import { LanguageService } from '../../core/services/language.service';
+import { AppHeaderComponent } from '../../core/components/app-header/app-header.component';
+import { BottomNavComponent } from '../../core/components/bottom-nav/bottom-nav.component';
 
 /**
  * Saved delivery addresses, used by the profile section and the standalone
- * /addresses route. The backend already owns the rules (max 10 per user, first
- * address becomes default, soft delete, default promotion); this is only the
- * missing web UI for that API.
+ * /addresses route.
  */
 @Component({
   selector: 'app-my-addresses',
   standalone: true,
-  imports: [ReactiveFormsModule],
+  imports: [CommonModule, ReactiveFormsModule, AppHeaderComponent, BottomNavComponent],
   template: `
-    <section class="profile-card addresses-section">
-      <div class="section-title-row">
-        <h2 class="section-title">{{ lang.t('addresses_title') }}</h2>
-        @if (!isEditing() && addresses().length < 10) {
-          <button type="button" class="btn btn-outline-coral" (click)="startAdd()">
-            {{ lang.t('addresses_add') }}
-          </button>
-        }
+    @if (isStandalone()) {
+      <div class="app-screen">
+        <app-header [title]="lang.t('addresses_title')" backUrl="/home" />
+        <main class="app-page-shell" style="max-width: 820px;">
+          <ng-container *ngTemplateOutlet="addressContent" />
+        </main>
+        <app-bottom-nav activeNav="profile" />
       </div>
-      <p class="addresses-subtitle">{{ lang.t('addresses_subtitle') }}</p>
+    } @else {
+      <ng-container *ngTemplateOutlet="addressContent" />
+    }
 
-      @if (message()) {
-        <p class="profile-message profile-success" role="status">{{ lang.t(message()!) }}</p>
-      }
-      @if (formError()) {
-        <p class="profile-message profile-error" role="alert">{{ lang.t(formError()!) }}</p>
-      }
+    <ng-template #addressContent>
+      <section class="profile-card addresses-section">
+        <div class="section-title-row">
+          <h2 class="section-title">{{ lang.t('addresses_title') }}</h2>
+          @if (!isEditing() && addresses().length < 10) {
+            <button type="button" class="btn btn-outline-coral" (click)="startAdd()">
+              {{ lang.t('addresses_add') }}
+            </button>
+          }
+        </div>
+        <p class="addresses-subtitle">{{ lang.t('addresses_subtitle') }}</p>
 
-      @if (isLoading()) {
-        <p>{{ lang.t('addresses_loading') }}</p>
-      } @else if (loadError()) {
-        <p class="profile-message profile-error" role="alert">{{ lang.t('addresses_error') }}</p>
-      } @else if (!addresses().length && !isEditing()) {
-        <p>{{ lang.t('addresses_empty') }}</p>
-      }
+        @if (message()) {
+          <p class="profile-message profile-success" role="status">{{ lang.t(message()!) }}</p>
+        }
+        @if (formError()) {
+          <p class="profile-message profile-error" role="alert">{{ lang.t(formError()!) }}</p>
+        }
 
-      @if (addresses().length >= 10) {
-        <p class="addresses-limit">{{ lang.t('addresses_limit') }}</p>
-      }
+        @if (isLoading()) {
+          <p>{{ lang.t('addresses_loading') }}</p>
+        } @else if (loadError()) {
+          <p class="profile-message profile-error" role="alert">{{ lang.t('addresses_error') }}</p>
+        } @else if (!addresses().length && !isEditing()) {
+          <p>{{ lang.t('addresses_empty') }}</p>
+        }
 
-      <div class="addresses-list">
-        @for (address of addresses(); track address.id) {
-          <article class="address-card">
-            <div class="address-card-main">
-              <strong>{{ address.label || address.city }}</strong>
-              <span>{{ address.fullText }}</span>
-              <small>{{ address.recipientName }} · <span dir="ltr">{{ address.recipientPhone }}</span></small>
-              @if (address.isDefault) {
-                <span class="address-default-badge">{{ lang.t('addresses_default') }}</span>
-              }
-            </div>
-            <div class="address-card-actions">
-              @if (!address.isDefault) {
-                <button type="button" class="btn btn-outline-coral" (click)="setDefault(address.id)">
-                  {{ lang.t('addresses_set_default') }}
+        @if (addresses().length >= 10) {
+          <p class="addresses-limit">{{ lang.t('addresses_limit') }}</p>
+        }
+
+        <div class="addresses-list">
+          @for (address of addresses(); track address.id) {
+            <article class="address-card">
+              <div class="address-card-main">
+                <strong>{{ address.label || address.city }}</strong>
+                <span>{{ address.fullText }}</span>
+                <small>{{ address.recipientName }} · <span dir="ltr">{{ address.recipientPhone }}</span></small>
+                @if (address.isDefault) {
+                  <span class="badge badge-success">{{ lang.t('addresses_default') }}</span>
+                }
+              </div>
+              <div class="address-card-actions">
+                @if (!address.isDefault) {
+                  <button type="button" class="btn btn-sm btn-outline-coral" (click)="setDefault(address.id)">
+                    {{ lang.t('addresses_set_default') }}
+                  </button>
+                }
+                <button type="button" class="btn btn-sm btn-outline-coral" (click)="startEdit(address)">
+                  {{ lang.t('addresses_edit_title') }}
                 </button>
-              }
-              <button type="button" class="btn btn-outline-coral" (click)="startEdit(address)">
-                {{ lang.t('addresses_edit_title') }}
+                <button type="button" class="btn btn-sm btn-outline-coral" style="color: #b91c1c !important; border-color: #fecaca;" (click)="remove(address.id)">
+                  {{ lang.t('addresses_delete') }}
+                </button>
+              </div>
+            </article>
+          }
+        </div>
+
+        @if (isEditing()) {
+          <form class="address-form" [formGroup]="addressForm" (ngSubmit)="save()" novalidate>
+            <h3>{{ editingId() ? lang.t('addresses_edit_title') : lang.t('addresses_new_title') }}</h3>
+            <div class="address-form-grid">
+              <label class="profile-form-field">
+                <span>{{ lang.t('addresses_label') }}</span>
+                <input type="text" formControlName="label" maxlength="50" [placeholder]="lang.t('addresses_label_placeholder')" />
+              </label>
+              <label class="profile-form-field">
+                <span>{{ lang.t('addresses_recipient_name') }} *</span>
+                <input type="text" formControlName="recipientName" maxlength="150" />
+                @if (addressForm.controls.recipientName.touched && addressForm.controls.recipientName.invalid) {
+                  <small class="profile-field-error">{{ lang.t('addresses_required') }}</small>
+                }
+              </label>
+              <label class="profile-form-field">
+                <span>{{ lang.t('addresses_recipient_phone') }} *</span>
+                <input type="tel" formControlName="recipientPhone" dir="ltr" maxlength="10" placeholder="05XXXXXXXX" />
+                @if (addressForm.controls.recipientPhone.touched && addressForm.controls.recipientPhone.invalid) {
+                  <small class="profile-field-error">{{ lang.t('addresses_phone_error') }}</small>
+                }
+              </label>
+              <label class="profile-form-field">
+                <span>{{ lang.t('addresses_city') }} *</span>
+                <input type="text" formControlName="city" maxlength="80" />
+                @if (addressForm.controls.city.touched && addressForm.controls.city.invalid) {
+                  <small class="profile-field-error">{{ lang.t('addresses_required') }}</small>
+                }
+              </label>
+              <label class="profile-form-field">
+                <span>{{ lang.t('addresses_district') }}</span>
+                <input type="text" formControlName="district" maxlength="80" />
+              </label>
+              <label class="profile-form-field">
+                <span>{{ lang.t('addresses_street') }}</span>
+                <input type="text" formControlName="street" maxlength="150" />
+              </label>
+              <label class="profile-form-field">
+                <span>{{ lang.t('addresses_building') }}</span>
+                <input type="text" formControlName="buildingNo" maxlength="20" />
+              </label>
+              <label class="profile-form-field">
+                <span>{{ lang.t('addresses_postal') }}</span>
+                <input type="text" formControlName="postalCode" maxlength="10" />
+              </label>
+              <label class="profile-form-field">
+                <span>{{ lang.t('addresses_additional') }}</span>
+                <input type="text" formControlName="additionalNo" maxlength="10" />
+              </label>
+            </div>
+            <div class="profile-button-row">
+              <button type="submit" class="btn btn-black" [disabled]="isSaving()">
+                {{ isSaving() ? lang.t('addresses_saving') : lang.t('addresses_save') }}
               </button>
-              <button type="button" class="btn btn-outline-coral" (click)="remove(address.id)">
-                {{ lang.t('addresses_delete') }}
+              <button type="button" class="btn btn-outline-coral" [disabled]="isSaving()" (click)="cancelEdit()">
+                {{ lang.t('addresses_cancel') }}
               </button>
             </div>
-          </article>
+          </form>
         }
-      </div>
-
-      @if (isEditing()) {
-        <form class="address-form" [formGroup]="addressForm" (ngSubmit)="save()" novalidate>
-          <h3>{{ editingId() ? lang.t('addresses_edit_title') : lang.t('addresses_new_title') }}</h3>
-          <div class="address-form-grid">
-            <label class="profile-form-field">
-              <span>{{ lang.t('addresses_label') }}</span>
-              <input type="text" formControlName="label" maxlength="50" [placeholder]="lang.t('addresses_label_placeholder')" />
-            </label>
-            <label class="profile-form-field">
-              <span>{{ lang.t('addresses_recipient_name') }} *</span>
-              <input type="text" formControlName="recipientName" maxlength="150" />
-              @if (addressForm.controls.recipientName.touched && addressForm.controls.recipientName.invalid) {
-                <small class="profile-field-error">{{ lang.t('addresses_required') }}</small>
-              }
-            </label>
-            <label class="profile-form-field">
-              <span>{{ lang.t('addresses_recipient_phone') }} *</span>
-              <input type="tel" formControlName="recipientPhone" dir="ltr" maxlength="10" placeholder="05XXXXXXXX" />
-              @if (addressForm.controls.recipientPhone.touched && addressForm.controls.recipientPhone.invalid) {
-                <small class="profile-field-error">{{ lang.t('addresses_phone_error') }}</small>
-              }
-            </label>
-            <label class="profile-form-field">
-              <span>{{ lang.t('addresses_city') }} *</span>
-              <input type="text" formControlName="city" maxlength="80" />
-              @if (addressForm.controls.city.touched && addressForm.controls.city.invalid) {
-                <small class="profile-field-error">{{ lang.t('addresses_required') }}</small>
-              }
-            </label>
-            <label class="profile-form-field">
-              <span>{{ lang.t('addresses_district') }}</span>
-              <input type="text" formControlName="district" maxlength="80" />
-            </label>
-            <label class="profile-form-field">
-              <span>{{ lang.t('addresses_street') }}</span>
-              <input type="text" formControlName="street" maxlength="150" />
-            </label>
-            <label class="profile-form-field">
-              <span>{{ lang.t('addresses_building') }}</span>
-              <input type="text" formControlName="buildingNo" maxlength="20" />
-            </label>
-            <label class="profile-form-field">
-              <span>{{ lang.t('addresses_postal') }}</span>
-              <input type="text" formControlName="postalCode" maxlength="10" />
-            </label>
-            <label class="profile-form-field">
-              <span>{{ lang.t('addresses_additional') }}</span>
-              <input type="text" formControlName="additionalNo" maxlength="10" />
-            </label>
-          </div>
-          <div class="profile-button-row">
-            <button type="submit" class="btn btn-black" [disabled]="isSaving()">
-              {{ isSaving() ? lang.t('addresses_saving') : lang.t('addresses_save') }}
-            </button>
-            <button type="button" class="btn btn-outline-coral" [disabled]="isSaving()" (click)="cancelEdit()">
-              {{ lang.t('addresses_cancel') }}
-            </button>
-          </div>
-        </form>
-      }
-    </section>
+      </section>
+    </ng-template>
   `,
   styles: [`
     .addresses-section { margin-top: 1.5rem; }
     .addresses-subtitle { opacity: 0.75; margin: 0.25rem 0 1rem; }
-    .addresses-limit { font-weight: 600; }
+    .addresses-limit { font-weight: 600; color: #b45309; }
     .addresses-list { display: grid; gap: 0.75rem; margin-bottom: 1rem; }
-    .address-card { display: flex; flex-wrap: wrap; gap: 0.75rem; justify-content: space-between; align-items: center; border: 1px solid #e5e7eb; border-radius: 12px; padding: 0.9rem 1rem; }
-    .address-card-main { display: flex; flex-direction: column; gap: 0.2rem; }
-    .address-default-badge { width: fit-content; font-size: 0.8rem; font-weight: 700; padding: 0.1rem 0.5rem; border-radius: 999px; background: #eef6ee; }
+    .address-card { display: flex; flex-wrap: wrap; gap: 0.75rem; justify-content: space-between; align-items: center; border: 1px solid #e5e7eb; border-radius: 14px; padding: 1rem; background: #fff; }
+    .address-card-main { display: flex; flex-direction: column; gap: 0.25rem; }
     .address-card-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
     .address-form { margin-top: 1rem; }
     .address-form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.9rem; margin: 0.75rem 0 1rem; }
@@ -150,7 +165,10 @@ import { LanguageService } from '../../core/services/language.service';
 export class MyAddressesComponent implements OnInit {
   private readonly fb = inject(FormBuilder);
   private readonly dealsApi = inject(DealsService);
+  private readonly router = inject(Router);
   readonly lang = inject(LanguageService);
+
+  readonly isStandalone = computed(() => this.router.url.split('?')[0] === '/addresses');
 
   readonly addresses = signal<UserAddress[]>([]);
   readonly isLoading = signal(false);
@@ -197,6 +215,7 @@ export class MyAddressesComponent implements OnInit {
   }
 
   startAdd(): void {
+    if (this.addresses().length >= 10) return;
     this.editingId.set(null);
     this.addressForm.reset();
     this.formError.set(null);

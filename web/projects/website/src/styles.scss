@@ -27,6 +27,13 @@
   font-family: 'Cairo', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
+html,
+body {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
 body {
   background-color: #ffffff;
   color: var(--text-main);
@@ -93,7 +100,372 @@ a {
   flex-direction: column;
   position: relative;
   box-shadow: none;
+  overflow-x: hidden;
 }
+
+/* --- Etamid Unified Design System Tokens & Base Classes --- */
+
+/* Buttons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  font-family: inherit;
+  font-weight: 700;
+  font-size: 0.95rem;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+  text-decoration: none;
+  padding: 0.65rem 1.25rem;
+  min-height: 44px;
+  line-height: 1.2;
+  user-select: none;
+
+  &:active {
+    transform: translateY(1px);
+  }
+}
+
+.btn-black {
+  background: var(--primary-black, #111827);
+  color: #ffffff !important;
+
+  &:hover:not(:disabled) {
+    background: #000000;
+    color: #ffffff !important;
+    box-shadow: 0 4px 14px rgba(17, 24, 39, 0.25);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+.btn-coral {
+  background: var(--primary-coral, #eb5757);
+  color: #ffffff !important;
+
+  &:hover:not(:disabled) {
+    background: var(--primary-coral-dark, #d84545);
+    color: #ffffff !important;
+    box-shadow: 0 4px 14px rgba(235, 87, 87, 0.3);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+.btn-outline-coral {
+  background: #ffffff;
+  border: 1.5px solid var(--primary-coral, #eb5757);
+  color: var(--primary-coral, #eb5757) !important;
+
+  &:hover:not(:disabled) {
+    background: #fef2f2;
+    color: var(--primary-coral-dark, #d84545) !important;
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+.btn-outline-gray {
+  background: #ffffff;
+  border: 1.5px solid #e5e7eb;
+  color: #374151;
+
+  &:hover:not(:disabled) {
+    background: #f9fafb;
+    border-color: #d1d5db;
+  }
+}
+
+.btn-sm {
+  min-height: 36px;
+  padding: 0.35rem 0.85rem;
+  font-size: 0.82rem;
+}
+
+.btn-lg {
+  min-height: 52px;
+  padding: 0.85rem 1.75rem;
+  font-size: 1.05rem;
+  border-radius: 14px;
+}
+
+.btn-pill {
+  border-radius: 999px;
+}
+
+/* Badges */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.76rem;
+  font-weight: 750;
+  padding: 3px 10px;
+  border-radius: 999px;
+  line-height: 1.3;
+}
+
+.badge-success {
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+}
+
+.badge-warning {
+  background: #fffbeb;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+
+.badge-danger {
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+}
+
+.badge-info {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+}
+
+.badge-neutral {
+  background: #f3f4f6;
+  color: #4b5563;
+  border: 1px solid #e5e7eb;
+}
+
+/* Page Shell & Container */
+.app-page-shell {
+  width: min(1280px, calc(100% - 2rem));
+  margin: 1.5rem auto 3rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* Cards */
+.app-card {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 18px;
+  padding: clamp(1rem, 3vw, 1.75rem);
+  box-shadow: 0 8px 24px rgba(17, 24, 39, 0.04);
+}
+
+/* Standard Header Card for all Authenticated Subpages */
+.app-header-card {
+  background: #eb5757;
+  background-image: linear-gradient(135deg, #eb5757 0%, #e04848 100%);
+  border-radius: 0 0 28px 28px;
+  padding: clamp(1.25rem, 3vw, 2.25rem) clamp(1rem, 5vw, 4.5rem) clamp(1.25rem, 3vw, 2rem);
+  color: #ffffff;
+  box-shadow: 0 10px 25px rgba(235, 87, 87, 0.22);
+
+  .app-header-top {
+    width: 100%;
+    max-width: 1480px;
+    margin-inline: auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .app-header-start {
+    display: flex;
+    align-items: center;
+    gap: clamp(0.75rem, 2vw, 1.25rem);
+    min-width: 0;
+  }
+
+  .app-header-back-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    background: rgba(255, 255, 255, 0.2);
+    border: none;
+    color: #ffffff;
+    padding: 0.45rem 0.85rem;
+    border-radius: 999px;
+    font-family: inherit;
+    font-size: 0.85rem;
+    font-weight: 750;
+    cursor: pointer;
+    transition: background 0.2s ease, transform 0.15s ease;
+    flex-shrink: 0;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.32);
+      transform: translateY(-1px);
+    }
+
+    .back-arrow {
+      font-size: 1.1rem;
+      line-height: 1;
+    }
+  }
+
+  .app-header-title-wrap {
+    min-width: 0;
+  }
+
+  .app-header-title {
+    margin: 0;
+    color: #ffffff;
+    font-size: clamp(1.35rem, 3vw, 2.2rem);
+    font-weight: 850;
+    line-height: 1.25;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .app-header-sub-row {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin-top: 0.3rem;
+  }
+
+  .app-header-subtitle {
+    font-size: 0.85rem;
+    opacity: 0.92;
+    font-weight: 600;
+  }
+
+  .app-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-shrink: 0;
+  }
+
+  .app-header-icon-btn {
+    background: rgba(255, 255, 255, 0.2);
+    border: none;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    position: relative;
+    font-size: 1.1rem;
+    color: #ffffff;
+    transition: background 0.2s ease, transform 0.15s ease;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.32);
+      transform: translateY(-1px);
+    }
+
+    .unread-dot {
+      position: absolute;
+      top: 6px;
+      right: 6px;
+      width: 8px;
+      height: 8px;
+      background: #ffffff;
+      border-radius: 50%;
+    }
+
+    &.lang-btn {
+      font-size: 0.82rem;
+      font-weight: 800;
+    }
+
+    &.logout-btn {
+      font-size: 0.95rem;
+    }
+  }
+}
+
+@media (min-width: 768px) {
+  .app-header-card {
+    border-radius: 0 0 36px 36px;
+  }
+}
+
+/* Global Bottom Navigation Bar */
+.bottom-nav-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  margin-inline: auto;
+  transform: none;
+  width: 100%;
+  max-width: 500px;
+  height: 68px;
+  background: #ffffff;
+  border-top: 1px solid #e5e7eb;
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  z-index: 900;
+  box-shadow: 0 -4px 15px rgba(0, 0, 0, 0.05);
+
+  .nav-item {
+    background: none;
+    border: none;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.2rem;
+    color: #9ca3af;
+    cursor: pointer;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-decoration: none;
+    transition: color 0.2s, transform 0.15s ease;
+    padding: 0.35rem 0.6rem;
+    border-radius: 8px;
+
+    .nav-icon {
+      font-size: 1.25rem;
+      line-height: 1;
+    }
+
+    &.active {
+      color: #eb5757;
+
+      .nav-label {
+        font-weight: 800;
+      }
+
+      .nav-icon {
+        transform: scale(1.1);
+      }
+    }
+
+    &:hover:not(.active) {
+      color: #4b5563;
+    }
+  }
+
+  .nav-avatar-img {
+    width: 25px;
+    height: 25px;
+    border-radius: 50%;
+    object-fit: cover;
+    display: block;
+  }
+}
+
 
 @media (min-width: 441px) {
   body {
@@ -201,7 +573,7 @@ a {
 }
 
 @media (min-width: 768px) {
-  .app-screen.home-screen { padding-bottom: 2rem !important; }
+  .app-screen.home-screen { padding-bottom: 110px !important; }
   .home-screen .home-header-card { border-radius: 0 0 36px 36px !important; }
   .home-screen .header-top-row { align-items: center !important; margin-bottom: 1.25rem !important; }
   .home-screen .header-greeting .user-display-name { font-size: clamp(1.8rem, 3vw, 2.6rem) !important; }
@@ -209,7 +581,7 @@ a {
   .home-screen .header-cta-wrapper .btn-create-deal { width: auto !important; min-width: 240px !important; padding-inline: 2rem !important; }
   .home-screen .home-content-body {
     display: grid !important;
-    grid-template-columns: minmax(280px, 0.8fr) minmax(0, 1.7fr) !important;
+    grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.65fr) !important;
     align-items: start !important;
     gap: 2rem !important;
   }
@@ -218,7 +590,7 @@ a {
   .home-screen .profile-section { grid-column: 1 / -1 !important; width: 100% !important; }
   .home-screen .profile-card {
     display: grid !important;
-    grid-template-columns: minmax(300px, 0.9fr) minmax(360px, 1.1fr) !important;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr) !important;
     gap: 2rem !important;
     padding: clamp(1.5rem, 3vw, 3rem) !important;
   }
@@ -233,21 +605,25 @@ a {
   .home-screen .profile-photo-actions h3 { font-size: 1.25rem !important; }
   .home-screen .profile-photo-actions p { font-size: 0.95rem !important; }
   .home-screen .profile-detail-row { font-size: 1rem !important; padding: 1rem 0 !important; }
-  .home-screen .bottom-nav-bar {
-    position: sticky !important;
-    inset-block-end: 1rem !important;
-    left: auto !important;
+  .bottom-nav-bar {
+    position: fixed !important;
+    bottom: 1.25rem !important;
+    left: 0 !important;
+    right: 0 !important;
+    margin-inline: auto !important;
     transform: none !important;
-    width: min(680px, calc(100% - 3rem)) !important;
-    max-width: none !important;
-    height: 76px !important;
-    margin: 0 auto !important;
+    width: min(640px, calc(100% - 2.5rem)) !important;
+    max-width: 640px !important;
+    height: 72px !important;
     border: 1px solid #e5e7eb !important;
-    border-radius: 18px !important;
-    box-shadow: 0 10px 32px rgba(17, 24, 39, 0.12) !important;
+    border-radius: 22px !important;
+    box-shadow: 0 12px 36px rgba(17, 24, 39, 0.14) !important;
+    background: rgba(255, 255, 255, 0.96) !important;
+    backdrop-filter: blur(12px) !important;
+    -webkit-backdrop-filter: blur(12px) !important;
   }
-  .home-screen .bottom-nav-bar .nav-item { min-width: 90px !important; font-size: 0.85rem !important; }
-  .home-screen .bottom-nav-bar .nav-item .nav-icon { font-size: 1.45rem !important; }
+  .bottom-nav-bar .nav-item { min-width: 64px !important; font-size: 0.82rem !important; }
+  .bottom-nav-bar .nav-item .nav-icon { font-size: 1.45rem !important; }
 }
 
 @media (min-width: 1200px) {

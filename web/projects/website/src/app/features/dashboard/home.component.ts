@@ -1,6 +1,7 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { BottomNavComponent, NavTab } from '../../core/components/bottom-nav/bottom-nav.component';
 import { AuthService } from '../../core/services/auth.service';
 import { DealEdit, DealSummary, DealsService, LookupItem, Wallet, WalletTransaction, Withdrawal } from '../../core/services/deals.service';
 import { LanguageService } from '../../core/services/language.service';
@@ -36,7 +37,7 @@ export interface DealItem {
 @Component({
   selector: 'app-home',
   standalone: true,
-  imports: [RouterLink, ReactiveFormsModule, MyAddressesComponent, StoreEditorComponent],
+  imports: [RouterLink, ReactiveFormsModule, MyAddressesComponent, StoreEditorComponent, BottomNavComponent],
   template: `
     @if (authService.isAuthenticated()) {
     <div class="app-screen home-screen">
@@ -897,39 +898,8 @@ export interface DealItem {
         </div>
       }
 
-      <!-- Bottom Mobile Navigation Bar -->
-      <nav class="bottom-nav-bar">
-        <button class="nav-item" [class.active]="activeNav() === 'home'" (click)="onNavHome()">
-          <span class="nav-icon">🏠</span>
-          <span class="nav-label">{{ lang.t('home_nav_home') }}</span>
-        </button>
-        <button class="nav-item" [class.active]="activeNav() === 'deals'" (click)="onNavDeals()">
-          <span class="nav-icon">📑</span>
-          <span class="nav-label">{{ lang.t('home_nav_deals') }}</span>
-        </button>
-        <a class="nav-item" routerLink="/shop">
-          <span class="nav-icon">🛍️</span>
-          <span class="nav-label">{{ lang.t('shop_nav') }}</span>
-        </a>
-        <a class="nav-item" routerLink="/company-deals">
-          <span class="nav-icon">🏢</span>
-          <span class="nav-label">{{ lang.t('company_nav') }}</span>
-        </a>
-        <button class="nav-item" [class.active]="activeNav() === 'wallet'" (click)="onNavWallet()">
-          <span class="nav-icon">💳</span>
-          <span class="nav-label">{{ lang.t('home_nav_wallet') }}</span>
-        </button>
-        <button class="nav-item" [class.active]="activeNav() === 'profile'" (click)="activeNav.set('profile')">
-          <span class="nav-icon">
-            @if (authService.currentUser()?.avatarUrl) {
-              <img class="nav-avatar-img" [src]="authService.currentUser()?.avatarUrl" [alt]="lang.t('profile_photo')" />
-            } @else {
-              👤
-            }
-          </span>
-          <span class="nav-label">{{ lang.t('home_nav_profile') }}</span>
-        </button>
-      </nav>
+      <!-- Bottom Navigation Bar -->
+      <app-bottom-nav [activeNav]="activeNav()" (navChange)="onNavChange($event)" />
     </div>
     } @else {
       <div class="public-landing">
@@ -1039,12 +1009,13 @@ export interface DealItem {
   styles: [`
     .home-screen {
       width: 100%;
-      max-width: none;
+      max-width: 100%;
       min-height: 100vh;
       background-color: #f8fafc;
-      padding-bottom: 80px;
+      padding-bottom: 110px;
       position: relative;
       box-shadow: none;
+      overflow-x: hidden;
     }
 
     .home-header-card {
@@ -1793,87 +1764,6 @@ export interface DealItem {
       }
     }
 
-    .btn {
-      border-radius: 12px;
-      font-weight: 700;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      text-decoration: none;
-      transition: all 0.2s;
-      border: none;
-    }
-
-    .btn-black {
-      background: #111827;
-      color: #ffffff;
-
-      &:hover:not(:disabled) {
-        background: #000000;
-      }
-
-      &:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-      }
-    }
-
-    .btn-outline-coral {
-      background: #ffffff;
-      border: 1.5px solid #eb5757;
-      color: #eb5757;
-
-      &:hover {
-        background: #fef2f2;
-      }
-    }
-
-    .bottom-nav-bar {
-      position: fixed;
-      bottom: 0;
-      left: 50%;
-      transform: translateX(-50%);
-      width: 100%;
-      max-width: 440px;
-      height: 68px;
-      background: #ffffff;
-      border-top: 1px solid #e5e7eb;
-      display: flex;
-      justify-content: space-around;
-      align-items: center;
-      z-index: 900;
-      box-shadow: 0 -4px 15px rgba(0, 0, 0, 0.05);
-
-      .nav-item {
-        background: none;
-        border: none;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 0.2rem;
-        color: #9ca3af;
-        cursor: pointer;
-        font-size: 0.75rem;
-        font-weight: 600;
-        text-decoration: none;
-        transition: color 0.2s;
-
-        .nav-icon {
-          font-size: 1.25rem;
-          line-height: 1;
-        }
-
-        &.active {
-          color: #eb5757;
-
-          .nav-label {
-            font-weight: 800;
-          }
-        }
-      }
-    }
-
     .modal-backdrop {
       position: fixed;
       top: 0;
@@ -1962,6 +1852,7 @@ export class HomeComponent {
   readonly authService = inject(AuthService);
   private readonly fb = inject(FormBuilder);
   private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
   private readonly dealsApi = inject(DealsService);
   private readonly notificationsApi = inject(NotificationsService);
   readonly lang = inject(LanguageService);
@@ -2039,6 +1930,19 @@ export class HomeComponent {
   });
 
   constructor() {
+    this.route.queryParamMap.subscribe((params) => {
+      const tab = params.get('tab');
+      if (tab === 'profile') {
+        this.activeNav.set('profile');
+      } else if (tab === 'wallet') {
+        this.onNavWallet();
+      } else if (tab === 'deals') {
+        this.onNavDeals();
+      } else if (tab === 'home') {
+        this.onNavHome();
+      }
+    });
+
     if (this.authService.isAuthenticated()) {
       this.authService.refreshProfile().subscribe({ error: () => {} });
       this.loadDeals();
@@ -2782,6 +2686,19 @@ export class HomeComponent {
    * back to the main view (from Profile) and scroll to their sections.
    * Previously these buttons only changed the highlight, with no navigation.
    */
+  onNavChange(tab: NavTab): void {
+    if (tab === 'home') {
+      this.onNavHome();
+    } else if (tab === 'deals') {
+      this.onNavDeals();
+    } else if (tab === 'wallet') {
+      this.onNavWallet();
+    } else if (tab === 'profile') {
+      this.activeNav.set('profile');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }
+
   onNavHome(): void {
     this.activeNav.set('home');
     window.scrollTo({ top: 0, behavior: 'smooth' });

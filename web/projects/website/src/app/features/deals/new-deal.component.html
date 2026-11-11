@@ -1,14 +1,7 @@
-<main class="deal-create-page" [attr.dir]="lang.isAr() ? 'rtl' : 'ltr'">
-  <div class="page-shell">
-    <header class="page-header">
-      <button type="button" class="back-button" (click)="goHome()" [attr.aria-label]="lang.t('back')">
-        <span aria-hidden="true">{{ lang.isAr() ? '→' : '←' }}</span>
-        {{ lang.t('back') }}
-      </button>
-      <button type="button" class="language-button" (click)="lang.toggleLanguage()">
-        {{ lang.langLabel() }}
-      </button>
-    </header>
+<div class="app-screen deal-create-screen" [attr.dir]="lang.isAr() ? 'rtl' : 'ltr'">
+  <app-header [title]="lang.t('deal_new_title')" [subtitle]="lang.t('deal_new_subtitle')" backUrl="/home" />
+
+  <main class="app-page-shell" style="max-width: 860px;">
 
     @if (createdDeal(); as deal) {
       <section class="success-card" aria-live="polite">
@@ -259,5 +252,6 @@
         </div>
       </form>
     }
-  </div>
-</main>
+  </main>
+  <app-bottom-nav activeNav="deals" />
+</div>

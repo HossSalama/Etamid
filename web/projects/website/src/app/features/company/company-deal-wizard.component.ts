@@ -1,121 +1,342 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import {
   DealsService, CompanyInstallmentInput, CreateCompanyDealRequest, Counterparty,
 } from '../../core/services/deals.service';
 import { AuthService } from '../../core/services/auth.service';
 import { LanguageService } from '../../core/services/language.service';
+import { AppHeaderComponent } from '../../core/components/app-header/app-header.component';
+import { BottomNavComponent } from '../../core/components/bottom-nav/bottom-nav.component';
 
 /**
- * Company deal wizard: create a draft or edit one (draft only, creator
- * only — the API enforces both). Installments must add up to the total;
- * the sum is checked live and the save button stays disabled otherwise.
- * The contract file is uploaded with purpose "contract" and its public id
- * is sent with the draft; on edit, leaving it empty keeps the old file.
- * Ordered from a company seller's shop card, the wizard prefills from the
- * router state (counterparty, title, details, total, one installment for
- * the price); the start date and the installment due date stay empty for
- * the buyer to pick, and save stays disabled until they do.
+ * Company deal wizard: create a draft or edit one.
  */
 @Component({
   selector: 'app-company-deal-wizard',
   standalone: true,
-  imports: [RouterLink],
+  imports: [AppHeaderComponent, BottomNavComponent],
   template: `
-    <main class="company-page">
-      <header class="company-header-card">
-        <a class="company-back" routerLink="/company-deals">→ {{ lang.t('back') }}</a>
-        <h1>{{ lang.t('company_new') }}</h1>
-      </header>
-      <div class="company-content">
-        @if (error()) {
-          <p class="company-error">{{ error() }}</p>
-        }
-        @if (isLoading()) {
-          <p>{{ lang.t('company_loading') }}</p>
-        } @else {
-          <section class="company-card">
-            @if (!editId()) {
-              <label>{{ lang.t('company_counterparty') }}
-                <input type="text" [value]="counterparty()" (input)="counterparty.set($any($event.target).value)" />
-              </label>
-              <button type="button" class="company-btn" (click)="lookup()">{{ lang.t('company_lookup') }}</button>
-              @if (counterpartyPreview(); as preview) {
-                <p>{{ preview.name }} ({{ preview.code }})</p>
-              }
-            }
-            <label>{{ lang.t('company_title_field') }}
-              <input type="text" [value]="title()" (input)="title.set($any($event.target).value)" />
-            </label>
-            <label>{{ lang.t('company_details_field') }}
-              <input type="text" [value]="details()" (input)="details.set($any($event.target).value)" />
-            </label>
-            <label>{{ lang.t('company_total_field') }}
-              <input type="number" [value]="total()" (input)="total.set(+$any($event.target).value)" />
-            </label>
-            <label>{{ lang.t('company_start_field') }}
-              <input type="date" [value]="startDate()" (input)="startDate.set($any($event.target).value)" />
-            </label>
-            <label>{{ lang.t('company_contract') }}
-              <input type="file" (change)="uploadContract($any($event.target).files?.[0])" />
-            </label>
-            <label>{{ lang.t('company_approval_send') }}
-              <input type="number" [value]="approvalSend() ?? ''" (input)="approvalSend.set($any($event.target).value === '' ? null : +$any($event.target).value)" />
-            </label>
-            <label>{{ lang.t('company_approval_response') }}
-              <input type="number" [value]="approvalResponse() ?? ''" (input)="approvalResponse.set($any($event.target).value === '' ? null : +$any($event.target).value)" />
-            </label>
-            <label>{{ lang.t('company_approval_notes') }}
-              <input type="text" [value]="approvalNotes()" (input)="approvalNotes.set($any($event.target).value)" />
-            </label>
-            <label>{{ lang.t('company_penalty_percent') }}
-              <input type="number" [value]="penaltyPercent() ?? ''" (input)="penaltyPercent.set($any($event.target).value === '' ? null : +$any($event.target).value)" />
-            </label>
-            <label>{{ lang.t('company_penalty_grace') }}
-              <input type="number" [value]="penaltyGrace() ?? ''" (input)="penaltyGrace.set($any($event.target).value === '' ? null : +$any($event.target).value)" />
-            </label>
-            <label>{{ lang.t('company_penalty_clauses') }}
-              <input type="text" [value]="penaltyClauses()" (input)="penaltyClauses.set($any($event.target).value)" />
-            </label>
+    <div class="app-screen company-page">
+      <app-header
+        [title]="editId() ? lang.t('company_edit') : lang.t('company_new')"
+        backUrl="/company-deals"
+      />
 
-            <h2>{{ lang.t('company_installments') }}</h2>
-            @for (inst of installments(); track $index) {
-              <div class="company-installment">
-                <input type="text" [placeholder]="lang.t('company_installment_label')" [value]="inst.label ?? ''"
-                  (input)="updateInstallment($index, 'label', $any($event.target).value)" />
-                <input type="number" [placeholder]="lang.t('company_installment_amount')" [value]="inst.amount"
-                  (input)="updateInstallment($index, 'amount', +$any($event.target).value)" />
-                <input type="date" [placeholder]="lang.t('company_installment_due')" [value]="inst.dueDate"
-                  (input)="updateInstallment($index, 'dueDate', $any($event.target).value)" />
-                <button type="button" class="company-btn" (click)="removeInstallment($index)">{{ lang.t('company_installment_remove') }}</button>
+      <main class="app-page-shell">
+        @if (error()) {
+          <div class="app-card" style="background: #fef2f2; border-color: #fecaca; color: #b91c1c; font-weight: 700;">
+            ⚠️ {{ error() }}
+          </div>
+        }
+
+        @if (isLoading()) {
+          <div class="app-card text-center" style="padding: 2.5rem; text-align: center;">
+            <p>{{ lang.t('company_loading') }}</p>
+          </div>
+        } @else {
+          <form class="app-card wizard-card" (submit)="$event.preventDefault()">
+            <!-- Counterparty -->
+            @if (!editId()) {
+              <div class="wizard-field">
+                <label class="wizard-label">{{ lang.t('company_counterparty') }}</label>
+                <div class="wizard-lookup-row">
+                  <input
+                    type="text"
+                    class="wizard-input"
+                    [placeholder]="lang.t('deal_counterparty_placeholder')"
+                    [value]="counterparty()"
+                    (input)="counterparty.set($any($event.target).value)"
+                  />
+                  <button type="button" class="btn btn-outline-coral" (click)="lookup()">
+                    {{ lang.t('company_lookup') }}
+                  </button>
+                </div>
+                @if (counterpartyPreview(); as preview) {
+                  <div class="badge badge-success" style="margin-top: 0.5rem; width: fit-content; padding: 0.4rem 0.8rem;">
+                    ✓ {{ preview.name }} ({{ preview.code }})
+                  </div>
+                }
               </div>
             }
-            <button type="button" class="company-btn" (click)="addInstallment()">{{ lang.t('company_installment_add') }}</button>
-            @if (!sumsMatch()) {
-              <p class="company-error">{{ lang.t('company_sum_error') }}</p>
-            }
-            <div class="company-actions">
-              <button type="button" class="company-btn" [disabled]="!canSave()" (click)="save()">{{ lang.t('company_save_draft') }}</button>
+
+            <!-- Deal Title & Details -->
+            <div class="wizard-field">
+              <label class="wizard-label">{{ lang.t('company_title_field') }}</label>
+              <input
+                type="text"
+                class="wizard-input"
+                [value]="title()"
+                (input)="title.set($any($event.target).value)"
+                maxlength="150"
+              />
             </div>
-          </section>
+
+            <div class="wizard-field">
+              <label class="wizard-label">{{ lang.t('company_details_field') }}</label>
+              <textarea
+                class="wizard-textarea"
+                rows="3"
+                [value]="details()"
+                (input)="details.set($any($event.target).value)"
+                maxlength="200"
+              ></textarea>
+            </div>
+
+            <!-- Amount & Start Date -->
+            <div class="wizard-grid-two">
+              <div class="wizard-field">
+                <label class="wizard-label">{{ lang.t('company_total_field') }} ({{ lang.t('home_sar') }})</label>
+                <input
+                  type="number"
+                  class="wizard-input"
+                  dir="ltr"
+                  [value]="total()"
+                  (input)="total.set(+$any($event.target).value)"
+                />
+              </div>
+
+              <div class="wizard-field">
+                <label class="wizard-label">{{ lang.t('company_start_field') }}</label>
+                <input
+                  type="date"
+                  class="wizard-input"
+                  [value]="startDate()"
+                  (input)="startDate.set($any($event.target).value)"
+                />
+              </div>
+            </div>
+
+            <!-- Contract File -->
+            <div class="wizard-field">
+              <label class="wizard-label">{{ lang.t('company_contract') }}</label>
+              <input
+                type="file"
+                class="wizard-input"
+                accept=".pdf,image/png,image/jpeg"
+                (change)="uploadContract($any($event.target).files?.[0])"
+              />
+              @if (contractFileId()) {
+                <span class="badge badge-success" style="margin-top: 0.35rem; width: fit-content;">✓ {{ lang.t('addresses_saved') }}</span>
+              }
+            </div>
+
+            <!-- Approval Settings -->
+            <h3 class="wizard-subtitle">{{ lang.t('company_approval_notes') }}</h3>
+            <div class="wizard-grid-two">
+              <div class="wizard-field">
+                <label class="wizard-label">{{ lang.t('company_approval_send') }}</label>
+                <input
+                  type="number"
+                  class="wizard-input"
+                  [value]="approvalSend() ?? ''"
+                  (input)="approvalSend.set($any($event.target).value === '' ? null : +$any($event.target).value)"
+                />
+              </div>
+              <div class="wizard-field">
+                <label class="wizard-label">{{ lang.t('company_approval_response') }}</label>
+                <input
+                  type="number"
+                  class="wizard-input"
+                  [value]="approvalResponse() ?? ''"
+                  (input)="approvalResponse.set($any($event.target).value === '' ? null : +$any($event.target).value)"
+                />
+              </div>
+            </div>
+
+            <div class="wizard-field">
+              <label class="wizard-label">{{ lang.t('company_approval_notes') }}</label>
+              <input
+                type="text"
+                class="wizard-input"
+                [value]="approvalNotes()"
+                (input)="approvalNotes.set($any($event.target).value)"
+              />
+            </div>
+
+            <!-- Penalties -->
+            <h3 class="wizard-subtitle">{{ lang.t('company_penalty_clauses') }}</h3>
+            <div class="wizard-grid-two">
+              <div class="wizard-field">
+                <label class="wizard-label">{{ lang.t('company_penalty_percent') }} (%)</label>
+                <input
+                  type="number"
+                  class="wizard-input"
+                  [value]="penaltyPercent() ?? ''"
+                  (input)="penaltyPercent.set($any($event.target).value === '' ? null : +$any($event.target).value)"
+                />
+              </div>
+              <div class="wizard-field">
+                <label class="wizard-label">{{ lang.t('company_penalty_grace') }}</label>
+                <input
+                  type="number"
+                  class="wizard-input"
+                  [value]="penaltyGrace() ?? ''"
+                  (input)="penaltyGrace.set($any($event.target).value === '' ? null : +$any($event.target).value)"
+                />
+              </div>
+            </div>
+
+            <div class="wizard-field">
+              <label class="wizard-label">{{ lang.t('company_penalty_clauses') }}</label>
+              <input
+                type="text"
+                class="wizard-input"
+                [value]="penaltyClauses()"
+                (input)="penaltyClauses.set($any($event.target).value)"
+              />
+            </div>
+
+            <!-- Installments -->
+            <div class="wizard-installments-section">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+                <h3 class="wizard-subtitle" style="margin: 0;">{{ lang.t('company_installments') }}</h3>
+                <button type="button" class="btn btn-sm btn-outline-coral" (click)="addInstallment()">
+                  + {{ lang.t('company_installment_add') }}
+                </button>
+              </div>
+
+              @for (inst of installments(); track $index) {
+                <div class="installment-row">
+                  <input
+                    type="text"
+                    class="wizard-input"
+                    [placeholder]="lang.t('company_installment_label')"
+                    [value]="inst.label ?? ''"
+                    (input)="updateInstallment($index, 'label', $any($event.target).value)"
+                  />
+                  <input
+                    type="number"
+                    class="wizard-input"
+                    dir="ltr"
+                    [placeholder]="lang.t('company_installment_amount')"
+                    [value]="inst.amount"
+                    (input)="updateInstallment($index, 'amount', +$any($event.target).value)"
+                  />
+                  <input
+                    type="date"
+                    class="wizard-input"
+                    [placeholder]="lang.t('company_installment_due')"
+                    [value]="inst.dueDate"
+                    (input)="updateInstallment($index, 'dueDate', $any($event.target).value)"
+                  />
+                  @if (installments().length > 1) {
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-outline-coral"
+                      style="color: #b91c1c !important; border-color: #fecaca;"
+                      (click)="removeInstallment($index)"
+                      [title]="lang.t('company_installment_remove')"
+                    >
+                      ✕
+                    </button>
+                  }
+                </div>
+              }
+
+              @if (!sumsMatch()) {
+                <div class="badge badge-danger" style="margin-top: 0.5rem; padding: 0.4rem 0.8rem;">
+                  ⚠️ {{ lang.t('company_sum_error') }}
+                </div>
+              }
+            </div>
+
+            <div class="wizard-submit-row">
+              <button
+                type="button"
+                class="btn btn-black btn-lg"
+                style="width: 100%;"
+                [disabled]="!canSave()"
+                (click)="save()"
+              >
+                {{ lang.t('company_save_draft') }}
+              </button>
+            </div>
+          </form>
         }
-      </div>
-    </main>
+      </main>
+
+      <app-bottom-nav activeNav="company" />
+    </div>
   `,
   styles: [`
-    .company-page { width: 100%; min-height: 100vh; padding: 0 0 3rem; }
-    .company-header-card { background: #eb5757; border-radius: 0 0 28px 28px; padding: clamp(1.25rem, 3vw, 2.5rem) clamp(1rem, 5vw, 4.5rem) clamp(1.5rem, 3vw, 2.25rem); color: #fff; }
-    .company-header-card h1 { margin: 0.5rem 0 0; color: #fff; font-size: clamp(1.8rem, 3vw, 2.6rem); }
-    .company-back { color: #fff; text-decoration: none; font-weight: 700; }
-    .company-content { width: min(1280px, calc(100% - 2rem)); margin: 1.5rem auto 0; }
-    .company-card { border: 1px solid #e5e7eb; border-radius: 18px; background: #fff; padding: 1rem 1.25rem; box-shadow: 0 8px 24px rgba(17, 24, 39, 0.04); }
-    .company-card label { display: flex; flex-direction: column; gap: 0.25rem; margin-bottom: 0.75rem; }
-    .company-card input { padding: 0.5rem 0.75rem; border: 1px solid #e5e7eb; border-radius: 10px; }
-    .company-installment { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.5rem; }
-    .company-actions { display: flex; gap: 0.5rem; margin-top: 1rem; }
-    .company-btn { border: none; background: #eb5757; color: #fff; font-weight: 700; padding: 0.6rem 1.25rem; border-radius: 999px; cursor: pointer; }
-    .company-btn:disabled { opacity: 0.5; cursor: default; }
-    .company-error { color: #eb5757; font-weight: 700; }
+    .wizard-card {
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+      max-width: 840px;
+      margin-inline: auto;
+      width: 100%;
+    }
+    .wizard-field {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+    }
+    .wizard-label {
+      font-size: 0.88rem;
+      font-weight: 750;
+      color: #374151;
+    }
+    .wizard-input, .wizard-textarea {
+      width: 100%;
+      min-height: 46px;
+      border: 1px solid #d1d5db;
+      border-radius: 12px;
+      padding: 0.7rem 0.95rem;
+      font-family: inherit;
+      font-size: 0.95rem;
+      outline: none;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+      background: #fff;
+      &:focus {
+        border-color: #eb5757;
+        box-shadow: 0 0 0 3px rgba(235, 87, 87, 0.14);
+      }
+    }
+    .wizard-textarea {
+      min-height: 90px;
+      resize: vertical;
+    }
+    .wizard-lookup-row {
+      display: flex;
+      gap: 0.5rem;
+    }
+    .wizard-grid-two {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 1rem;
+    }
+    .wizard-subtitle {
+      font-size: 1.1rem;
+      font-weight: 850;
+      color: #111827;
+      margin: 0.75rem 0 0.25rem;
+      padding-bottom: 0.4rem;
+      border-bottom: 1px solid #f1f5f9;
+    }
+    .wizard-installments-section {
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
+      border-radius: 14px;
+      padding: 1.25rem;
+    }
+    .installment-row {
+      display: grid;
+      grid-template-columns: minmax(140px, 1.5fr) minmax(100px, 1fr) minmax(140px, 1fr) auto;
+      gap: 0.5rem;
+      align-items: center;
+      margin-bottom: 0.65rem;
+    }
+    .wizard-submit-row {
+      margin-top: 1rem;
+      padding-top: 1rem;
+      border-top: 1px solid #f1f5f9;
+    }
+    @media (max-width: 600px) {
+      .installment-row {
+        grid-template-columns: 1fr;
+      }
+    }
   `],
 })
 export class CompanyDealWizardComponent implements OnInit {
@@ -175,9 +396,6 @@ export class CompanyDealWizardComponent implements OnInit {
         error: () => this.isLoading.set(false),
       });
     } else {
-      // Ordered from a company seller's shop card: prefill the wizard with
-      // the product. The company deal details cap is 200 chars, so a longer
-      // product description is trimmed, like the individual form does.
       const fromProduct = (history.state as {
         fromProduct?: { sellerCode: string; name: string; description: string | null; price: number };
       }).fromProduct;

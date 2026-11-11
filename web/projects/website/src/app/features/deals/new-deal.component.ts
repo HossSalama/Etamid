@@ -3,6 +3,8 @@ import { Component, OnInit, inject, signal } from '@angular/core';
 import { AbstractControl, FormBuilder, ReactiveFormsModule, ValidationErrors, ValidatorFn, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
+import { AppHeaderComponent } from '../../core/components/app-header/app-header.component';
+import { BottomNavComponent } from '../../core/components/bottom-nav/bottom-nav.component';
 import { DealsService, Counterparty, CreateDealRequest, CreatedDeal, LookupItem, UserAddress } from '../../core/services/deals.service';
 import { LanguageService } from '../../core/services/language.service';
 
@@ -16,7 +18,7 @@ const twoDecimalPlaces: ValidatorFn = (control: AbstractControl): ValidationErro
 @Component({
   selector: 'app-new-deal',
   standalone: true,
-  imports: [DecimalPipe, ReactiveFormsModule, RouterLink],
+  imports: [DecimalPipe, ReactiveFormsModule, RouterLink, AppHeaderComponent, BottomNavComponent],
   templateUrl: './new-deal.component.html',
   styleUrl: './new-deal.component.scss',
 })

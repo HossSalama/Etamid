@@ -1,3 +1,5 @@
+using Etamid.Application.Deals.Services;
+
 namespace Etamid.Application.Deals;
 
 public sealed record DealSummaryDto(
@@ -6,7 +8,7 @@ public sealed record DealSummaryDto(
     IReadOnlyList<string> AvailableActions, string? ImageUrl = null,
     bool NeedShipping = false, string? ShippingCompanyNameAr = null, string? ShippingCompanyNameEn = null,
     string? ShippingAddressText = null, string? TrackingNumber = null, string? ShipmentStatus = null,
-    long? CounterpartyId = null);
+    long? CounterpartyId = null, DealBadgeDto? Badge = null);
 
 public sealed record DealTimelineItemDto(string? From, string To, string ActorType, DateTime At, string? Note);
 
@@ -41,7 +43,8 @@ public sealed record DealDetailDto(
     IReadOnlyList<string> AvailableActions, IReadOnlyList<DealTimelineItemDto> Timeline,
     string? ImageUrl = null,
     string? ShippingCompanyNameAr = null, string? ShippingCompanyNameEn = null,
-    string? ShippingAddressText = null, string? TrackingNumber = null, string? ShipmentStatus = null);
+    string? ShippingAddressText = null, string? TrackingNumber = null, string? ShipmentStatus = null,
+    DealBadgeDto? Badge = null);
 
 /// <summary>Manual shipment tracking (v1): the seller's tracking number, if any, plus carrier events (empty until a carrier sync exists).</summary>
 public sealed record ShipmentEventDto(string Code, string Description, string? Location, DateTime At);

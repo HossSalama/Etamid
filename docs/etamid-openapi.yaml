@@ -2935,6 +2935,7 @@ components:
         trackingNumber: { type: string, nullable: true }
         shipmentStatus: { type: string, nullable: true }
         counterpartyId: { type: integer, nullable: true, description: id الطرف الآخر، لربط كارت الصفقة بصفحة متجره }
+        badge: { $ref: '#/components/schemas/Badge', nullable: true, description: الشارة الزمنية للمتبقي على المهلة النشطة، أو null عند عدم وجود مهلة نشطة }
     Deal:
       type: object
       description: |
@@ -2990,6 +2991,7 @@ components:
         shippingAddressText: { type: string, nullable: true, description: نص عنوان التوصيل المجمّد وقت إنشاء الصفقة }
         trackingNumber: { type: string, nullable: true }
         shipmentStatus: { type: string, nullable: true }
+        badge: { $ref: '#/components/schemas/Badge', nullable: true, description: الشارة الزمنية للمتبقي على المهلة النشطة، أو null عند عدم وجود مهلة نشطة }
     FundSession:
       type: object
       description: كما يرجعه FundSessionDto من POST /deals/{id}/fund.

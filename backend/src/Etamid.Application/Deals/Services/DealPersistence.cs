@@ -71,7 +71,8 @@ internal static class DealMapper
             d.InspectionEndsAt, d.CompletedAt, d.ExpiresAt,
             d.ContractHash, pendingEdit is null ? null : MapEdit(pendingEdit, d),
             DealActions.For(d, viewerId, now, pendingEdit, alreadyRated), timeline, imageUrl,
-            companyAr, companyEn, addressText, tracking, shipmentStatus);
+            companyAr, companyEn, addressText, tracking, shipmentStatus,
+            DealBadge.For(d.Status, d.RespondDeadlineAt, d.ExpiresAt, d.InspectionEndsAt, now));
     }
 
     /// <summary>

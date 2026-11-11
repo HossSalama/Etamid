@@ -3,73 +3,219 @@ import { Router, RouterLink } from '@angular/router';
 import { DealsService, CompanyDealSummary } from '../../core/services/deals.service';
 import { AuthService } from '../../core/services/auth.service';
 import { LanguageService } from '../../core/services/language.service';
+import { AppHeaderComponent } from '../../core/components/app-header/app-header.component';
+import { BottomNavComponent } from '../../core/components/bottom-nav/bottom-nav.component';
 
 /**
  * Company deals list: the deals the user created or is the counterparty of.
- * Requires login, like the shop page; guests are sent to the login page.
  */
 @Component({
   selector: 'app-company-deals',
   standalone: true,
-  imports: [RouterLink],
+  imports: [RouterLink, AppHeaderComponent, BottomNavComponent],
   template: `
-    <main class="company-page">
-      <header class="company-header-card">
-        <a class="company-back" routerLink="/home">→ {{ lang.t('back') }}</a>
-        <h1>{{ lang.t('company_title') }}</h1>
-        <a class="company-new" routerLink="/company-deals/new">{{ lang.t('company_new') }}</a>
-      </header>
-      <div class="company-content">
+    <div class="app-screen company-page">
+      <app-header [title]="lang.t('company_title')" backUrl="/home">
+        <div header-actions>
+          <a
+            routerLink="/company-deals/new"
+            class="btn btn-pill company-new-btn"
+          >
+            + {{ lang.t('company_new') }}
+          </a>
+        </div>
+      </app-header>
+
+      <main class="app-page-shell">
         <div class="company-filters">
           @for (f of filters; track f) {
-            <button type="button" class="company-filter" [class.active]="statusFilter() === f" (click)="filter(f)">
-              {{ f === '' ? lang.t('company_title') : lang.t('company_status_' + f) }}
+            <button
+              type="button"
+              class="company-filter-chip"
+              [class.active]="statusFilter() === f"
+              (click)="filter(f)"
+            >
+              {{ f === '' ? (lang.isAr() ? 'الكل' : 'All') : lang.t('company_status_' + f) }}
             </button>
           }
         </div>
+
         @if (isLoading()) {
-          <p>{{ lang.t('company_loading') }}</p>
+          <div class="app-card" style="padding: 2.5rem; text-align: center;">
+            <p>{{ lang.t('company_loading') }}</p>
+          </div>
         } @else if (!deals().length) {
-          <p>{{ lang.t('company_empty') }}</p>
-        }
-        <div class="company-grid">
-          @for (deal of deals(); track deal.id) {
-            <a class="company-card" [routerLink]="['/company-deals', deal.id]">
-              <strong>{{ deal.title }}</strong>
-              <span>{{ deal.counterpartyName }}</span>
-              <span class="company-total">{{ deal.totalAmount }} {{ deal.currency }}</span>
-              <span class="company-status">{{ lang.t('company_status_' + deal.status) }}</span>
-              <span class="company-date">{{ deal.startDate }}</span>
+          <div class="app-card empty-deals-box" style="padding: 3rem 1.5rem; text-align: center;">
+            <span style="font-size: 2.5rem; display: block; margin-bottom: 0.5rem;" aria-hidden="true">🏢</span>
+            <h4 style="font-size: 1.1rem; color: #111827; margin-bottom: 0.35rem;">{{ lang.t('company_empty') }}</h4>
+            <a routerLink="/company-deals/new" class="btn btn-black" style="margin-top: 1rem;">
+              + {{ lang.t('company_new') }}
             </a>
+          </div>
+        } @else {
+          <div class="company-grid">
+            @for (deal of deals(); track deal.id) {
+              <a class="app-card company-card" [routerLink]="['/company-deals', deal.id]">
+                <div class="company-card-header">
+                  <div class="company-icon" aria-hidden="true">🏢</div>
+                  <div class="company-card-title-group">
+                    <strong class="company-deal-title">{{ deal.title }}</strong>
+                    <span class="company-counterparty">{{ deal.counterpartyName }}</span>
+                  </div>
+                  <span class="badge" [class]="getStatusBadgeClass(deal.status)">
+                    {{ lang.t('company_status_' + deal.status) }}
+                  </span>
+                </div>
+
+                <div class="company-card-footer">
+                  <div class="company-amount-block">
+                    <span class="company-total">{{ deal.totalAmount.toLocaleString() }}</span>
+                    <span class="company-currency">{{ deal.currency }}</span>
+                  </div>
+                  @if (deal.startDate) {
+                    <span class="company-date">📅 {{ deal.startDate }}</span>
+                  }
+                </div>
+              </a>
+            }
+          </div>
+
+          @if (hasMore()) {
+            <div style="text-align: center; margin-top: 1rem;">
+              <button type="button" class="btn btn-outline-coral" (click)="loadMore()">
+                {{ lang.t('store_load_more') }}
+              </button>
+            </div>
           }
-        </div>
-        @if (hasMore()) {
-          <button type="button" class="company-load-more" (click)="loadMore()">
-            {{ lang.t('store_load_more') }}
-          </button>
         }
-      </div>
-    </main>
+      </main>
+
+      <app-bottom-nav activeNav="company" />
+    </div>
   `,
   styles: [`
-    /* Full-bleed screen like the shop page: the header spans the whole
-       width and only the inner content is constrained. Button styles are
-       local: .btn/.btn-black live only inside the auth/home components. */
-    .company-page { width: 100%; min-height: 100vh; padding: 0 0 3rem; }
-    .company-header-card { background: #eb5757; border-radius: 0 0 28px 28px; padding: clamp(1.25rem, 3vw, 2.5rem) clamp(1rem, 5vw, 4.5rem) clamp(1.5rem, 3vw, 2.25rem); color: #fff; }
-    .company-header-card h1 { margin: 0.5rem 0 0; color: #fff; font-size: clamp(1.8rem, 3vw, 2.6rem); }
-    .company-back { color: #fff; text-decoration: none; font-weight: 700; }
-    .company-new { display: inline-block; margin-top: 1rem; background: #fff; color: #eb5757; font-weight: 800; padding: 0.6rem 1.25rem; border-radius: 999px; text-decoration: none; }
-    .company-content { width: min(1280px, calc(100% - 2rem)); margin: 1.5rem auto 0; }
-    .company-filters { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1rem; }
-    .company-filter { border: 1px solid #e5e7eb; background: #fff; border-radius: 999px; padding: 0.4rem 1rem; cursor: pointer; }
-    .company-filter.active { background: #eb5757; border-color: #eb5757; color: #fff; }
-    .company-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1rem; margin: 0.75rem 0 1rem; }
-    .company-card { display: flex; flex-direction: column; gap: 0.25rem; border: 1px solid #e5e7eb; border-radius: 18px; background: #fff; padding: 1rem 1.25rem; text-decoration: none; color: inherit; box-shadow: 0 8px 24px rgba(17, 24, 39, 0.04); }
-    .company-total { font-weight: 800; font-size: 1.1rem; }
-    .company-status { opacity: 0.75; font-size: 0.85rem; }
-    .company-date { opacity: 0.6; font-size: 0.85rem; }
-    .company-load-more { border: 1px solid #e5e7eb; background: #fff; border-radius: 999px; padding: 0.6rem 1.5rem; cursor: pointer; font-weight: 700; }
+    .company-new-btn {
+      background: #ffffff;
+      color: #eb5757 !important;
+      font-weight: 850;
+      min-height: 40px;
+      padding: 0.45rem 1rem;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+      &:hover {
+        background: #fdf2f2;
+      }
+    }
+    .company-filters {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-bottom: 0.5rem;
+    }
+    .company-filter-chip {
+      border: 1px solid #e5e7eb;
+      background: #ffffff;
+      color: #4b5563;
+      border-radius: 999px;
+      padding: 0.45rem 1rem;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 0.85rem;
+      font-weight: 700;
+      transition: all 0.2s ease;
+      user-select: none;
+      &:hover {
+        background: #f9fafb;
+        border-color: #d1d5db;
+      }
+      &.active {
+        background: #eb5757;
+        border-color: #eb5757;
+        color: #ffffff;
+        box-shadow: 0 4px 12px rgba(235, 87, 87, 0.25);
+      }
+    }
+    .company-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 1.25rem;
+    }
+    .company-card {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      text-decoration: none;
+      color: inherit;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+      cursor: pointer;
+      &:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 12px 30px rgba(17, 24, 39, 0.08);
+      }
+    }
+    .company-card-header {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+    }
+    .company-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      background: #fef2f2;
+      color: #eb5757;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.3rem;
+      flex-shrink: 0;
+    }
+    .company-card-title-group {
+      flex: 1;
+      min-width: 0;
+    }
+    .company-deal-title {
+      display: block;
+      font-size: 1.05rem;
+      color: #111827;
+      font-weight: 800;
+      line-height: 1.35;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .company-counterparty {
+      display: block;
+      color: #6b7280;
+      font-size: 0.82rem;
+      margin-top: 0.15rem;
+    }
+    .company-card-footer {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 0.5rem;
+      padding-top: 0.75rem;
+      border-top: 1px solid #f1f5f9;
+    }
+    .company-amount-block {
+      display: flex;
+      align-items: baseline;
+      gap: 0.25rem;
+    }
+    .company-total {
+      font-weight: 850;
+      font-size: 1.25rem;
+      color: #111827;
+    }
+    .company-currency {
+      color: #6b7280;
+      font-size: 0.82rem;
+      font-weight: 700;
+    }
+    .company-date {
+      color: #9ca3af;
+      font-size: 0.8rem;
+    }
   `],
 })
 export class CompanyDealsComponent implements OnInit {
@@ -102,6 +248,21 @@ export class CompanyDealsComponent implements OnInit {
   protected loadMore(): void {
     this.page += 1;
     this.load(true);
+  }
+
+  protected getStatusBadgeClass(status: string): string {
+    switch (status) {
+      case 'active':
+      case 'completed':
+        return 'badge-success';
+      case 'pending':
+        return 'badge-warning';
+      case 'rejected':
+      case 'cancelled':
+        return 'badge-danger';
+      default:
+        return 'badge-neutral';
+    }
   }
 
   private load(append = false): void {

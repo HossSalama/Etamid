@@ -41,10 +41,12 @@ import { LanguageService } from '../../core/services/language.service';
       .notification-toast {
         position: fixed;
         top: 0.75rem;
-        left: 50%;
-        transform: translateX(-50%);
+        left: 0;
+        right: 0;
+        margin-inline: auto;
+        transform: none;
         z-index: 1200;
-        width: min(92vw, 560px);
+        width: min(92%, 560px);
         display: flex;
         align-items: flex-start;
         gap: 0.5rem;

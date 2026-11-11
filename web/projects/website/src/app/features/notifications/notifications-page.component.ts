@@ -1,114 +1,104 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
-import { Router, RouterLink } from '@angular/router';
+import { Router } from '@angular/router';
 import {
   AppNotification,
   NotificationsService,
 } from '../../core/services/notifications.service';
 import { AuthService } from '../../core/services/auth.service';
 import { LanguageService } from '../../core/services/language.service';
+import { AppHeaderComponent } from '../../core/components/app-header/app-header.component';
+import { BottomNavComponent } from '../../core/components/bottom-nav/bottom-nav.component';
 
 /**
- * In-app notifications (Layer 1): the list from GET /notifications, newest
- * first. Tapping a notification marks it read and opens the screen its
- * links point at — a dispute goes to the dispute page, a company deal to
- * its detail page, everything else to the dashboard (deals and the wallet
- * live there; there is no /deals/:id route). Opening the list never marks
- * anything read; only a tap (or "mark all read") does.
+ * In-app notifications list: newest first.
  */
 @Component({
   selector: 'app-notifications-page',
   standalone: true,
-  imports: [RouterLink],
+  imports: [AppHeaderComponent, BottomNavComponent],
   template: `
-    <main class="notifications-page">
-      <header class="notifications-header-card">
-        <a class="notifications-back" routerLink="/home">→ {{ lang.t('back') }}</a>
-        <h1>{{ lang.t('notif_title') }}</h1>
-        <div class="notifications-header-actions">
+    <div class="app-screen notifications-page">
+      <app-header [title]="lang.t('notif_title')" backUrl="/home">
+        <div header-actions>
           @if (unreadCount() > 0) {
-            <button class="btn btn-black" (click)="markAllRead()" [disabled]="isMarkingAll()">
+            <button
+              type="button"
+              class="btn btn-pill mark-read-btn"
+              (click)="markAllRead()"
+              [disabled]="isMarkingAll()"
+            >
               {{ lang.t('notif_mark_all_read') }}
             </button>
           }
         </div>
-      </header>
-      <div class="notifications-content">
+      </app-header>
+
+      <main class="app-page-shell" style="max-width: 780px;">
         @if (isLoading()) {
-          <p>{{ lang.t('notif_loading') }}</p>
+          <div class="app-card text-center" style="padding: 2.5rem; text-align: center;">
+            <p>{{ lang.t('notif_loading') }}</p>
+          </div>
         } @else if (loadError()) {
-          <p>{{ lang.t('notif_error') }}</p>
+          <div class="app-card text-center" style="padding: 2.5rem; text-align: center; color: #b91c1c;">
+            <p>{{ lang.t('notif_error') }}</p>
+          </div>
         } @else if (!items().length) {
-          <div class="empty-notifications-box">
-            <span class="empty-icon">🔔</span>
-            <h4>{{ lang.t('notif_empty_title') }}</h4>
-            <p>{{ lang.t('notif_empty_desc') }}</p>
+          <div class="app-card empty-notifications-box" style="padding: 3rem 1.5rem; text-align: center;">
+            <span style="font-size: 2.5rem; display: block; margin-bottom: 0.5rem;" aria-hidden="true">🔔</span>
+            <h4 style="font-size: 1.1rem; color: #111827; margin-bottom: 0.35rem;">{{ lang.t('notif_empty_title') }}</h4>
+            <p style="color: #6b7280; font-size: 0.9rem;">{{ lang.t('notif_empty_desc') }}</p>
           </div>
         } @else {
-          <ul class="notifications-list">
-            @for (item of items(); track item.id) {
-              <li>
-                <button
-                  class="notification-row"
-                  [class.notification-unread]="!item.isRead"
-                  (click)="openNotification(item)"
-                >
-                  <span class="notification-dot" aria-hidden="true"></span>
-                  <span class="notification-text">
-                    <span class="notification-title">{{ item.title }}</span>
-                    <span class="notification-body">{{ item.body }}</span>
-                    <span class="notification-date">{{ item.createdAt }}</span>
-                  </span>
+          <div class="app-card notifications-card">
+            <ul class="notifications-list">
+              @for (item of items(); track item.id) {
+                <li>
+                  <button
+                    type="button"
+                    class="notification-row"
+                    [class.notification-unread]="!item.isRead"
+                    (click)="openNotification(item)"
+                  >
+                    <span class="notification-dot" aria-hidden="true"></span>
+                    <span class="notification-text">
+                      <strong class="notification-title">{{ item.title }}</strong>
+                      <span class="notification-body">{{ item.body }}</span>
+                      <small class="notification-date">🕒 {{ item.createdAt }}</small>
+                    </span>
+                  </button>
+                </li>
+              }
+            </ul>
+
+            @if (hasMore()) {
+              <div style="text-align: center; padding-top: 1.25rem;">
+                <button type="button" class="btn btn-outline-coral" (click)="loadMore()" [disabled]="isLoadingMore()">
+                  {{ isLoadingMore() ? lang.t('notif_loading') : lang.t('notif_load_more') }}
                 </button>
-              </li>
+              </div>
             }
-          </ul>
-          @if (hasMore()) {
-            <button class="btn btn-black" (click)="loadMore()" [disabled]="isLoadingMore()">
-              {{ isLoadingMore() ? lang.t('notif_loading') : lang.t('notif_load_more') }}
-            </button>
-          }
+          </div>
         }
-      </div>
-    </main>
+      </main>
+
+      <app-bottom-nav activeNav="home" />
+    </div>
   `,
   styles: [`
-    .notifications-page {
-      max-width: 720px;
-      margin: 0 auto;
-      padding: 1rem;
-    }
-    .notifications-header-card {
+    .mark-read-btn {
       background: #ffffff;
-      border-radius: 16px;
-      padding: 1.25rem;
-      margin-bottom: 1rem;
+      color: #eb5757 !important;
+      font-weight: 850;
+      min-height: 38px;
+      padding: 0.4rem 0.9rem;
+      font-size: 0.82rem;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+      &:hover {
+        background: #fdf2f2;
+      }
     }
-    .notifications-back {
-      color: #6b7280;
-      text-decoration: none;
-      font-size: 0.85rem;
-    }
-    .notifications-header-card h1 {
-      margin: 0.5rem 0;
-      font-size: 1.25rem;
-    }
-    .notifications-header-actions {
-      display: flex;
-      justify-content: flex-end;
-    }
-    .notifications-content {
-      background: #ffffff;
-      border-radius: 16px;
-      padding: 1.25rem;
-    }
-    .empty-notifications-box {
-      text-align: center;
-      padding: 2.5rem 1.5rem;
-    }
-    .empty-icon {
-      font-size: 2.5rem;
-      display: block;
-      margin-bottom: 0.5rem;
+    .notifications-card {
+      padding: 0.5rem 1rem 1.25rem;
     }
     .notifications-list {
       list-style: none;
@@ -117,48 +107,59 @@ import { LanguageService } from '../../core/services/language.service';
     }
     .notification-row {
       display: flex;
-      gap: 0.75rem;
+      gap: 0.85rem;
       width: 100%;
       text-align: start;
       background: none;
       border: none;
       border-bottom: 1px solid #f1f5f9;
-      padding: 0.85rem 0.25rem;
+      padding: 1rem 0.5rem;
       cursor: pointer;
+      border-radius: 12px;
+      transition: background 0.15s ease;
+      font-family: inherit;
+      &:hover {
+        background: #f9fafb;
+      }
     }
     .notification-unread {
-      background: #fef3f2;
+      background: #fff5f5;
+      &:hover {
+        background: #fee2e2;
+      }
     }
     .notification-dot {
-      width: 0.6rem;
-      height: 0.6rem;
+      width: 8px;
+      height: 8px;
       border-radius: 50%;
       background: #eb5757;
-      margin-top: 0.45rem;
+      margin-top: 0.55rem;
       flex-shrink: 0;
-      visibility: hidden;
+      opacity: 0;
     }
     .notification-unread .notification-dot {
-      visibility: visible;
+      opacity: 1;
     }
     .notification-text {
       display: flex;
       flex-direction: column;
-      gap: 0.2rem;
+      gap: 0.25rem;
+      flex: 1;
     }
     .notification-title {
-      font-weight: 700;
+      font-weight: 800;
       font-size: 0.95rem;
       color: #111827;
     }
     .notification-body {
-      font-size: 0.85rem;
+      font-size: 0.88rem;
       color: #4b5563;
-      line-height: 1.45;
+      line-height: 1.5;
     }
     .notification-date {
-      font-size: 0.75rem;
+      font-size: 0.76rem;
       color: #9ca3af;
+      margin-top: 0.2rem;
     }
   `],
 })
