@@ -5,16 +5,35 @@ import { ApiResponse } from '../models/api-response.model';
 import {
   Admin,
   AuditLog,
+  Deal,
   Dispute,
   Penalty,
   Permission,
   Role,
+  UserCounts,
   Withdrawal,
 } from '../models/admin.models';
 
 @Injectable({ providedIn: 'root' })
 export class AdminApiService {
   private readonly http = inject(HttpClient);
+
+  // ── Users ───────────────────────────────────────────────────────────────────
+
+  getUserCounts(): Observable<ApiResponse<UserCounts>> {
+    return this.http.get<ApiResponse<UserCounts>>('/admin/api/users/counts');
+  }
+
+  // ── Deals ────────────────────────────────────────────────────────────────────
+
+  listDeals(params: {
+    status?: string;
+    page?: number;
+    pageSize?: number;
+  }): Observable<ApiResponse<Deal[]>> {
+    const q = this.toParams(params);
+    return this.http.get<ApiResponse<Deal[]>>(`/admin/api/deals${q}`);
+  }
 
   // ── Admins ──────────────────────────────────────────────────────────────────
 

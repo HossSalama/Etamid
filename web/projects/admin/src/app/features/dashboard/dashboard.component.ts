@@ -4,16 +4,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { AdminApiService } from '../../core/services/admin-api.service';
 import { AdminAuthService } from '../../core/services/admin-auth.service';
 import { AdminLanguageService } from '../../core/services/admin-language.service';
-import { AuditLog, Dispute, Penalty, Withdrawal } from '../../core/models/admin.models';
-
-interface DashStat {
-  labelKey: string;
-  value: number | null;
-  iconClass: string;
-  icon: string;
-  permission: string;
-  linkPath: string;
-}
+import { AuditLog, Dispute, UserCounts } from '../../core/models/admin.models';
 
 @Component({
   selector: 'app-dashboard',
@@ -30,22 +21,31 @@ export class DashboardComponent implements OnInit {
   protected openDisputes       = signal<number | null>(null);
   protected appliedPenalties   = signal<number | null>(null);
   protected recentAudit        = signal<AuditLog[]>([]);
+  protected userCounts         = signal<UserCounts | null>(null);
+  protected userCountsLoaded   = signal(false);
+  protected totalDeals         = signal<number | null>(null);
 
   protected loadingWithdrawals = signal(false);
   protected loadingDisputes    = signal(false);
   protected loadingPenalties   = signal(false);
   protected loadingAudit       = signal(false);
+  protected loadingUserCounts  = signal(false);
+  protected loadingDeals       = signal(false);
 
   protected readonly canViewWithdrawals = this.auth.hasPermission('admin.withdrawals.view');
   protected readonly canViewDisputes    = this.auth.hasPermission('admin.disputes.view');
   protected readonly canViewPenalties   = this.auth.hasPermission('admin.penalties.view');
   protected readonly canViewAudit       = this.auth.hasPermission('admin.audit.view');
+  protected readonly canViewUsers       = this.auth.hasPermission('admin.users.view');
+  protected readonly canViewDeals       = this.auth.hasPermission('admin.deals.view');
 
   ngOnInit(): void {
     if (this.canViewWithdrawals) this.loadWithdrawals();
     if (this.canViewDisputes)    this.loadDisputes();
     if (this.canViewPenalties)   this.loadPenalties();
     if (this.canViewAudit)       this.loadAudit();
+    if (this.canViewUsers)       this.loadUserCounts();
+    if (this.canViewDeals)       this.loadDealsCount();
   }
 
   private loadWithdrawals(): void {
@@ -106,6 +106,38 @@ export class DashboardComponent implements OnInit {
     });
   }
 
+  private loadUserCounts(): void {
+    this.loadingUserCounts.set(true);
+    this.api.getUserCounts().subscribe({
+      next: (res) => {
+        this.loadingUserCounts.set(false);
+        if (res.success) {
+          this.userCounts.set(res.data ?? null);
+          this.userCountsLoaded.set(true);
+        }
+      },
+      error: (err: HttpErrorResponse) => {
+        this.loadingUserCounts.set(false);
+        // 403 = hide cards; other errors = hide quietly
+        if (err.status !== 403) this.userCountsLoaded.set(false);
+      },
+    });
+  }
+
+  private loadDealsCount(): void {
+    this.loadingDeals.set(true);
+    this.api.listDeals({ page: 1, pageSize: 1 }).subscribe({
+      next: (res) => {
+        this.loadingDeals.set(false);
+        if (res.success) this.totalDeals.set(res.meta?.total ?? null);
+      },
+      error: (err: HttpErrorResponse) => {
+        this.loadingDeals.set(false);
+        if (err.status !== 403) this.totalDeals.set(0);
+      },
+    });
+  }
+
   protected formatDate(dt: string): string {
     return new Date(dt).toLocaleString(
       this.lang.currentLang() === 'ar' ? 'ar-SA' : 'en-US',
@@ -113,3 +145,5 @@ export class DashboardComponent implements OnInit {
     );
   }
 }
+
+

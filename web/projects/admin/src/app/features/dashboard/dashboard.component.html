@@ -41,6 +41,48 @@
       }
     </div>
   }
+
+  @if (canViewUsers && userCountsLoaded()) {
+    <div class="stat-card">
+      <div class="stat-card-icon teal">🛒</div>
+      <div class="stat-card-label">{{ lang.t('dash_sellers') }}</div>
+      @if (loadingUserCounts()) {
+        <div class="spinner"></div>
+      } @else {
+        <div class="stat-card-value">{{ userCounts()?.sellers ?? '—' }}</div>
+      }
+    </div>
+    <div class="stat-card">
+      <div class="stat-card-icon teal">🛍</div>
+      <div class="stat-card-label">{{ lang.t('dash_buyers') }}</div>
+      @if (loadingUserCounts()) {
+        <div class="spinner"></div>
+      } @else {
+        <div class="stat-card-value">{{ userCounts()?.buyers ?? '—' }}</div>
+      }
+    </div>
+    <div class="stat-card">
+      <div class="stat-card-icon teal">🏢</div>
+      <div class="stat-card-label">{{ lang.t('dash_companies') }}</div>
+      @if (loadingUserCounts()) {
+        <div class="spinner"></div>
+      } @else {
+        <div class="stat-card-value">{{ userCounts()?.companies ?? '—' }}</div>
+      }
+    </div>
+  }
+
+  @if (canViewDeals) {
+    <div class="stat-card">
+      <div class="stat-card-icon amber">🤝</div>
+      <div class="stat-card-label">{{ lang.t('dash_deals') }}</div>
+      @if (loadingDeals()) {
+        <div class="spinner"></div>
+      } @else {
+        <div class="stat-card-value">{{ totalDeals() ?? '—' }}</div>
+      }
+    </div>
+  }
 </div>
 
 <!-- Recent Audit Log -->
@@ -68,8 +110,8 @@
           <tbody>
             @for (entry of recentAudit(); track entry.id) {
               <tr>
-                <td>{{ entry.actorName ?? '—' }}<br><small class="text-muted">#{{ entry.actorId }}</small></td>
-                <td><code style="font-size:0.78rem">{{ entry.action }}</code></td>
+                <td>{{ lang.auditActorLabel(entry.actorName) }}<br><small class="text-muted">{{ entry.actorId ? '#'+entry.actorId : '' }}</small></td>
+                <td>{{ lang.auditActionLabel(entry.action) }}</td>
                 <td>{{ entry.entityType ?? '—' }} {{ entry.entityId ? '#'+entry.entityId : '' }}</td>
                 <td><small>{{ formatDate(entry.createdAt) }}</small></td>
               </tr>

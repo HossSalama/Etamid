@@ -38,8 +38,8 @@
           @for (item of items(); track item.id) {
             <tr>
               <td>#{{ item.id }}</td>
-              <td>{{ item.actorName ?? '—' }}<br><small class="text-muted">#{{ item.actorId }}</small></td>
-              <td><code style="font-size:0.78rem">{{ item.action }}</code></td>
+              <td>{{ lang.auditActorLabel(item.actorName) }}<br><small class="text-muted">{{ item.actorId ? '#'+item.actorId : '' }}</small></td>
+              <td>{{ lang.auditActionLabel(item.action) }}</td>
               <td>{{ item.entityType ?? '—' }}<br><small class="text-muted">{{ item.entityId ? '#'+item.entityId : '' }}</small></td>
               <td><small>{{ item.ip ?? '—' }}</small></td>
               <td><small style="word-break:break-all;max-width:120px;display:block">{{ jsonPreview(item.before) }}</small></td>

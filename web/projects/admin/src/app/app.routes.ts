@@ -51,6 +51,11 @@ export const routes: Routes = [
           ),
       },
       {
+        path: 'deals',
+        loadComponent: () =>
+          import('./features/deals/deals.component').then((m) => m.DealsComponent),
+      },
+      {
         path: 'admins',
         loadComponent: () =>
           import('./features/admins/admins.component').then((m) => m.AdminsComponent),
@@ -72,10 +77,7 @@ export const routes: Routes = [
       },
       {
         path: 'permissions',
-        loadComponent: () =>
-          import('./features/permissions/permissions.component').then(
-            (m) => m.PermissionsComponent,
-          ),
+        redirectTo: 'dashboard',
       },
       {
         path: 'audit-log',

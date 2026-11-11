@@ -83,6 +83,29 @@ export interface Penalty {
   createdAt: string;
 }
 
+/** User counts from GET /admin/api/users/counts */
+export interface UserCounts {
+  sellers: number;
+  buyers: number;
+  companies: number;
+  individuals: number;
+}
+
+/** Deal item from GET /admin/api/deals */
+export interface Deal {
+  id: number;
+  number: string;
+  title: string;
+  amount: number;
+  currency: string;
+  status: string;
+  buyerId: number;
+  buyerName: string;
+  sellerId: number;
+  sellerName: string;
+  createdAt: string;
+}
+
 /** Dispute from GET /api/v1/admin/disputes */
 export interface Dispute {
   id: number;

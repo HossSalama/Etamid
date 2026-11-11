@@ -29,6 +29,23 @@ export class AdminLanguageService {
     return this.translations[this.currentLang()][key] ?? key;
   }
 
+  /** Returns a human-readable audit action label; falls back to raw code. */
+  auditActionLabel(code: string): string {
+    return this.translations[this.currentLang()][`audit_action_${code}`] ?? code;
+  }
+
+  /** Returns actor display name: actorName if present, 'System'/'النظام' if null. */
+  auditActorLabel(actorName: string | null): string {
+    return actorName ?? this.t('audit_actor_system');
+  }
+
+  /** Returns a human-readable deal status label. */
+  dealStatusLabel(status: string): string {
+    return this.t(`deals_status_${status}`) !== `deals_status_${status}`
+      ? this.t(`deals_status_${status}`)
+      : status;
+  }
+
   private getInitialLang(): LanguageCode {
     const stored = localStorage.getItem(STORAGE_KEY);
     return stored === 'en' ? 'en' : 'ar';
@@ -88,6 +105,7 @@ export class AdminLanguageService {
       nav_withdrawals:      'السحوبات',
       nav_penalties:        'الغرامات',
       nav_disputes:         'النزاعات',
+      nav_deals:            'الصفقات',
       nav_admins:           'المشرفون',
       nav_roles:            'الأدوار',
       nav_permissions:      'الصلاحيات',
@@ -128,6 +146,10 @@ export class AdminLanguageService {
       dash_recent_audit:    'آخر إجراءات المراجعة',
       dash_view_all:        'عرض الكل',
       dash_no_data:         'لا توجد بيانات بعد.',
+      dash_sellers:         'البائعون',
+      dash_buyers:          'المشترون',
+      dash_companies:       'الشركات',
+      dash_deals:           'الصفقات',
 
       // Withdrawals
       wd_title:             'إدارة السحوبات',
@@ -274,6 +296,51 @@ export class AdminLanguageService {
       audit_filter_entity:  'نوع الكيان',
       audit_filter_actor:   'معرف المنفذ',
       audit_empty:          'لا توجد سجلات.',
+      audit_actor_system:   'النظام',
+
+      // Audit action labels (ar)
+      'audit_action_admin.create':                    'إنشاء مشرف',
+      'audit_action_admin.update':                    'تعديل مشرف',
+      'audit_action_admin.disable':                   'تعطيل مشرف',
+      'audit_action_admin.enable':                    'تفعيل مشرف',
+      'audit_action_admin.reset_2fa':                 'إعادة تعيين 2FA',
+      'audit_action_admin.role.create':               'إنشاء دور',
+      'audit_action_admin.role.update':               'تعديل دور',
+      'audit_action_admin.role.delete':               'حذف دور',
+      'audit_action_admin.role.assign':               'تعيين دور',
+      'audit_action_admin.login.success':             'تسجيل دخول ناجح',
+      'audit_action_admin.login.failed':              'فشل تسجيل الدخول',
+      'audit_action_admin.login.locked':              'حساب مقفل',
+      'audit_action_admin.logout':                    'تسجيل الخروج',
+      'audit_action_admin.withdrawal.approve':        'موافقة على سحب',
+      'audit_action_admin.withdrawal.reject':         'رفض سحب',
+      'audit_action_admin.withdrawal.complete':       'إتمام سحب',
+      'audit_action_admin.penalty.waive':             'تنازل عن غرامة',
+      'audit_action_admin.dispute.decide':            'فصل في نزاع',
+      'audit_action_admin.dispute.request_info':      'طلب معلومات نزاع',
+      'audit_action_admin.permission.update':         'تعديل صلاحيات دور',
+      'audit_action_admin.2fa.enable':                'تفعيل 2FA',
+      'audit_action_admin.2fa.disable':               'تعطيل 2FA',
+      'audit_action_admin.2fa.setup':                 'إعداد 2FA',
+
+      // Deals
+      deals_title:              'الصفقات',
+      deals_col_number:         'رقم الصفقة',
+      deals_col_title:          'العنوان',
+      deals_col_buyer:          'المشتري',
+      deals_col_seller:         'البائع',
+      deals_col_amount:         'المبلغ',
+      deals_col_status:         'الحالة',
+      deals_col_created:        'التاريخ',
+      deals_filter_status:      'تصفية حسب الحالة',
+      deals_empty:              'لا توجد صفقات.',
+      deals_status_pending_acceptance: 'بانتظار القبول',
+      deals_status_funded:             'تم التمويل',
+      deals_status_inspection:         'قيد الفحص',
+      deals_status_completed:          'مكتملة',
+      deals_status_cancelled:          'ملغاة',
+      deals_status_disputed:           'متنازع عليها',
+      deals_status_refunded:           'مستردة',
 
       // Profile
       prof_title:           'الملف الشخصي',
@@ -352,6 +419,7 @@ export class AdminLanguageService {
       nav_withdrawals:      'Withdrawals',
       nav_penalties:        'Penalties',
       nav_disputes:         'Disputes',
+      nav_deals:            'Deals',
       nav_admins:           'Admins',
       nav_roles:            'Roles',
       nav_permissions:      'Permissions',
@@ -392,6 +460,10 @@ export class AdminLanguageService {
       dash_recent_audit:    'Recent Audit Actions',
       dash_view_all:        'View all',
       dash_no_data:         'No data yet.',
+      dash_sellers:         'Sellers',
+      dash_buyers:          'Buyers',
+      dash_companies:       'Companies',
+      dash_deals:           'Deals',
 
       // Withdrawals
       wd_title:             'Withdrawal Management',
@@ -538,6 +610,51 @@ export class AdminLanguageService {
       audit_filter_entity:  'Entity Type',
       audit_filter_actor:   'Actor ID',
       audit_empty:          'No audit log entries.',
+      audit_actor_system:   'System',
+
+      // Audit action labels (en)
+      'audit_action_admin.create':                    'Create Admin',
+      'audit_action_admin.update':                    'Update Admin',
+      'audit_action_admin.disable':                   'Disable Admin',
+      'audit_action_admin.enable':                    'Enable Admin',
+      'audit_action_admin.reset_2fa':                 'Reset 2FA',
+      'audit_action_admin.role.create':               'Create Role',
+      'audit_action_admin.role.update':               'Update Role',
+      'audit_action_admin.role.delete':               'Delete Role',
+      'audit_action_admin.role.assign':               'Assign Role',
+      'audit_action_admin.login.success':             'Login Success',
+      'audit_action_admin.login.failed':              'Login Failed',
+      'audit_action_admin.login.locked':              'Account Locked',
+      'audit_action_admin.logout':                    'Logout',
+      'audit_action_admin.withdrawal.approve':        'Approve Withdrawal',
+      'audit_action_admin.withdrawal.reject':         'Reject Withdrawal',
+      'audit_action_admin.withdrawal.complete':       'Complete Withdrawal',
+      'audit_action_admin.penalty.waive':             'Waive Penalty',
+      'audit_action_admin.dispute.decide':            'Decide Dispute',
+      'audit_action_admin.dispute.request_info':      'Request Dispute Info',
+      'audit_action_admin.permission.update':         'Update Role Permissions',
+      'audit_action_admin.2fa.enable':                'Enable 2FA',
+      'audit_action_admin.2fa.disable':               'Disable 2FA',
+      'audit_action_admin.2fa.setup':                 'Setup 2FA',
+
+      // Deals
+      deals_title:              'Deals',
+      deals_col_number:         'Number',
+      deals_col_title:          'Title',
+      deals_col_buyer:          'Buyer',
+      deals_col_seller:         'Seller',
+      deals_col_amount:         'Amount',
+      deals_col_status:         'Status',
+      deals_col_created:        'Date',
+      deals_filter_status:      'Filter by status',
+      deals_empty:              'No deals found.',
+      deals_status_pending_acceptance: 'Pending Acceptance',
+      deals_status_funded:             'Funded',
+      deals_status_inspection:         'In Inspection',
+      deals_status_completed:          'Completed',
+      deals_status_cancelled:          'Cancelled',
+      deals_status_disputed:           'Disputed',
+      deals_status_refunded:           'Refunded',
 
       // Profile
       prof_title:           'Profile',

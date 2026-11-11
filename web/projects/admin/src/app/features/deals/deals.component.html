@@ -1,0 +1,69 @@
+<div class="page-header">
+  <div><h1 class="page-title">{{ lang.t('deals_title') }}</h1></div>
+</div>
+
+@if (!canView) {
+  <div class="no-permission-state"><span style="font-size:2.5rem">🔒</span><p>{{ lang.t('no_permission') }}</p></div>
+} @else {
+  <!-- Filter bar -->
+  <div class="filter-bar">
+    <select class="form-control" [(ngModel)]="filterStatus">
+      <option value="">{{ lang.t('all') }}</option>
+      @for (s of statusOptions; track s) {
+        <option [value]="s">{{ lang.dealStatusLabel(s) }}</option>
+      }
+    </select>
+    <button class="btn btn-secondary" (click)="applyFilter()">{{ lang.t('filter') }}</button>
+  </div>
+
+  @if (loading()) {
+    <div class="loading-overlay"><div class="spinner spinner-lg"></div></div>
+  } @else if (error()) {
+    <div class="error-state"><p>{{ error() }}</p></div>
+  } @else {
+    <div class="admin-table-wrapper">
+      <table class="admin-table">
+        <thead>
+          <tr>
+            <th>{{ lang.t('deals_col_number') }}</th>
+            <th>{{ lang.t('deals_col_title') }}</th>
+            <th>{{ lang.t('deals_col_buyer') }}</th>
+            <th>{{ lang.t('deals_col_seller') }}</th>
+            <th>{{ lang.t('deals_col_amount') }}</th>
+            <th>{{ lang.t('deals_col_status') }}</th>
+            <th>{{ lang.t('deals_col_created') }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          @if (items().length === 0) {
+            <tr><td colspan="7"><div class="empty-state"><p class="empty-state-text">{{ lang.t('deals_empty') }}</p></div></td></tr>
+          }
+          @for (deal of items(); track deal.id) {
+            <tr>
+              <td><small class="text-muted">#{{ deal.number }}</small></td>
+              <td>{{ deal.title }}</td>
+              <td>{{ deal.buyerName }}<br><small class="text-muted">#{{ deal.buyerId }}</small></td>
+              <td>{{ deal.sellerName }}<br><small class="text-muted">#{{ deal.sellerId }}</small></td>
+              <td><strong>{{ formatAmount(deal.amount, deal.currency) }}</strong></td>
+              <td><span class="badge badge-{{ deal.status }}">{{ lang.dealStatusLabel(deal.status) }}</span></td>
+              <td><small>{{ formatDate(deal.createdAt) }}</small></td>
+            </tr>
+          }
+        </tbody>
+      </table>
+
+      @if (meta() && meta()!.totalPages > 1) {
+        <div class="pagination">
+          <span class="pagination-info">{{ lang.t('page') }} {{ page() }} {{ lang.t('of') }} {{ meta()!.totalPages }}</span>
+          <div class="pagination-controls">
+            <button class="pagination-btn" [disabled]="page() <= 1" (click)="goPage(page() - 1)">‹</button>
+            @for (p of pages(); track p) {
+              <button class="pagination-btn" [class.active]="p === page()" (click)="goPage(p)">{{ p }}</button>
+            }
+            <button class="pagination-btn" [disabled]="page() >= meta()!.totalPages" (click)="goPage(page() + 1)">›</button>
+          </div>
+        </div>
+      }
+    </div>
+  }
+}

@@ -50,6 +50,7 @@ export class AdminShellComponent {
         { labelKey: 'nav_withdrawals', path: '/withdrawals',  icon: '⇥', permission: 'admin.withdrawals.view' },
         { labelKey: 'nav_penalties',   path: '/penalties',    icon: '⚠', permission: 'admin.penalties.view' },
         { labelKey: 'nav_disputes',    path: '/disputes',     icon: '⚖', permission: 'admin.disputes.view' },
+        { labelKey: 'nav_deals',       path: '/deals',        icon: '🤝', permission: 'admin.deals.view' },
       ],
     },
     {
@@ -57,7 +58,6 @@ export class AdminShellComponent {
       items: [
         { labelKey: 'nav_admins',      path: '/admins',       icon: '👤', permission: 'admin.roles.manage' },
         { labelKey: 'nav_roles',       path: '/roles',        icon: '🔑', permission: 'admin.roles.manage' },
-        { labelKey: 'nav_permissions', path: '/permissions',  icon: '🔒', permission: 'admin.roles.manage' },
         { labelKey: 'nav_audit_log',   path: '/audit-log',    icon: '📋', permission: 'admin.audit.view' },
       ],
     },
