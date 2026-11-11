@@ -233,8 +233,28 @@ public sealed class ListAuditLogsHandler(IApplicationDbContext db, AdminAccessSe
         var rows = await source.OrderByDescending(a => a.CreatedAt).ThenByDescending(a => a.Id)
             .Skip((page - 1) * pageSize).Take(pageSize).ToListAsync(ct);
 
+        // Resolve actor names in two batched lookups
+        var adminIds = rows.Where(a => a.ActorType == AuditActorType.Admin && a.ActorId.HasValue)
+            .Select(a => a.ActorId!.Value).Distinct().ToList();
+        var userIds = rows.Where(a => a.ActorType == AuditActorType.User && a.ActorId.HasValue)
+            .Select(a => a.ActorId!.Value).Distinct().ToList();
+
+        var adminNames = await db.AdminUsers.AsNoTracking().Where(u => adminIds.Contains(u.Id))
+            .ToDictionaryAsync(u => u.Id, u => u.Name, ct);
+        var userNames = await db.Users.AsNoTracking().Where(u => userIds.Contains(u.Id))
+            .ToDictionaryAsync(u => u.Id, u => u.Name, ct);
+
+        string? ResolveActorName(AuditLog log) => log.ActorType switch
+        {
+            AuditActorType.Admin when log.ActorId.HasValue => adminNames.GetValueOrDefault(log.ActorId.Value),
+            AuditActorType.User when log.ActorId.HasValue => userNames.GetValueOrDefault(log.ActorId.Value),
+            _ => null
+        };
+
         var dtos = rows.Select(a => new AuditLogDto(
-            a.Id, a.ActorType, a.ActorId, a.Action, a.EntityType, a.EntityId, a.OldValues, a.NewValues, a.Ip, a.CreatedAt)).ToList();
+            a.Id, a.ActorType, a.ActorId, ResolveActorName(a), a.Action, a.EntityType, a.EntityId,
+            a.OldValues, a.NewValues, a.Ip, a.CreatedAt)).ToList();
         return new PagedResult<AuditLogDto>(dtos, page, pageSize, total);
+
     }
 }

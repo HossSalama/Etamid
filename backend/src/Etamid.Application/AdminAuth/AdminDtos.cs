@@ -24,5 +24,5 @@ public sealed record AdminRoleDto(long Id, string Name, string? Description, IRe
 public sealed record AdminPermissionDto(long Id, string Code, string? Description);
 
 public sealed record AuditLogDto(
-    long Id, AuditActorType ActorType, long? ActorId, string Action, string EntityType, long EntityId,
+    long Id, AuditActorType ActorType, long? ActorId, string? ActorName, string Action, string EntityType, long EntityId,
     string? OldValues, string? NewValues, string? Ip, DateTime CreatedAt);

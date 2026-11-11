@@ -187,9 +187,10 @@ paths:
       responses: { '200': { description: Role }, '404': { description: ADMIN_PERMISSION_NOT_FOUND }, '409': { description: ADMIN_ROLE_PROTECTED } }
   /admin/api/permissions:
     get: { summary: The 18 permission codes (admin.roles.manage), responses: { '200': { description: "[{ id, code, description }]" } } }
+  # ---- Task 3 backend, Item 1: audit-logs now returns ActorName (actor id + name).
   /admin/api/audit-logs:
     get:
-      summary: Audit log (admin.audit.view), newest first. Every login attempt and every admin-management write is recorded with actor, action, entity, before/after values and IP.
+      summary: Audit log (admin.audit.view), newest first. Every login attempt and every admin-management write is recorded with actor id + actorName, action, entity, before/after values and IP.
       parameters:
         - { name: action, in: query, schema: { type: string, example: admin.login.failed } }
         - { name: entityType, in: query, schema: { type: string } }
@@ -197,6 +198,20 @@ paths:
         - { name: page, in: query, schema: { type: integer } }
         - { name: pageSize, in: query, schema: { type: integer, maximum: 100 } }
       responses: { '200': { description: Paginated audit logs }, '403': { $ref: '#/components/responses/Forbidden' } }
+  # ---- Task 3 backend, Item 2 (new endpoint): app user counts for the dashboard.
+  /admin/api/users/counts:
+    get:
+      summary: App user counts for the dashboard (admin.users.view). Returns sellers, buyers, companies, individuals.
+      responses: { '200': { description: "{ sellers, buyers, companies, individuals }" }, '401': { $ref: '#/components/responses/Unauthorized' }, '403': { $ref: '#/components/responses/Forbidden' } }
+  # ---- Task 3 backend, Item 3 (new endpoint): admin deals list (all deals, optional status filter).
+  /admin/api/deals:
+    get:
+      summary: List all deals for the admin dashboard (admin.deals.view). Optional status filter, paginated; meta.total is the deals count.
+      parameters:
+        - { name: status, in: query, schema: { type: string } }
+        - { name: page, in: query, schema: { type: integer } }
+        - { name: pageSize, in: query, schema: { type: integer } }
+      responses: { '200': { description: "Paginated deals (id, number, title, amount, currency, status, buyerId, buyerName, sellerId, sellerName, createdAt)" }, '401': { $ref: '#/components/responses/Unauthorized' }, '403': { $ref: '#/components/responses/Forbidden' } }
   # ---- Phase 2: operator points. These keep their /api/v1/admin paths (frozen mobile contract) but are now
   # ---- gated by the AdminJwt token + a database-checked permission. App-user token: 403. No token: 401.
   /api/v1/admin/withdrawals:

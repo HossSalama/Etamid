@@ -147,3 +147,22 @@ public sealed class AdminAuditLogsController : AdminApiController
         [FromQuery] int page = 1, [FromQuery] int pageSize = 20, CancellationToken ct = default)
         => RespondPaged(await Sender.Send(new ListAuditLogsQuery(action, entityType, actorId, page, pageSize), ct));
 }
+
+[Authorize(AuthenticationSchemes = AdminAuthSchemes.Jwt)]
+[Route("admin/api/users")]
+public sealed class AdminAppUsersController : AdminApiController
+{
+    [HttpGet("counts")]
+    public async Task<IActionResult> Counts(CancellationToken ct)
+        => Respond(await Sender.Send(new GetAppUserCountsQuery(), ct));
+}
+
+[Authorize(AuthenticationSchemes = AdminAuthSchemes.Jwt)]
+[Route("admin/api/deals")]
+public sealed class AdminDealsController : AdminApiController
+{
+    [HttpGet]
+    public async Task<IActionResult> List(
+        [FromQuery] string? status, [FromQuery] int page = 1, [FromQuery] int pageSize = 20, CancellationToken ct = default)
+        => RespondPaged(await Sender.Send(new ListAdminDealsQuery(status, page, pageSize), ct));
+}
