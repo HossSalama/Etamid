@@ -1,0 +1,129 @@
+<div class="page-header">
+  <div><h1 class="page-title">{{ lang.t('adm_title') }}</h1></div>
+  @if (isSuperAdmin && canManage) {
+    <button class="btn btn-primary" (click)="openCreate()">+ {{ lang.t('adm_create') }}</button>
+  }
+</div>
+
+@if (!canManage) {
+  <div class="no-permission-state"><span style="font-size:2.5rem">🔒</span><p>{{ lang.t('no_permission') }}</p></div>
+} @else {
+  <div class="filter-bar">
+    <select class="form-control" [(ngModel)]="statusFilter" (change)="applyFilter()">
+      <option value="">{{ lang.t('all') }}</option>
+      <option value="active">{{ lang.t('active') }}</option>
+      <option value="disabled">{{ lang.t('disabled') }}</option>
+    </select>
+  </div>
+
+  @if (loading()) {
+    <div class="loading-overlay"><div class="spinner spinner-lg"></div></div>
+  } @else if (error()) {
+    <div class="error-state"><p>{{ error() }}</p></div>
+  } @else {
+    <div class="admin-table-wrapper">
+      <table class="admin-table">
+        <thead>
+          <tr>
+            <th>{{ lang.t('adm_col_id') }}</th>
+            <th>{{ lang.t('adm_col_name') }}</th>
+            <th>{{ lang.t('adm_col_email') }}</th>
+            <th>{{ lang.t('adm_col_status') }}</th>
+            <th>{{ lang.t('adm_col_roles') }}</th>
+            <th>{{ lang.t('adm_col_2fa') }}</th>
+            <th>{{ lang.t('adm_col_last_login') }}</th>
+            <th>{{ lang.t('adm_col_actions') }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          @if (items().length === 0) {
+            <tr><td colspan="8"><div class="empty-state"><p class="empty-state-text">{{ lang.t('adm_empty') }}</p></div></td></tr>
+          }
+          @for (item of items(); track item.id) {
+            <tr>
+              <td>#{{ item.id }}</td>
+              <td><strong>{{ item.name }}</strong></td>
+              <td>{{ item.email }}</td>
+              <td>
+                <span [class]="item.status === 'active' ? 'badge badge-success' : 'badge badge-danger'">
+                  {{ item.status === 'active' ? lang.t('adm_enabled') : lang.t('adm_disabled') }}
+                </span>
+              </td>
+              <td>
+                @for (r of item.roles; track r) {
+                  <span class="badge badge-info" style="margin:1px">{{ r }}</span>
+                }
+              </td>
+              <td>
+                <span [class]="item.twoFactorEnabled ? 'badge badge-success' : 'badge badge-neutral'">
+                  {{ item.twoFactorEnabled ? lang.t('adm_2fa_on') : lang.t('adm_2fa_off') }}
+                </span>
+              </td>
+              <td><small>{{ formatDate(item.lastLoginAt) }}</small></td>
+              <td><a [routerLink]="['/admins', item.id]" class="btn btn-sm btn-secondary">{{ lang.t('edit') }}</a></td>
+            </tr>
+          }
+        </tbody>
+      </table>
+
+      @if (meta() && meta()!.totalPages > 1) {
+        <div class="pagination">
+          <span class="pagination-info">{{ lang.t('page') }} {{ page() }} {{ lang.t('of') }} {{ meta()!.totalPages }}</span>
+          <div class="pagination-controls">
+            <button class="pagination-btn" [disabled]="page() <= 1" (click)="goPage(page() - 1)">‹</button>
+            @for (p of pages(); track p) {
+              <button class="pagination-btn" [class.active]="p === page()" (click)="goPage(p)">{{ p }}</button>
+            }
+            <button class="pagination-btn" [disabled]="page() >= meta()!.totalPages" (click)="goPage(page() + 1)">›</button>
+          </div>
+        </div>
+      }
+    </div>
+  }
+}
+
+@if (showCreate()) {
+  <div class="modal-backdrop" (click)="closeCreate()">
+    <div class="modal-box" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3 class="modal-title">{{ lang.t('adm_new_title') }}</h3>
+        <button class="btn btn-ghost btn-sm btn-icon" (click)="closeCreate()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div style="display:flex;flex-direction:column;gap:1rem">
+          <div class="form-group">
+            <label class="form-label required">{{ lang.t('name') }}</label>
+            <input class="form-control" [(ngModel)]="createName" [placeholder]="lang.t('adm_name_ph')" />
+          </div>
+          <div class="form-group">
+            <label class="form-label required">{{ lang.t('email') }}</label>
+            <input class="form-control" type="email" [(ngModel)]="createEmail" [placeholder]="lang.t('adm_email_ph')" />
+          </div>
+          <div class="form-group">
+            <label class="form-label required">{{ lang.t('password') }}</label>
+            <input class="form-control" type="password" [(ngModel)]="createPass" [placeholder]="lang.t('adm_password_ph')" />
+          </div>
+          @if (availableRoles().length > 0) {
+            <div class="form-group">
+              <label class="form-label">{{ lang.t('adm_roles_label') }}</label>
+              @for (role of availableRoles(); track role.id) {
+                <label style="display:flex;align-items:center;gap:0.5rem;padding:0.25rem 0;cursor:pointer">
+                  <input type="checkbox" [checked]="isRoleChecked(role.id)" (change)="toggleRole(role.id)" />
+                  {{ role.name }}
+                </label>
+              }
+            </div>
+          }
+          @if (createError()) { <div class="auth-error">{{ createError() }}</div> }
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" (click)="closeCreate()" [disabled]="createLoading()">{{ lang.t('cancel') }}</button>
+        <button class="btn btn-primary" (click)="submitCreate()" [disabled]="createLoading()">
+          @if (createLoading()) { <span class="spinner spinner-sm"></span> }
+          {{ lang.t('create') }}
+        </button>
+      </div>
+    </div>
+  </div>
+}

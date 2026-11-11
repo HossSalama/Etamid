@@ -1,0 +1,59 @@
+<div class="auth-page">
+  <div class="auth-card">
+    <div class="auth-brand">
+      <div class="auth-logo">ع</div>
+      <span class="auth-brand-name">اعتمد</span>
+      <span class="auth-brand-sub">{{ lang.t('admin_panel') }}</span>
+    </div>
+
+    <h1 class="auth-title">{{ lang.t('verify_2fa_title') }}</h1>
+    <p class="auth-subtitle">{{ lang.t('verify_2fa_subtitle') }}</p>
+
+    @if (errorMsg()) {
+      <div class="auth-error" style="margin-bottom:1rem">{{ errorMsg() }}</div>
+    }
+
+    <form class="auth-form" (ngSubmit)="submit()">
+      <div class="form-group">
+        <label class="form-label required" for="admin-otp">{{ lang.t('verify_2fa_code') }}</label>
+        <input
+          id="admin-otp"
+          type="text"
+          inputmode="numeric"
+          pattern="[0-9]*"
+          class="form-control otp-input"
+          [(ngModel)]="code"
+          name="code"
+          [placeholder]="lang.t('verify_2fa_code_ph')"
+          autocomplete="one-time-code"
+          maxlength="6"
+          required
+        />
+      </div>
+
+      <button
+        type="submit"
+        class="btn btn-primary btn-lg w-full"
+        style="margin-top:0.5rem"
+        [disabled]="loading()"
+      >
+        @if (loading()) {
+          <span class="spinner spinner-sm"></span>
+        }
+        {{ loading() ? lang.t('verify_2fa_submitting') : lang.t('verify_2fa_submit') }}
+      </button>
+    </form>
+
+    <div style="text-align:center;margin-top:1.25rem">
+      <button class="btn btn-ghost btn-sm" (click)="backToLogin()" style="color:#6b7280;font-size:0.85rem">
+        ← {{ lang.t('verify_2fa_back') }}
+      </button>
+    </div>
+
+    <div style="text-align:center;margin-top:0.5rem">
+      <button class="btn btn-ghost btn-sm" (click)="toggleLang()" style="font-size:0.8rem;color:#9ca3af">
+        {{ lang.otherLangLabel() }}
+      </button>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,82 @@
+<div class="page-header">
+  <div>
+    <h1 class="page-title">{{ lang.t('dash_title') }}</h1>
+  </div>
+</div>
+
+<!-- Stats Grid -->
+<div class="stats-grid">
+  @if (canViewWithdrawals) {
+    <div class="stat-card">
+      <div class="stat-card-icon coral">⇥</div>
+      <div class="stat-card-label">{{ lang.t('dash_pending_withdrawals') }}</div>
+      @if (loadingWithdrawals()) {
+        <div class="spinner"></div>
+      } @else {
+        <div class="stat-card-value">{{ pendingWithdrawals() ?? '—' }}</div>
+      }
+    </div>
+  }
+
+  @if (canViewDisputes) {
+    <div class="stat-card">
+      <div class="stat-card-icon amber">⚖</div>
+      <div class="stat-card-label">{{ lang.t('dash_open_disputes') }}</div>
+      @if (loadingDisputes()) {
+        <div class="spinner"></div>
+      } @else {
+        <div class="stat-card-value">{{ openDisputes() ?? '—' }}</div>
+      }
+    </div>
+  }
+
+  @if (canViewPenalties) {
+    <div class="stat-card">
+      <div class="stat-card-icon coral">⚠</div>
+      <div class="stat-card-label">{{ lang.t('dash_applied_penalties') }}</div>
+      @if (loadingPenalties()) {
+        <div class="spinner"></div>
+      } @else {
+        <div class="stat-card-value">{{ appliedPenalties() ?? '—' }}</div>
+      }
+    </div>
+  }
+</div>
+
+<!-- Recent Audit Log -->
+@if (canViewAudit) {
+  <div class="admin-card">
+    <div class="admin-card-header">
+      <h3 class="admin-card-title">{{ lang.t('dash_recent_audit') }}</h3>
+      <a routerLink="/audit-log" class="btn btn-ghost btn-sm">{{ lang.t('dash_view_all') }} →</a>
+    </div>
+    <div>
+      @if (loadingAudit()) {
+        <div class="loading-overlay" style="padding:2rem"><div class="spinner"></div></div>
+      } @else if (recentAudit().length === 0) {
+        <div class="empty-state"><p class="empty-state-text">{{ lang.t('dash_no_data') }}</p></div>
+      } @else {
+        <table class="admin-table">
+          <thead>
+            <tr>
+              <th>{{ lang.t('audit_col_actor') }}</th>
+              <th>{{ lang.t('audit_col_action') }}</th>
+              <th>{{ lang.t('audit_col_entity') }}</th>
+              <th>{{ lang.t('audit_col_date') }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (entry of recentAudit(); track entry.id) {
+              <tr>
+                <td>{{ entry.actorName ?? '—' }}<br><small class="text-muted">#{{ entry.actorId }}</small></td>
+                <td><code style="font-size:0.78rem">{{ entry.action }}</code></td>
+                <td>{{ entry.entityType ?? '—' }} {{ entry.entityId ? '#'+entry.entityId : '' }}</td>
+                <td><small>{{ formatDate(entry.createdAt) }}</small></td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      }
+    </div>
+  </div>
+}

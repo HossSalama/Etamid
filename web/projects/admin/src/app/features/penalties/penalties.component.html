@@ -1,0 +1,98 @@
+<div class="page-header">
+  <div><h1 class="page-title">{{ lang.t('pen_title') }}</h1></div>
+</div>
+
+@if (!canView) {
+  <div class="no-permission-state">
+    <span style="font-size:2.5rem">🔒</span>
+    <p>{{ lang.t('no_permission') }}</p>
+  </div>
+} @else {
+  @if (loading()) {
+    <div class="loading-overlay"><div class="spinner spinner-lg"></div></div>
+  } @else if (error()) {
+    <div class="error-state"><p>{{ error() }}</p></div>
+  } @else {
+    <div class="admin-table-wrapper">
+      <table class="admin-table">
+        <thead>
+          <tr>
+            <th>{{ lang.t('pen_col_id') }}</th>
+            <th>{{ lang.t('pen_col_deal') }}</th>
+            <th>{{ lang.t('pen_col_amount') }}</th>
+            <th>{{ lang.t('pen_col_reason') }}</th>
+            <th>{{ lang.t('pen_col_waived') }}</th>
+            <th>{{ lang.t('pen_col_created') }}</th>
+            <th>{{ lang.t('pen_col_actions') }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          @if (items().length === 0) {
+            <tr><td colspan="7"><div class="empty-state"><p class="empty-state-text">{{ lang.t('pen_empty') }}</p></div></td></tr>
+          }
+          @for (item of items(); track item.id) {
+            <tr>
+              <td>#{{ item.id }}</td>
+              <td>#{{ item.companyDealId }}</td>
+              <td><strong>{{ formatSAR(item.amount) }}</strong></td>
+              <td>{{ item.reason ?? '—' }}</td>
+              <td>
+                @if (item.waivedByAdminId) {
+                  <span class="badge badge-success">✓</span>
+                  <small class="text-muted"> {{ lang.t('pen_waived_by') }} #{{ item.waivedByAdminId }}</small>
+                } @else {
+                  <span class="badge badge-neutral">—</span>
+                }
+              </td>
+              <td><small>{{ formatDate(item.createdAt) }}</small></td>
+              <td>
+                @if (!item.waivedByAdminId && canWaive) {
+                  <button class="btn btn-sm btn-secondary" (click)="openWaive(item)">{{ lang.t('pen_waive') }}</button>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+
+      @if (meta() && meta()!.totalPages > 1) {
+        <div class="pagination">
+          <span class="pagination-info">{{ lang.t('page') }} {{ page() }} {{ lang.t('of') }} {{ meta()!.totalPages }}</span>
+          <div class="pagination-controls">
+            <button class="pagination-btn" [disabled]="page() <= 1" (click)="goPage(page() - 1)">‹</button>
+            @for (p of pages(); track p) {
+              <button class="pagination-btn" [class.active]="p === page()" (click)="goPage(p)">{{ p }}</button>
+            }
+            <button class="pagination-btn" [disabled]="page() >= meta()!.totalPages" (click)="goPage(page() + 1)">›</button>
+          </div>
+        </div>
+      }
+    </div>
+  }
+}
+
+@if (showModal()) {
+  <div class="modal-backdrop" (click)="closeModal()">
+    <div class="modal-box" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3 class="modal-title">{{ lang.t('pen_waive_title') }}</h3>
+        <button class="btn btn-ghost btn-sm btn-icon" (click)="closeModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <p><strong>#{{ selectedItem()?.id }}</strong> — {{ formatSAR(selectedItem()?.amount ?? 0) }}</p>
+        <div class="form-group mt-2">
+          <label class="form-label required">{{ lang.t('reason') }}</label>
+          <textarea class="form-control" [(ngModel)]="waiveReason" [placeholder]="lang.t('pen_waive_reason_ph')" rows="3"></textarea>
+        </div>
+        @if (modalError()) { <div class="auth-error mt-1">{{ modalError() }}</div> }
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" (click)="closeModal()" [disabled]="modalLoading()">{{ lang.t('cancel') }}</button>
+        <button class="btn btn-primary" (click)="confirmWaive()" [disabled]="modalLoading()">
+          @if (modalLoading()) { <span class="spinner spinner-sm"></span> }
+          {{ lang.t('confirm') }}
+        </button>
+      </div>
+    </div>
+  </div>
+}
