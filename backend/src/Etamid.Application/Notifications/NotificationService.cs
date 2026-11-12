@@ -10,14 +10,32 @@ namespace Etamid.Application.Notifications;
 /// the caller saves, so a notification never exists without its event and an
 /// event never commits without its notification. Titles and bodies are stored
 /// in both languages, resolved from messages.ar/en.json at creation time.
+///
+/// Push (Layer 2) reads from here, it does not write: every notification
+/// created in this scope is remembered in <see cref="PendingNotifications"/>
+/// so the push pipeline behavior can send it after the handler's save
+/// commits. Nothing is sent from inside <see cref="Create"/> — doing network
+/// I/O here would push for an event that later rolls back.
 /// </summary>
 public sealed class NotificationService(IApplicationDbContext db, IMessageLocalizer localizer)
 {
+    private readonly List<Notification> _pending = [];
+
+    /// <summary>
+    /// Notifications created in this scope, in creation order. The push
+    /// pipeline behavior drains the ones that actually committed and removes
+    /// them with <see cref="MarkPushHandled"/>; anything left (never saved)
+    /// is simply dropped with the scope.
+    /// </summary>
+    public IReadOnlyList<Notification> PendingNotifications => _pending.ToList();
+
+    public void MarkPushHandled(Notification notification) => _pending.Remove(notification);
+
     public void Create(
         long userId, NotificationType type, string titleKey, string bodyKey, string label,
         long? dealId = null, long? companyDealId = null, long? installmentId = null, long? disputeId = null)
     {
-        db.Notifications.Add(new Notification
+        var notification = new Notification
         {
             UserId = userId,
             Type = type,
@@ -29,7 +47,9 @@ public sealed class NotificationService(IApplicationDbContext db, IMessageLocali
             CompanyDealId = companyDealId,
             InstallmentId = installmentId,
             DisputeId = disputeId
-        });
+        };
+        db.Notifications.Add(notification);
+        _pending.Add(notification);
     }
 
     /// <summary>

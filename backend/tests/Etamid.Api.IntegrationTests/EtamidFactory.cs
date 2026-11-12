@@ -1,5 +1,7 @@
 using System.Collections.Concurrent;
 using Etamid.Application.Common.Interfaces;
+using Etamid.Application.Notifications;
+using Etamid.Infrastructure.Push;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
@@ -15,6 +17,12 @@ public sealed class EtamidFactory : WebApplicationFactory<Program>
 
     public TestClock Clock { get; } = new();
     public CapturingEmailService Emails { get; } = new();
+
+    /// <summary>
+    /// When set before the first CreateClient call, FCM push is enabled in
+    /// tests with this fake client instead of the no-op sender. Tests only.
+    /// </summary>
+    public IFcmClient? FcmFake { get; set; }
 
     public EtamidFactory()
     {
@@ -41,6 +49,14 @@ public sealed class EtamidFactory : WebApplicationFactory<Program>
 
             foreach (var d in services.Where(d => d.ServiceType == typeof(IEmailService)).ToList()) services.Remove(d);
             services.AddSingleton<IEmailService>(Emails);
+
+            if (FcmFake is not null)
+            {
+                foreach (var d in services.Where(d => d.ServiceType == typeof(IPushNotificationSender)).ToList()) services.Remove(d);
+                services.AddScoped<IPushNotificationSender, FcmPushSender>();
+                foreach (var d in services.Where(d => d.ServiceType == typeof(IFcmClient)).ToList()) services.Remove(d);
+                services.AddSingleton<IFcmClient>(FcmFake);
+            }
         });
         builder.ConfigureAppConfiguration((ctx, config) =>
         {

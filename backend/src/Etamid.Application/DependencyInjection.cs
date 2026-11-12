@@ -20,6 +20,9 @@ public static class DependencyInjection
             cfg.RegisterServicesFromAssembly(assembly);
             cfg.AddOpenBehavior(typeof(LoggingBehavior<,>));
             cfg.AddOpenBehavior(typeof(ValidationBehavior<,>));
+            // Innermost: runs closest to the handler, after validation passed,
+            // so a push is only ever sent for a request the handler accepted.
+            cfg.AddOpenBehavior(typeof(PushNotificationBehavior<,>));
         });
 
         services.AddValidatorsFromAssembly(assembly, includeInternalTypes: true);
@@ -48,6 +51,12 @@ public static class DependencyInjection
 
         // Notifications (Layer 1, in-app only)
         services.AddScoped<Etamid.Application.Notifications.NotificationService>();
+
+        // Push (Layer 2): the no-op is the default. The infrastructure layer
+        // replaces this registration with FcmPushSender when FCM is enabled.
+        services.AddSingleton<Etamid.Application.Notifications.NoOpPushSender>();
+        services.AddScoped<Etamid.Application.Notifications.IPushNotificationSender>(
+            sp => sp.GetRequiredService<Etamid.Application.Notifications.NoOpPushSender>());
 
         return services;
     }

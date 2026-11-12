@@ -1,7 +1,9 @@
 using Etamid.Application.Common.Interfaces;
+using Etamid.Application.Notifications;
 using Etamid.Infrastructure.Identity;
 using Etamid.Infrastructure.Persistence;
 using Etamid.Infrastructure.Persistence.Interceptors;
+using Etamid.Infrastructure.Push;
 using Etamid.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -27,8 +29,35 @@ public static class DependencyInjection
         AddPersistence(services, configuration, environment);
         AddIdentity(services, configuration, environment);
         AddPlatformServices(services, configuration, environment);
+        AddPushNotifications(services, configuration);
 
         return services;
+    }
+
+    /// <summary>
+    /// Push (Layer 2, FCM). The no-op sender registered by the application
+    /// layer stays in effect unless FCM is switched on AND a service-account
+    /// file actually exists at the configured path — a missing file or a
+    /// disabled flag degrades to no-op instead of failing startup, and the
+    /// startup log service reports which case applies. No ValidateOnStart
+    /// here on purpose: missing FCM config must never block the boot.
+    /// </summary>
+    private static void AddPushNotifications(IServiceCollection services, IConfiguration configuration)
+    {
+        services.AddOptions<FcmOptions>()
+            .Bind(configuration.GetSection(FcmOptions.Section));
+
+        services.AddHostedService<FcmStartupLogHostedService>();
+
+        var enabled = configuration.GetValue<bool>("Fcm:Enabled");
+        var path = configuration["Fcm:ServiceAccountPath"];
+        if (enabled && !string.IsNullOrWhiteSpace(path) && File.Exists(path))
+        {
+            services.AddSingleton<IFcmClient, FirebaseMessagingClient>();
+            // Last IPushNotificationSender registration wins over the no-op
+            // registered by AddApplication.
+            services.AddScoped<IPushNotificationSender, FcmPushSender>();
+        }
     }
 
     private static void AddPersistence(IServiceCollection services, IConfiguration configuration, IHostEnvironment environment)
