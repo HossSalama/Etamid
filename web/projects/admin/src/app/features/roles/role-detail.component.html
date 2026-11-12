@@ -1,0 +1,72 @@
+<div class="page-header">
+  <div>
+    <button class="btn btn-ghost btn-sm" (click)="back()">← {{ lang.t('nav_roles') }}</button>
+    <h1 class="page-title" style="margin-top:0.5rem">{{ lang.t('rol_detail_title') }}</h1>
+  </div>
+</div>
+
+@if (loading()) {
+  <div class="loading-overlay"><div class="spinner spinner-lg"></div></div>
+} @else if (error()) {
+  <div class="error-state"><p>{{ error() }}</p></div>
+} @else if (role()) {
+  <div class="admin-card" style="margin-bottom:1rem">
+    <div class="admin-card-header"><h3 class="admin-card-title">{{ role()!.name }}</h3></div>
+    <div class="admin-card-body">
+      <div class="info-row"><span class="info-row-label">{{ lang.t('description') }}</span><span class="info-row-value">{{ role()!.description ?? '—' }}</span></div>
+      <div class="info-row"><span class="info-row-label">{{ lang.t('rol_col_perms') }}</span><span class="info-row-value">{{ role()!.permissions.length }}</span></div>
+    </div>
+  </div>
+
+  @if (isSuperAdmin) {
+    <div class="admin-card" style="margin-bottom:1rem">
+      <div class="admin-card-header"><h3 class="admin-card-title">{{ lang.t('rol_permissions') }}</h3></div>
+      <div class="admin-card-body">
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:0.5rem;margin-bottom:1rem">
+          @for (p of allPermissions(); track p.id) {
+            <label style="display:flex;align-items:flex-start;gap:0.5rem;padding:0.5rem;border:1px solid #e5e7eb;border-radius:8px;cursor:pointer">
+              <input type="checkbox" [checked]="isPermChecked(p.code)" (change)="togglePerm(p.code)" style="margin-top:2px" />
+              <div>
+                <code style="font-size:0.78rem;color:#374151;display:block">{{ p.code }}</code>
+                <small class="text-muted">{{ p.description }}</small>
+              </div>
+            </label>
+          }
+        </div>
+        @if (permsError())   { <div class="auth-error mb-1">{{ permsError() }}</div> }
+        @if (permsSuccess()) { <div style="color:#065f46;font-weight:700;margin-bottom:0.5rem">✓</div> }
+        <button class="btn btn-primary" (click)="savePermissions()" [disabled]="permsLoading()">
+          @if (permsLoading()) { <span class="spinner spinner-sm"></span> }
+          {{ lang.t('rol_save_perms') }}
+        </button>
+      </div>
+    </div>
+
+    <div class="admin-card">
+      <div class="admin-card-header"><h3 class="admin-card-title" style="color:#991b1b">{{ lang.t('rol_delete') }}</h3></div>
+      <div class="admin-card-body">
+        @if (deleteError()) { <div class="auth-error mb-1">{{ deleteError() }}</div> }
+        <button class="btn btn-danger" (click)="confirmDelete()">{{ lang.t('rol_delete') }}</button>
+      </div>
+    </div>
+  }
+}
+
+@if (showDeleteConfirm()) {
+  <div class="modal-backdrop" (click)="cancelDelete()">
+    <div class="modal-box" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3 class="modal-title">{{ lang.t('rol_delete') }}</h3>
+        <button class="btn btn-ghost btn-sm btn-icon" (click)="cancelDelete()">✕</button>
+      </div>
+      <div class="modal-body"><p>{{ lang.t('rol_delete_confirm') }}</p></div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" (click)="cancelDelete()" [disabled]="deleteLoading()">{{ lang.t('cancel') }}</button>
+        <button class="btn btn-danger" (click)="doDelete()" [disabled]="deleteLoading()">
+          @if (deleteLoading()) { <span class="spinner spinner-sm"></span> }
+          {{ lang.t('delete') }}
+        </button>
+      </div>
+    </div>
+  </div>
+}

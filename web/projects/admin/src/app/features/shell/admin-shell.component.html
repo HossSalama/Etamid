@@ -1,0 +1,83 @@
+<div class="admin-layout">
+  <!-- Sidebar Overlay (mobile) -->
+  @if (sidebarOpen()) {
+    <div class="sidebar-overlay" (click)="closeSidebar()"></div>
+  }
+
+  <!-- Sidebar -->
+  <aside class="admin-sidebar" [class.open]="sidebarOpen()">
+    <div class="sidebar-brand">
+      <div class="sidebar-logo">ع</div>
+      <div class="sidebar-brand-text">
+        <span class="sidebar-brand-name">{{ lang.t('admin_panel') }}</span>
+        <span class="sidebar-brand-sub">Etamid</span>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      @for (group of navGroups; track group.labelKey) {
+        @if (visibleGroupItems(group).length > 0) {
+          @if (group.labelKey !== 'nav_dashboard' && group.labelKey !== 'nav_profile') {
+            <span class="sidebar-section-label">{{ lang.t(group.labelKey) }}</span>
+          }
+          @for (item of visibleGroupItems(group); track item.path) {
+            <a
+              class="sidebar-link"
+              [routerLink]="item.path"
+              routerLinkActive="active"
+              (click)="closeSidebar()"
+            >
+              <span class="sidebar-link-icon">{{ item.icon }}</span>
+              {{ lang.t(item.labelKey) }}
+            </a>
+          }
+        }
+      }
+    </nav>
+
+    <div class="sidebar-footer">
+      <button class="sidebar-link" (click)="logout()" style="color:#f87171">
+        <span class="sidebar-link-icon">⇦</span>
+        {{ lang.t('logout') }}
+      </button>
+    </div>
+  </aside>
+
+  <!-- Main area -->
+  <div class="admin-main">
+    <!-- Top bar -->
+    <header class="admin-topbar">
+      <div style="display:flex;align-items:center;gap:0.75rem">
+        <button class="mobile-topbar-toggle" (click)="toggleSidebar()">☰</button>
+        <span class="topbar-title">Etamid</span>
+      </div>
+
+      <div class="topbar-right">
+        <!-- Language toggle -->
+        <button
+          class="btn btn-ghost btn-sm"
+          (click)="toggleLang()"
+          style="font-size:0.82rem;min-height:36px;padding:0.4rem 0.75rem"
+        >
+          {{ lang.otherLangLabel() }}
+        </button>
+
+        <!-- Admin info -->
+        @if (admin()) {
+          <div class="topbar-admin">
+            <div class="topbar-avatar">{{ adminInitials() }}</div>
+            <div class="topbar-admin-info">
+              <span class="topbar-admin-name">{{ admin()!.name }}</span>
+              <span class="topbar-admin-email">{{ admin()!.email }}</span>
+            </div>
+          </div>
+        }
+      </div>
+    </header>
+
+    <!-- Page content -->
+    <main class="admin-content">
+      <router-outlet />
+    </main>
+  </div>
+</div>

@@ -300,8 +300,7 @@ public class DisputeTests(EtamidFactory factory) : IClassFixture<EtamidFactory>
         var dealId = await InspectionDeal(buyer, seller);
         await OpenDispute(buyer, dealId);
 
-        var operatorUser = await NewUser();
-        await MakeOperator(await UserIdOf(operatorUser.Phone));
+        var operatorUser = await AdminTestKit.CreateAsync(factory, "admin.disputes.view", "admin.disputes.decide");
         var disputeId = (await Data(await buyer.Client.GetAsync($"/api/v1/deals/{dealId}/dispute"))).GetProperty("id").GetInt64();
 
         var info = await Post(operatorUser.Client, $"/api/v1/admin/disputes/{disputeId}/request-info",
@@ -341,8 +340,7 @@ public class DisputeTests(EtamidFactory factory) : IClassFixture<EtamidFactory>
         var dealId = await InspectionDeal(buyer, seller);
         await OpenDispute(buyer, dealId);
 
-        var operatorUser = await NewUser();
-        await MakeOperator(await UserIdOf(operatorUser.Phone));
+        var operatorUser = await AdminTestKit.CreateAsync(factory, "admin.disputes.view", "admin.disputes.decide");
         var disputeId = (await Data(await buyer.Client.GetAsync($"/api/v1/deals/{dealId}/dispute"))).GetProperty("id").GetInt64();
 
         var decided = await Post(operatorUser.Client, $"/api/v1/admin/disputes/{disputeId}/decide",
@@ -372,8 +370,7 @@ public class DisputeTests(EtamidFactory factory) : IClassFixture<EtamidFactory>
         var dealId = await InspectionDeal(buyer, seller);
         await OpenDispute(buyer, dealId);
 
-        var operatorUser = await NewUser();
-        await MakeOperator(await UserIdOf(operatorUser.Phone));
+        var operatorUser = await AdminTestKit.CreateAsync(factory, "admin.disputes.view", "admin.disputes.decide");
         var disputeId = (await Data(await buyer.Client.GetAsync($"/api/v1/deals/{dealId}/dispute"))).GetProperty("id").GetInt64();
 
         var decided = await Post(operatorUser.Client, $"/api/v1/admin/disputes/{disputeId}/decide",
@@ -411,6 +408,6 @@ public class DisputeTests(EtamidFactory factory) : IClassFixture<EtamidFactory>
         var decide = await Post(stranger.Client, $"/api/v1/admin/disputes/{disputeId}/decide",
             new { resolution = "ReleaseSeller", note = "Not an operator." });
         decide.StatusCode.Should().Be(HttpStatusCode.OK);
-        ErrorCode(await Json(decide)).Should().Be("DISPUTE_NOT_OPERATOR");
+        ErrorCode(await Json(decide)).Should().Be("ADMIN_FORBIDDEN");
     }
 }

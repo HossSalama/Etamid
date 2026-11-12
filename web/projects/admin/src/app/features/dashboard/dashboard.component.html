@@ -1,0 +1,124 @@
+<div class="page-header">
+  <div>
+    <h1 class="page-title">{{ lang.t('dash_title') }}</h1>
+  </div>
+</div>
+
+<!-- Stats Grid -->
+<div class="stats-grid">
+  @if (canViewWithdrawals) {
+    <div class="stat-card">
+      <div class="stat-card-icon coral">⇥</div>
+      <div class="stat-card-label">{{ lang.t('dash_pending_withdrawals') }}</div>
+      @if (loadingWithdrawals()) {
+        <div class="spinner"></div>
+      } @else {
+        <div class="stat-card-value">{{ pendingWithdrawals() ?? '—' }}</div>
+      }
+    </div>
+  }
+
+  @if (canViewDisputes) {
+    <div class="stat-card">
+      <div class="stat-card-icon amber">⚖</div>
+      <div class="stat-card-label">{{ lang.t('dash_open_disputes') }}</div>
+      @if (loadingDisputes()) {
+        <div class="spinner"></div>
+      } @else {
+        <div class="stat-card-value">{{ openDisputes() ?? '—' }}</div>
+      }
+    </div>
+  }
+
+  @if (canViewPenalties) {
+    <div class="stat-card">
+      <div class="stat-card-icon coral">⚠</div>
+      <div class="stat-card-label">{{ lang.t('dash_applied_penalties') }}</div>
+      @if (loadingPenalties()) {
+        <div class="spinner"></div>
+      } @else {
+        <div class="stat-card-value">{{ appliedPenalties() ?? '—' }}</div>
+      }
+    </div>
+  }
+
+  @if (canViewUsers && userCountsLoaded()) {
+    <div class="stat-card">
+      <div class="stat-card-icon teal">🛒</div>
+      <div class="stat-card-label">{{ lang.t('dash_sellers') }}</div>
+      @if (loadingUserCounts()) {
+        <div class="spinner"></div>
+      } @else {
+        <div class="stat-card-value">{{ userCounts()?.sellers ?? '—' }}</div>
+      }
+    </div>
+    <div class="stat-card">
+      <div class="stat-card-icon teal">🛍</div>
+      <div class="stat-card-label">{{ lang.t('dash_buyers') }}</div>
+      @if (loadingUserCounts()) {
+        <div class="spinner"></div>
+      } @else {
+        <div class="stat-card-value">{{ userCounts()?.buyers ?? '—' }}</div>
+      }
+    </div>
+    <div class="stat-card">
+      <div class="stat-card-icon teal">🏢</div>
+      <div class="stat-card-label">{{ lang.t('dash_companies') }}</div>
+      @if (loadingUserCounts()) {
+        <div class="spinner"></div>
+      } @else {
+        <div class="stat-card-value">{{ userCounts()?.companies ?? '—' }}</div>
+      }
+    </div>
+  }
+
+  @if (canViewDeals) {
+    <div class="stat-card">
+      <div class="stat-card-icon amber">🤝</div>
+      <div class="stat-card-label">{{ lang.t('dash_deals') }}</div>
+      @if (loadingDeals()) {
+        <div class="spinner"></div>
+      } @else {
+        <div class="stat-card-value">{{ totalDeals() ?? '—' }}</div>
+      }
+    </div>
+  }
+</div>
+
+<!-- Recent Audit Log -->
+@if (canViewAudit) {
+  <div class="admin-card">
+    <div class="admin-card-header">
+      <h3 class="admin-card-title">{{ lang.t('dash_recent_audit') }}</h3>
+      <a routerLink="/audit-log" class="btn btn-ghost btn-sm">{{ lang.t('dash_view_all') }} →</a>
+    </div>
+    <div>
+      @if (loadingAudit()) {
+        <div class="loading-overlay" style="padding:2rem"><div class="spinner"></div></div>
+      } @else if (recentAudit().length === 0) {
+        <div class="empty-state"><p class="empty-state-text">{{ lang.t('dash_no_data') }}</p></div>
+      } @else {
+        <table class="admin-table">
+          <thead>
+            <tr>
+              <th>{{ lang.t('audit_col_actor') }}</th>
+              <th>{{ lang.t('audit_col_action') }}</th>
+              <th>{{ lang.t('audit_col_entity') }}</th>
+              <th>{{ lang.t('audit_col_date') }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (entry of recentAudit(); track entry.id) {
+              <tr>
+                <td>{{ lang.auditActorLabel(entry.actorName) }}<br><small class="text-muted">{{ entry.actorId ? '#'+entry.actorId : '' }}</small></td>
+                <td>{{ lang.auditActionLabel(entry.action) }}</td>
+                <td>{{ entry.entityType ?? '—' }} {{ entry.entityId ? '#'+entry.entityId : '' }}</td>
+                <td><small>{{ formatDate(entry.createdAt) }}</small></td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      }
+    </div>
+  </div>
+}

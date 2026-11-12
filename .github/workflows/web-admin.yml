@@ -1,0 +1,32 @@
+name: Web Admin CI
+
+on:
+  push:
+    paths:
+      - 'web/projects/admin/**'
+      - 'web/angular.json'
+      - 'web/tsconfig.json'
+      - 'web/package.json'
+  pull_request:
+    paths:
+      - 'web/projects/admin/**'
+      - 'web/angular.json'
+      - 'web/tsconfig.json'
+      - 'web/package.json'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+      - name: Build admin (production)
+        run: npx ng build admin --configuration production

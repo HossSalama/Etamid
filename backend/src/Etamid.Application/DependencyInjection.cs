@@ -46,6 +46,12 @@ public static class DependencyInjection
         // Company deals and installment escrow
         services.AddScoped<Etamid.Application.CompanyDeals.CompanyEscrowService>();
 
+        // Admin auth + RBAC
+        services.AddScoped<Etamid.Application.AdminAuth.AdminAuditService>();
+        services.AddScoped<Etamid.Application.AdminAuth.AdminSessionService>();
+        services.AddScoped<Etamid.Application.AdminAuth.AdminProfileService>();
+        services.AddScoped<Etamid.Application.AdminAuth.AdminAccessService>();
+
         // Files
         services.AddScoped<Etamid.Application.Files.FileUploadService>();
 

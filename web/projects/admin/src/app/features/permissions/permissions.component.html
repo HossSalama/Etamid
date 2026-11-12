@@ -1,0 +1,40 @@
+<div class="page-header">
+  <div>
+    <h1 class="page-title">{{ lang.t('perm_title') }}</h1>
+    <p class="page-subtitle">{{ lang.t('perm_subtitle') }}</p>
+  </div>
+</div>
+
+@if (!canManage) {
+  <div class="no-permission-state"><span style="font-size:2.5rem">🔒</span><p>{{ lang.t('no_permission') }}</p></div>
+} @else {
+  @if (loading()) {
+    <div class="loading-overlay"><div class="spinner spinner-lg"></div></div>
+  } @else if (error()) {
+    <div class="error-state"><p>{{ error() }}</p></div>
+  } @else {
+    <div class="admin-table-wrapper">
+      <table class="admin-table">
+        <thead>
+          <tr>
+            <th>{{ lang.t('perm_col_id') }}</th>
+            <th>{{ lang.t('perm_col_code') }}</th>
+            <th>{{ lang.t('perm_col_desc') }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          @if (items().length === 0) {
+            <tr><td colspan="3"><div class="empty-state"><p class="empty-state-text">{{ lang.t('perm_empty') }}</p></div></td></tr>
+          }
+          @for (item of items(); track item.id) {
+            <tr>
+              <td>#{{ item.id }}</td>
+              <td><code style="font-size:0.82rem;background:#f3f4f6;padding:0.2rem 0.5rem;border-radius:6px">{{ item.code }}</code></td>
+              <td>{{ item.description }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+}

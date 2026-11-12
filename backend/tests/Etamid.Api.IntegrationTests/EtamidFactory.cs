@@ -1,12 +1,17 @@
-using System.Collections.Concurrent;
 using Etamid.Application.Common.Interfaces;
 using Etamid.Application.Notifications;
+using Etamid.Infrastructure.Persistence;
+using Etamid.Infrastructure.Persistence.Interceptors;
 using Etamid.Infrastructure.Push;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using System.Collections.Concurrent;
+
 
 namespace Etamid.Api.IntegrationTests;
 
@@ -24,13 +29,16 @@ public sealed class EtamidFactory : WebApplicationFactory<Program>
     /// </summary>
     public IFcmClient? FcmFake { get; set; }
 
+    private readonly string _inMemoryName = "etamid-" + Guid.NewGuid();
+
     public EtamidFactory()
     {
         Environment.SetEnvironmentVariable("Persistence__UseInMemory", "true");
-        Environment.SetEnvironmentVariable("Persistence__InMemoryName", "etamid-" + Guid.NewGuid());
         Environment.SetEnvironmentVariable("Auth__PhoneVerifier", "Fake");
         Environment.SetEnvironmentVariable("Jwt__Secret", "integration-tests-secret-0123456789-abcdef");
         Environment.SetEnvironmentVariable("RateLimiting__AuthPerMinute", "10000");
+        Environment.SetEnvironmentVariable("RateLimiting__AdminAuthPerMinute", "10000");
+        Environment.SetEnvironmentVariable("AdminJwt__Secret", "integration-tests-ADMIN-secret-0123456789-abcdef");
         Environment.SetEnvironmentVariable("Security__DataKey", "ZXRhbWlkLWRldi1kYXRhLWtleS0zMi1ieXRlcy14eCE=");
         Environment.SetEnvironmentVariable("Storage__LocalPath", Path.Combine(Path.GetTempPath(), "etamid-tests-" + Guid.NewGuid().ToString("N")));
         Environment.SetEnvironmentVariable("Storage__PublicBaseUrl", "http://localhost/files");
@@ -57,6 +65,18 @@ public sealed class EtamidFactory : WebApplicationFactory<Program>
                 foreach (var d in services.Where(d => d.ServiceType == typeof(IFcmClient)).ToList()) services.Remove(d);
                 services.AddSingleton<IFcmClient>(FcmFake);
             }
+
+            // Each factory gets its own in-memory database. The Persistence:InMemoryName
+            // setting in ConfigureAppConfiguration is read while Program.cs registers
+            // services, before that override is applied, so on its own it cannot
+            // isolate the databases. This replaces the DbContext options directly.
+            services.RemoveAll<DbContextOptions<ApplicationDbContext>>();
+            services.RemoveAll<ApplicationDbContext>();
+            services.AddDbContext<ApplicationDbContext>((sp, options) =>
+            {
+                options.UseInMemoryDatabase(_inMemoryName);
+                options.AddInterceptors(sp.GetRequiredService<AuditableEntitySaveChangesInterceptor>());
+            });
         });
         builder.ConfigureAppConfiguration((ctx, config) =>
         {
@@ -64,6 +84,7 @@ public sealed class EtamidFactory : WebApplicationFactory<Program>
             {
                 ["Auth:PhoneVerifier"] = "Fake",
                 ["Persistence:UseInMemory"] = "true",
+                ["Persistence:InMemoryName"] = _inMemoryName,
             });
         });
     }

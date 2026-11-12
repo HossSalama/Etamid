@@ -1,0 +1,67 @@
+<div class="page-header">
+  <div><h1 class="page-title">{{ lang.t('audit_title') }}</h1></div>
+</div>
+
+@if (!canView) {
+  <div class="no-permission-state"><span style="font-size:2.5rem">🔒</span><p>{{ lang.t('no_permission') }}</p></div>
+} @else {
+  <div class="filter-bar">
+    <input class="form-control" [(ngModel)]="filterAction" [placeholder]="lang.t('audit_filter_action')" />
+    <input class="form-control" [(ngModel)]="filterEntityType" [placeholder]="lang.t('audit_filter_entity')" />
+    <input class="form-control" type="number" [(ngModel)]="filterActorId" [placeholder]="lang.t('audit_filter_actor')" />
+    <button class="btn btn-secondary" (click)="applyFilter()">{{ lang.t('filter') }}</button>
+  </div>
+
+  @if (loading()) {
+    <div class="loading-overlay"><div class="spinner spinner-lg"></div></div>
+  } @else if (error()) {
+    <div class="error-state"><p>{{ error() }}</p></div>
+  } @else {
+    <div class="admin-table-wrapper">
+      <table class="admin-table">
+        <thead>
+          <tr>
+            <th>{{ lang.t('audit_col_id') }}</th>
+            <th>{{ lang.t('audit_col_actor') }}</th>
+            <th>{{ lang.t('audit_col_action') }}</th>
+            <th>{{ lang.t('audit_col_entity') }}</th>
+            <th>{{ lang.t('audit_col_ip') }}</th>
+            <th>{{ lang.t('audit_col_before') }}</th>
+            <th>{{ lang.t('audit_col_after') }}</th>
+            <th>{{ lang.t('audit_col_date') }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          @if (items().length === 0) {
+            <tr><td colspan="8"><div class="empty-state"><p class="empty-state-text">{{ lang.t('audit_empty') }}</p></div></td></tr>
+          }
+          @for (item of items(); track item.id) {
+            <tr>
+              <td>#{{ item.id }}</td>
+              <td>{{ lang.auditActorLabel(item.actorName) }}<br><small class="text-muted">{{ item.actorId ? '#'+item.actorId : '' }}</small></td>
+              <td>{{ lang.auditActionLabel(item.action) }}</td>
+              <td>{{ item.entityType ?? '—' }}<br><small class="text-muted">{{ item.entityId ? '#'+item.entityId : '' }}</small></td>
+              <td><small>{{ item.ip ?? '—' }}</small></td>
+              <td><small style="word-break:break-all;max-width:120px;display:block">{{ jsonPreview(item.before) }}</small></td>
+              <td><small style="word-break:break-all;max-width:120px;display:block">{{ jsonPreview(item.after) }}</small></td>
+              <td><small>{{ formatDate(item.createdAt) }}</small></td>
+            </tr>
+          }
+        </tbody>
+      </table>
+
+      @if (meta() && meta()!.totalPages > 1) {
+        <div class="pagination">
+          <span class="pagination-info">{{ lang.t('page') }} {{ page() }} {{ lang.t('of') }} {{ meta()!.totalPages }}</span>
+          <div class="pagination-controls">
+            <button class="pagination-btn" [disabled]="page() <= 1" (click)="goPage(page() - 1)">‹</button>
+            @for (p of pages(); track p) {
+              <button class="pagination-btn" [class.active]="p === page()" (click)="goPage(p)">{{ p }}</button>
+            }
+            <button class="pagination-btn" [disabled]="page() >= meta()!.totalPages" (click)="goPage(page() + 1)">›</button>
+          </div>
+        </div>
+      }
+    </div>
+  }
+}

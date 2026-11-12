@@ -48,6 +48,177 @@ namespace Etamid.Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("AdminPermissions");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1L,
+                            Code = "admin.users.view",
+                            Description = "admin.users.view"
+                        },
+                        new
+                        {
+                            Id = 2L,
+                            Code = "admin.users.manage",
+                            Description = "admin.users.manage"
+                        },
+                        new
+                        {
+                            Id = 3L,
+                            Code = "admin.users.nafath-review",
+                            Description = "admin.users.nafath-review"
+                        },
+                        new
+                        {
+                            Id = 4L,
+                            Code = "admin.deals.view",
+                            Description = "admin.deals.view"
+                        },
+                        new
+                        {
+                            Id = 5L,
+                            Code = "admin.deals.manage",
+                            Description = "admin.deals.manage"
+                        },
+                        new
+                        {
+                            Id = 6L,
+                            Code = "admin.disputes.view",
+                            Description = "admin.disputes.view"
+                        },
+                        new
+                        {
+                            Id = 7L,
+                            Code = "admin.disputes.decide",
+                            Description = "admin.disputes.decide"
+                        },
+                        new
+                        {
+                            Id = 8L,
+                            Code = "admin.withdrawals.view",
+                            Description = "admin.withdrawals.view"
+                        },
+                        new
+                        {
+                            Id = 9L,
+                            Code = "admin.withdrawals.approve",
+                            Description = "admin.withdrawals.approve"
+                        },
+                        new
+                        {
+                            Id = 10L,
+                            Code = "admin.withdrawals.complete",
+                            Description = "admin.withdrawals.complete"
+                        },
+                        new
+                        {
+                            Id = 11L,
+                            Code = "admin.penalties.view",
+                            Description = "admin.penalties.view"
+                        },
+                        new
+                        {
+                            Id = 12L,
+                            Code = "admin.penalties.waive",
+                            Description = "admin.penalties.waive"
+                        },
+                        new
+                        {
+                            Id = 13L,
+                            Code = "admin.content.manage",
+                            Description = "admin.content.manage"
+                        },
+                        new
+                        {
+                            Id = 14L,
+                            Code = "admin.settings.manage",
+                            Description = "admin.settings.manage"
+                        },
+                        new
+                        {
+                            Id = 15L,
+                            Code = "admin.notifications.send",
+                            Description = "admin.notifications.send"
+                        },
+                        new
+                        {
+                            Id = 16L,
+                            Code = "admin.support.manage",
+                            Description = "admin.support.manage"
+                        },
+                        new
+                        {
+                            Id = 17L,
+                            Code = "admin.roles.manage",
+                            Description = "admin.roles.manage"
+                        },
+                        new
+                        {
+                            Id = 18L,
+                            Code = "admin.audit.view",
+                            Description = "admin.audit.view"
+                        });
+                });
+
+            modelBuilder.Entity("Etamid.Domain.Admin.AdminRefreshToken", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<long>("AdminUserId")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedIp")
+                        .HasMaxLength(45)
+                        .HasColumnType("nvarchar(45)");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("FamilyId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long?>("ReplacedByTokenId")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime?>("RevokedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("RevokedReason")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<string>("UserAgent")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AdminUserId");
+
+                    b.HasIndex("FamilyId");
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique();
+
+                    b.ToTable("AdminRefreshTokens");
                 });
 
             modelBuilder.Entity("Etamid.Domain.Admin.AdminRole", b =>
@@ -73,6 +244,14 @@ namespace Etamid.Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("AdminRoles");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1L,
+                            Description = "Holds every admin permission. Protected: cannot be edited or deleted.",
+                            Name = "super-admin"
+                        });
                 });
 
             modelBuilder.Entity("Etamid.Domain.Admin.AdminRolePermission", b =>
@@ -88,6 +267,136 @@ namespace Etamid.Infrastructure.Migrations
                     b.HasIndex("PermissionId");
 
                     b.ToTable("AdminRolePermissions");
+
+                    b.HasData(
+                        new
+                        {
+                            RoleId = 1L,
+                            PermissionId = 1L
+                        },
+                        new
+                        {
+                            RoleId = 1L,
+                            PermissionId = 2L
+                        },
+                        new
+                        {
+                            RoleId = 1L,
+                            PermissionId = 3L
+                        },
+                        new
+                        {
+                            RoleId = 1L,
+                            PermissionId = 4L
+                        },
+                        new
+                        {
+                            RoleId = 1L,
+                            PermissionId = 5L
+                        },
+                        new
+                        {
+                            RoleId = 1L,
+                            PermissionId = 6L
+                        },
+                        new
+                        {
+                            RoleId = 1L,
+                            PermissionId = 7L
+                        },
+                        new
+                        {
+                            RoleId = 1L,
+                            PermissionId = 8L
+                        },
+                        new
+                        {
+                            RoleId = 1L,
+                            PermissionId = 9L
+                        },
+                        new
+                        {
+                            RoleId = 1L,
+                            PermissionId = 10L
+                        },
+                        new
+                        {
+                            RoleId = 1L,
+                            PermissionId = 11L
+                        },
+                        new
+                        {
+                            RoleId = 1L,
+                            PermissionId = 12L
+                        },
+                        new
+                        {
+                            RoleId = 1L,
+                            PermissionId = 13L
+                        },
+                        new
+                        {
+                            RoleId = 1L,
+                            PermissionId = 14L
+                        },
+                        new
+                        {
+                            RoleId = 1L,
+                            PermissionId = 15L
+                        },
+                        new
+                        {
+                            RoleId = 1L,
+                            PermissionId = 16L
+                        },
+                        new
+                        {
+                            RoleId = 1L,
+                            PermissionId = 17L
+                        },
+                        new
+                        {
+                            RoleId = 1L,
+                            PermissionId = 18L
+                        });
+                });
+
+            modelBuilder.Entity("Etamid.Domain.Admin.AdminTwoFactorChallenge", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<long>("AdminUserId")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("Attempts")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ConsumedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AdminUserId");
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique();
+
+                    b.ToTable("AdminTwoFactorChallenges");
                 });
 
             modelBuilder.Entity("Etamid.Domain.Admin.AdminUser", b =>
@@ -3551,6 +3860,15 @@ namespace Etamid.Infrastructure.Migrations
                     b.ToTable("SupportTicketMessages");
                 });
 
+            modelBuilder.Entity("Etamid.Domain.Admin.AdminRefreshToken", b =>
+                {
+                    b.HasOne("Etamid.Domain.Admin.AdminUser", null)
+                        .WithMany()
+                        .HasForeignKey("AdminUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Etamid.Domain.Admin.AdminRolePermission", b =>
                 {
                     b.HasOne("Etamid.Domain.Admin.AdminPermission", null)
@@ -3562,6 +3880,15 @@ namespace Etamid.Infrastructure.Migrations
                     b.HasOne("Etamid.Domain.Admin.AdminRole", null)
                         .WithMany()
                         .HasForeignKey("RoleId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Etamid.Domain.Admin.AdminTwoFactorChallenge", b =>
+                {
+                    b.HasOne("Etamid.Domain.Admin.AdminUser", null)
+                        .WithMany()
+                        .HasForeignKey("AdminUserId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });

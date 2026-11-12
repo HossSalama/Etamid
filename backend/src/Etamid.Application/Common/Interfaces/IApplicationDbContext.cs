@@ -1,3 +1,4 @@
+using Etamid.Domain.Admin;
 using Etamid.Domain.CompanyDeals;
 using Etamid.Domain.Config;
 using Etamid.Domain.Deals;
@@ -70,6 +71,17 @@ public interface IApplicationDbContext
     DbSet<PaymentInstallment> PaymentInstallments { get; }
     DbSet<InstallmentApproval> InstallmentApprovals { get; }
     DbSet<PenaltyCharge> PenaltyCharges { get; }
+
+    // Admin (Cycle 9): the tables and EF configs already existed; only the exposure was missing.
+    DbSet<AdminUser> AdminUsers { get; }
+    DbSet<AdminRole> AdminRoles { get; }
+    DbSet<AdminPermission> AdminPermissions { get; }
+    DbSet<AdminRolePermission> AdminRolePermissions { get; }
+    DbSet<AdminUserRole> AdminUserRoles { get; }
+    DbSet<AuditLog> AuditLogs { get; }
+    DbSet<OutboxMessage> OutboxMessages { get; }
+    DbSet<AdminRefreshToken> AdminRefreshTokens { get; }
+    DbSet<AdminTwoFactorChallenge> AdminTwoFactorChallenges { get; }
 
     DbSet<TEntity> Set<TEntity>() where TEntity : class;
 

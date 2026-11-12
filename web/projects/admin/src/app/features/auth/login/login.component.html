@@ -1,0 +1,65 @@
+<div class="auth-page">
+  <div class="auth-card">
+    <div class="auth-brand">
+      <div class="auth-logo">ع</div>
+      <span class="auth-brand-name">اعتمد</span>
+      <span class="auth-brand-sub">{{ lang.t('admin_panel') }}</span>
+    </div>
+
+    <h1 class="auth-title">{{ lang.t('login_title') }}</h1>
+    <p class="auth-subtitle">{{ lang.t('login_subtitle') }}</p>
+
+    @if (errorMsg()) {
+      <div class="auth-error" style="margin-bottom:1rem">{{ errorMsg() }}</div>
+    }
+
+    <form class="auth-form" (ngSubmit)="submit()">
+      <div class="form-group">
+        <label class="form-label required" for="admin-email">{{ lang.t('login_email') }}</label>
+        <input
+          id="admin-email"
+          type="email"
+          class="form-control"
+          [(ngModel)]="email"
+          name="email"
+          [placeholder]="lang.t('login_email_ph')"
+          autocomplete="username"
+          required
+        />
+      </div>
+
+      <div class="form-group">
+        <label class="form-label required" for="admin-password">{{ lang.t('login_password') }}</label>
+        <input
+          id="admin-password"
+          type="password"
+          class="form-control"
+          [(ngModel)]="password"
+          name="password"
+          [placeholder]="lang.t('login_password_ph')"
+          autocomplete="current-password"
+          required
+        />
+      </div>
+
+      <button
+        type="submit"
+        class="btn btn-primary btn-lg w-full"
+        style="margin-top:0.5rem"
+        [disabled]="loading()"
+      >
+        @if (loading()) {
+          <span class="spinner spinner-sm"></span>
+        }
+        {{ loading() ? lang.t('login_submitting') : lang.t('login_submit') }}
+      </button>
+    </form>
+
+    <!-- Language switcher -->
+    <div style="text-align:center;margin-top:1.5rem">
+      <button class="btn btn-ghost btn-sm" (click)="toggleLang()" style="font-size:0.8rem;color:#6b7280">
+        {{ lang.otherLangLabel() }}
+      </button>
+    </div>
+  </div>
+</div>

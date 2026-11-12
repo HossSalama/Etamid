@@ -1,0 +1,267 @@
+openapi: 3.0.3
+info:
+  title: Etamid Admin API (Cycle 9, task 1 - auth and RBAC)
+  version: 0.1.0
+  description: >
+    Admin routes only, under /admin/api. Separate from docs/etamid-openapi.yaml and /api/v1.
+    Same envelope as the app API: { success, message, data } plus errors on failures and meta on paginated lists.
+    Authentication: Bearer token from /admin/api/auth/login (AdminJwt scheme: issuer etamid-admin,
+    audience etamid-admin-clients, 15 minutes, claims sub/type=admin/sid/jti, no permissions).
+    Permissions are checked per request from the database, never from the token.
+    App-user tokens are rejected with 401 here, and admin tokens with 401 on /api/v1.
+servers:
+  - url: http://localhost:5080
+components:
+  securitySchemes:
+    adminBearer: { type: http, scheme: bearer, bearerFormat: JWT }
+  schemas:
+    Envelope:
+      type: object
+      properties:
+        success: { type: boolean }
+        message: { type: string }
+        data: {}
+        errors:
+          type: array
+          items:
+            type: object
+            properties: { code: { type: string }, message: { type: string }, field: { type: string } }
+        meta:
+          type: object
+          properties: { page: { type: integer }, pageSize: { type: integer }, total: { type: integer }, totalPages: { type: integer } }
+    Admin:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        name: { type: string }
+        email: { type: string }
+        status: { type: string, enum: [active, disabled] }
+        twoFactorEnabled: { type: boolean }
+        lastLoginAt: { type: string, format: date-time, nullable: true }
+        roles: { type: array, items: { type: string } }
+        permissions: { type: array, items: { type: string } }
+    AuthResult:
+      type: object
+      properties:
+        accessToken: { type: string }
+        refreshToken: { type: string }
+        expiresInSeconds: { type: integer }
+        admin: { $ref: '#/components/schemas/Admin' }
+    LoginResult:
+      type: object
+      description: When twoFactorRequired is true only challenge is set (no tokens).
+      properties:
+        twoFactorRequired: { type: boolean }
+        challenge:
+          type: object
+          nullable: true
+          properties: { challengeToken: { type: string }, expiresInSeconds: { type: integer } }
+        auth: { allOf: [ { $ref: '#/components/schemas/AuthResult' } ], nullable: true }
+    Role:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        name: { type: string }
+        description: { type: string, nullable: true }
+        permissions: { type: array, items: { type: string } }
+  responses:
+    Unauthorized: { description: "No/invalid admin token, disabled admin, or revoked session (ADMIN_TOKEN_INVALID / UNAUTHORIZED)." }
+    Forbidden: { description: "ADMIN_FORBIDDEN (missing permission) or ADMIN_SUPER_ADMIN_REQUIRED." }
+    TooMany: { description: "429 + Retry-After. ADMIN_ACCOUNT_LOCKED or rate limit (RATE_LIMITED, 10/min per IP)." }
+security:
+  - adminBearer: []
+paths:
+  /admin/api/auth/login:
+    post:
+      summary: Password step. Locks for 15 minutes after 5 failures. Unknown email and wrong password look identical.
+      security: []
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, required: [email, password], properties: { email: { type: string }, password: { type: string } } } } }
+      responses:
+        '200': { description: "LoginResult (tokens, or a 5-minute single-use 2FA challenge).", content: { application/json: { schema: { $ref: '#/components/schemas/LoginResult' } } } }
+        '401': { description: ADMIN_INVALID_CREDENTIALS }
+        '429': { $ref: '#/components/responses/TooMany' }
+  /admin/api/auth/2fa/verify:
+    post:
+      summary: Exchange the challenge plus a TOTP code (30 s step, +/-1 drift) for tokens. A wrong code issues nothing and counts toward lockout.
+      security: []
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, required: [challengeToken, code], properties: { challengeToken: { type: string }, code: { type: string, example: '123456' } } } } }
+      responses:
+        '200': { description: AuthResult }
+        '401': { description: "ADMIN_2FA_CODE_INVALID or ADMIN_2FA_CHALLENGE_INVALID" }
+        '429': { $ref: '#/components/responses/TooMany' }
+  /admin/api/auth/refresh:
+    post:
+      summary: Rotate the refresh token (30 days). Reusing a rotated token ends ALL admin sessions of that admin (ADMIN_REFRESH_REUSED).
+      security: []
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, required: [refreshToken], properties: { refreshToken: { type: string } } } } }
+      responses:
+        '200': { description: AuthResult }
+        '401': { description: "ADMIN_TOKEN_INVALID or ADMIN_REFRESH_REUSED" }
+  /admin/api/auth/logout:
+    post: { summary: End this session (body optional), responses: { '200': { description: OK }, '401': { $ref: '#/components/responses/Unauthorized' } } }
+  /admin/api/auth/logout-all:
+    post: { summary: End every session of the current admin, responses: { '200': { description: OK }, '401': { $ref: '#/components/responses/Unauthorized' } } }
+  /admin/api/auth/me:
+    get: { summary: Current admin with roles and permissions read from the database, responses: { '200': { description: Admin }, '401': { $ref: '#/components/responses/Unauthorized' } } }
+  /admin/api/auth/2fa/setup:
+    post:
+      summary: Generate a TOTP secret (stored encrypted, inactive until enabled). Returns the Base32 secret and an otpauth URI.
+      responses: { '200': { description: "{ secret, otpAuthUri }" }, '409': { description: ADMIN_2FA_ALREADY_ENABLED } }
+  /admin/api/auth/2fa/enable:
+    post:
+      summary: Activate 2FA by proving a current code.
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [code], properties: { code: { type: string } } } } } }
+      responses: { '200': { description: Admin }, '401': { description: ADMIN_2FA_CODE_INVALID }, '409': { description: ADMIN_2FA_SETUP_REQUIRED or ADMIN_2FA_ALREADY_ENABLED } }
+  /admin/api/auth/2fa/disable:
+    post:
+      summary: Disable 2FA. Needs the current password AND a current code.
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [password, code], properties: { password: { type: string }, code: { type: string } } } } } }
+      responses: { '200': { description: Admin }, '401': { description: ADMIN_INVALID_CREDENTIALS }, '409': { description: ADMIN_2FA_NOT_ENABLED } }
+  /admin/api/admins:
+    get:
+      summary: List admins. Needs admin.roles.manage.
+      parameters:
+        - { name: status, in: query, schema: { type: string, enum: [active, disabled] } }
+        - { name: page, in: query, schema: { type: integer, default: 1 } }
+        - { name: pageSize, in: query, schema: { type: integer, default: 20, maximum: 50 } }
+      responses: { '200': { description: Paginated admins }, '403': { $ref: '#/components/responses/Forbidden' } }
+    post:
+      summary: Create an admin. Super-admin only (role membership) plus admin.roles.manage. Password 12-64 chars with letter, digit and symbol.
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [name, email, password], properties: { name: { type: string }, email: { type: string }, password: { type: string }, roleIds: { type: array, items: { type: integer } } } } } } }
+      responses: { '201': { description: Admin }, '409': { description: ADMIN_EMAIL_EXISTS }, '422': { description: Validation (ADMIN_WEAK_PASSWORD ...) }, '403': { $ref: '#/components/responses/Forbidden' } }
+  /admin/api/admins/{id}:
+    parameters: [ { name: id, in: path, required: true, schema: { type: integer, format: int64 } } ]
+    get: { summary: Get an admin (admin.roles.manage), responses: { '200': { description: Admin }, '404': { description: ADMIN_NOT_FOUND } } }
+    patch:
+      summary: Update name and/or email. Super-admin only.
+      requestBody: { content: { application/json: { schema: { type: object, properties: { name: { type: string }, email: { type: string } } } } } }
+      responses: { '200': { description: Admin }, '409': { description: ADMIN_EMAIL_EXISTS } }
+  /admin/api/admins/{id}/disable:
+    post:
+      summary: Disable an admin and end their sessions. Super-admin only. Refused for yourself and for the last active super-admin.
+      parameters: [ { name: id, in: path, required: true, schema: { type: integer, format: int64 } } ]
+      responses: { '200': { description: Admin }, '409': { description: ADMIN_CANNOT_DISABLE_SELF or ADMIN_LAST_SUPER_ADMIN } }
+  /admin/api/admins/{id}/enable:
+    post:
+      summary: Enable an admin and clear their lockout. Super-admin only.
+      parameters: [ { name: id, in: path, required: true, schema: { type: integer, format: int64 } } ]
+      responses: { '200': { description: Admin } }
+  /admin/api/admins/{id}/reset-2fa:
+    post:
+      summary: Remove an admin's 2FA and end their sessions. Super-admin only.
+      parameters: [ { name: id, in: path, required: true, schema: { type: integer, format: int64 } } ]
+      responses: { '200': { description: Admin } }
+  /admin/api/admins/{id}/roles:
+    post:
+      summary: Replace the admin's whole role set. Super-admin only. Cannot remove super-admin from the last active super-admin.
+      parameters: [ { name: id, in: path, required: true, schema: { type: integer, format: int64 } } ]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, properties: { roleIds: { type: array, items: { type: integer } } } } } } }
+      responses: { '200': { description: Admin }, '404': { description: ADMIN_ROLE_NOT_FOUND }, '409': { description: ADMIN_LAST_SUPER_ADMIN } }
+  /admin/api/roles:
+    get: { summary: List roles with their permission codes (admin.roles.manage), responses: { '200': { description: Roles } } }
+    post:
+      summary: Create a role. Super-admin only.
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [name], properties: { name: { type: string }, description: { type: string } } } } } }
+      responses: { '201': { description: Role }, '409': { description: ADMIN_ROLE_NAME_EXISTS } }
+  /admin/api/roles/{id}:
+    parameters: [ { name: id, in: path, required: true, schema: { type: integer, format: int64 } } ]
+    get: { summary: Get a role (admin.roles.manage), responses: { '200': { description: Role }, '404': { description: ADMIN_ROLE_NOT_FOUND } } }
+    patch:
+      summary: Rename / re-describe a role. Super-admin only. The super-admin role is protected (ADMIN_ROLE_PROTECTED).
+      requestBody: { content: { application/json: { schema: { type: object, properties: { name: { type: string }, description: { type: string } } } } } }
+      responses: { '200': { description: Role }, '409': { description: ADMIN_ROLE_PROTECTED or ADMIN_ROLE_NAME_EXISTS } }
+    delete:
+      summary: Delete an unassigned role. Super-admin only.
+      responses: { '200': { description: OK }, '409': { description: ADMIN_ROLE_IN_USE or ADMIN_ROLE_PROTECTED } }
+  /admin/api/roles/{id}/permissions:
+    post:
+      summary: Replace the role's whole permission set by code. Super-admin only. Takes effect on the next request of every admin holding the role.
+      parameters: [ { name: id, in: path, required: true, schema: { type: integer, format: int64 } } ]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, properties: { permissions: { type: array, items: { type: string, example: admin.audit.view } } } } } } }
+      responses: { '200': { description: Role }, '404': { description: ADMIN_PERMISSION_NOT_FOUND }, '409': { description: ADMIN_ROLE_PROTECTED } }
+  /admin/api/permissions:
+    get: { summary: The 18 permission codes (admin.roles.manage), responses: { '200': { description: "[{ id, code, description }]" } } }
+  # ---- Task 3 backend, Item 1: audit-logs now returns ActorName (actor id + name).
+  /admin/api/audit-logs:
+    get:
+      summary: Audit log (admin.audit.view), newest first. Every login attempt and every admin-management write is recorded with actor id + actorName, action, entity, before/after values and IP.
+      parameters:
+        - { name: action, in: query, schema: { type: string, example: admin.login.failed } }
+        - { name: entityType, in: query, schema: { type: string } }
+        - { name: actorId, in: query, schema: { type: integer, format: int64 } }
+        - { name: page, in: query, schema: { type: integer } }
+        - { name: pageSize, in: query, schema: { type: integer, maximum: 100 } }
+      responses: { '200': { description: Paginated audit logs }, '403': { $ref: '#/components/responses/Forbidden' } }
+  # ---- Task 3 backend, Item 2 (new endpoint): app user counts for the dashboard.
+  /admin/api/users/counts:
+    get:
+      summary: App user counts for the dashboard (admin.users.view). Returns sellers, buyers, companies, individuals.
+      responses: { '200': { description: "{ sellers, buyers, companies, individuals }" }, '401': { $ref: '#/components/responses/Unauthorized' }, '403': { $ref: '#/components/responses/Forbidden' } }
+  # ---- Task 3 backend, Item 3 (new endpoint): admin deals list (all deals, optional status filter).
+  /admin/api/deals:
+    get:
+      summary: List all deals for the admin dashboard (admin.deals.view). Optional status filter, paginated; meta.total is the deals count.
+      parameters:
+        - { name: status, in: query, schema: { type: string } }
+        - { name: page, in: query, schema: { type: integer } }
+        - { name: pageSize, in: query, schema: { type: integer } }
+      responses: { '200': { description: "Paginated deals (id, number, title, amount, currency, status, buyerId, buyerName, sellerId, sellerName, createdAt)" }, '401': { $ref: '#/components/responses/Unauthorized' }, '403': { $ref: '#/components/responses/Forbidden' } }
+  # ---- Phase 2: operator points. These keep their /api/v1/admin paths (frozen mobile contract) but are now
+  # ---- gated by the AdminJwt token + a database-checked permission. App-user token: 403. No token: 401.
+  /api/v1/admin/withdrawals:
+    get:
+      summary: List withdrawal requests. Permission admin.withdrawals.view.
+      parameters:
+        - { name: status, in: query, schema: { type: string } }
+        - { name: page, in: query, schema: { type: integer } }
+        - { name: pageSize, in: query, schema: { type: integer } }
+      responses: { '200': { description: Paginated withdrawals }, '401': { $ref: '#/components/responses/Unauthorized' }, '403': { $ref: '#/components/responses/Forbidden' } }
+  /api/v1/admin/withdrawals/{id}/approve:
+    post:
+      summary: Approve a pending withdrawal (re-checks the balance). Permission admin.withdrawals.approve. Fills ApprovedByAdminId, audit action admin.withdrawal.approve.
+      parameters: [ { name: id, in: path, required: true, schema: { type: integer, format: int64 } } ]
+      responses: { '200': { description: Withdrawal }, '403': { $ref: '#/components/responses/Forbidden' } }
+  /api/v1/admin/withdrawals/{id}/reject:
+    post:
+      summary: Reject a pending withdrawal. Covered by admin.withdrawals.approve (there is no separate reject code). Audit action admin.withdrawal.reject.
+      parameters: [ { name: id, in: path, required: true, schema: { type: integer, format: int64 } } ]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [reason], properties: { reason: { type: string } } } } } }
+      responses: { '200': { description: Withdrawal }, '403': { $ref: '#/components/responses/Forbidden' } }
+  /api/v1/admin/withdrawals/{id}/complete:
+    post:
+      summary: Confirm the manual bank transfer; the money leaves the wallet here. Permission admin.withdrawals.complete. Audit action admin.withdrawal.complete.
+      parameters: [ { name: id, in: path, required: true, schema: { type: integer, format: int64 } } ]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [bankReference], properties: { bankReference: { type: string } } } } } }
+      responses: { '200': { description: Withdrawal }, '403': { $ref: '#/components/responses/Forbidden' } }
+  /api/v1/admin/company-deals/penalties:
+    get:
+      summary: List company-deal penalties. Permission admin.penalties.view.
+      responses: { '200': { description: Paginated penalties }, '401': { $ref: '#/components/responses/Unauthorized' }, '403': { $ref: '#/components/responses/Forbidden' } }
+  /api/v1/admin/company-deals/penalties/{penaltyId}/waive:
+    post:
+      summary: Waive an applied penalty. Permission admin.penalties.waive. Fills WaivedByAdminId, audit action admin.penalty.waive.
+      parameters: [ { name: penaltyId, in: path, required: true, schema: { type: integer, format: int64 } } ]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [reason], properties: { reason: { type: string } } } } } }
+      responses: { '200': { description: Penalty }, '403': { $ref: '#/components/responses/Forbidden' } }
+  /api/v1/admin/disputes:
+    get:
+      summary: List disputes. Permission admin.disputes.view.
+      responses: { '200': { description: Paginated disputes }, '401': { $ref: '#/components/responses/Unauthorized' }, '403': { $ref: '#/components/responses/Forbidden' } }
+  /api/v1/admin/disputes/{disputeId}/request-info:
+    post:
+      summary: Ask both parties for more information. Permission admin.disputes.decide. Audit action admin.dispute.request_info (there is no ByAdminId column for it).
+      parameters: [ { name: disputeId, in: path, required: true, schema: { type: integer, format: int64 } } ]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [deadlineDays], properties: { note: { type: string }, deadlineDays: { type: integer } } } } } }
+      responses: { '200': { description: Dispute detail }, '403': { $ref: '#/components/responses/Forbidden' } }
+  /api/v1/admin/disputes/{disputeId}/decide:
+    post:
+      summary: Decide the dispute (release / refund / partial); the money moves in the same request. Permission admin.disputes.decide. Fills ResolvedByAdminId, audit action admin.dispute.decide.
+      parameters: [ { name: disputeId, in: path, required: true, schema: { type: integer, format: int64 } } ]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [resolution, note], properties: { resolution: { type: string, enum: [ReleaseSeller, RefundBuyer, Partial] }, sellerPercent: { type: integer }, note: { type: string } } } } } }
+      responses: { '200': { description: Execution result }, '403': { $ref: '#/components/responses/Forbidden' } }
