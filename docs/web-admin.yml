@@ -203,6 +203,26 @@ paths:
     get:
       summary: App user counts for the dashboard (admin.users.view). Returns sellers, buyers, companies, individuals.
       responses: { '200': { description: "{ sellers, buyers, companies, individuals }" }, '401': { $ref: '#/components/responses/Unauthorized' }, '403': { $ref: '#/components/responses/Forbidden' } }
+  # ---- Task 4 backend (new endpoints): admin users list / detail / soft delete.
+  /admin/api/users:
+    get:
+      summary: List all app users, companies and individuals (admin.users.view). Filters type (individual|company), status, search (name/email/phone); paginated, newest first.
+      parameters:
+        - { name: type, in: query, schema: { type: string, example: company } }
+        - { name: status, in: query, schema: { type: string, example: active } }
+        - { name: search, in: query, schema: { type: string } }
+        - { name: page, in: query, schema: { type: integer } }
+        - { name: pageSize, in: query, schema: { type: integer } }
+      responses: { '200': { description: "Paginated users (id, code, type, name, phone, email, status, nafathVerified, createdAt)" }, '401': { $ref: '#/components/responses/Unauthorized' }, '403': { $ref: '#/components/responses/Forbidden' } }
+  /admin/api/users/{id}:
+    get:
+      summary: One app user with company profile (or null) and deal counts (admin.users.view).
+      parameters: [ { name: id, in: path, required: true, schema: { type: integer, format: int64 } } ]
+      responses: { '200': { description: "User detail" }, '401': { $ref: '#/components/responses/Unauthorized' }, '403': { $ref: '#/components/responses/Forbidden' }, '404': { description: USER_NOT_FOUND } }
+    delete:
+      summary: Soft-delete an app user (admin.users.manage). Blocked with 409 USER_HAS_ACTIVE_DEALS while the user has a non-finished deal.
+      parameters: [ { name: id, in: path, required: true, schema: { type: integer, format: int64 } } ]
+      responses: { '200': { description: "User deleted" }, '401': { $ref: '#/components/responses/Unauthorized' }, '403': { $ref: '#/components/responses/Forbidden' }, '404': { description: USER_NOT_FOUND }, '409': { description: USER_HAS_ACTIVE_DEALS } }
   # ---- Task 3 backend, Item 3 (new endpoint): admin deals list (all deals, optional status filter).
   /admin/api/deals:
     get:
