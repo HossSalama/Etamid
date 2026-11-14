@@ -4,6 +4,8 @@ import { Observable } from 'rxjs';
 import { ApiResponse } from '../models/api-response.model';
 import {
   Admin,
+  AppUserDetail,
+  AppUserListItem,
   AuditLog,
   Deal,
   Dispute,
@@ -22,6 +24,25 @@ export class AdminApiService {
 
   getUserCounts(): Observable<ApiResponse<UserCounts>> {
     return this.http.get<ApiResponse<UserCounts>>('/admin/api/users/counts');
+  }
+
+  listAppUsers(params: {
+    type?: string;
+    status?: string;
+    search?: string;
+    page?: number;
+    pageSize?: number;
+  }): Observable<ApiResponse<AppUserListItem[]>> {
+    const q = this.toParams(params);
+    return this.http.get<ApiResponse<AppUserListItem[]>>(`/admin/api/users${q}`);
+  }
+
+  getAppUser(id: number): Observable<ApiResponse<AppUserDetail>> {
+    return this.http.get<ApiResponse<AppUserDetail>>(`/admin/api/users/${id}`);
+  }
+
+  deleteAppUser(id: number): Observable<ApiResponse<null>> {
+    return this.http.delete<ApiResponse<null>>(`/admin/api/users/${id}`);
   }
 
   // ── Deals ────────────────────────────────────────────────────────────────────

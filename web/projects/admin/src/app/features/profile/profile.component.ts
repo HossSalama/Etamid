@@ -30,7 +30,8 @@ export class ProfileComponent {
   protected enableSuccess = signal(false);
 
   // 2FA Disable
-  protected disablePassword = signal('');
+  protected disablePassword     = signal('');
+  protected showDisablePassword = signal(false);
   protected disableCode     = signal('');
   protected disableLoading  = signal(false);
   protected disableError    = signal('');

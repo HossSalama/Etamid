@@ -3,6 +3,13 @@
   <head>
     <meta charset="utf-8" />
     <title>اعتمد — لوحة الإدارة</title>
+    <!-- Without this, the browser resolves the app's relative asset URLs
+         (main.js, styles.css) against the current page URL: it works at /
+         and /login, but a hard refresh on a two-level route such as
+         /users/individuals requests /users/main.js and /users/styles.css
+         (404) and the app never loads — a blank white page. The website
+         project has this line; the admin one was missing it. -->
+    <base href="/" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="description" content="لوحة تحكم الإدارة لمنصة اعتمد — إدارة المعاملات والمستخدمين والإعدادات" />
     <link rel="icon" type="image/x-icon" href="favicon.ico" />

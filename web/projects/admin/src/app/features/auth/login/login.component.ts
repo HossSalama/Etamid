@@ -16,10 +16,11 @@ export class LoginComponent {
   private readonly router = inject(Router);
   protected readonly lang = inject(AdminLanguageService);
 
-  protected email     = '';
-  protected password  = '';
-  protected loading   = signal(false);
-  protected errorMsg  = signal('');
+  protected email        = '';
+  protected password     = '';
+  protected showPassword = signal(false);
+  protected loading      = signal(false);
+  protected errorMsg     = signal('');
 
   protected submit(): void {
     if (this.loading()) return;

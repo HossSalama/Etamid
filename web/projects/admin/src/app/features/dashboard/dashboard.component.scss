@@ -6,3 +6,11 @@
   color: #065f46;
 }
 
+// Stat cards are links to their pages (whole card is clickable).
+.stat-card-link {
+  display: block;
+  cursor: pointer;
+  text-decoration: none;
+  color: inherit;
+}
+

@@ -91,6 +91,38 @@ export interface UserCounts {
   individuals: number;
 }
 
+/** App user item from GET /admin/api/users */
+export interface AppUserListItem {
+  id: number;
+  code: string;
+  type: 'individual' | 'company';
+  name: string;
+  phone: string;
+  email: string;
+  status: string;
+  nafathVerified: boolean;
+  createdAt: string;
+}
+
+/** Company profile embedded in GET /admin/api/users/{id} (null for individuals) */
+export interface AppUserCompanyProfile {
+  companyName: string;
+  commercialRegNo: string;
+  taxNo: string | null;
+  ownerPhone: string;
+}
+
+/** App user detail from GET /admin/api/users/{id} */
+export interface AppUserDetail extends AppUserListItem {
+  language: string;
+  phoneVerifiedAt: string | null;
+  emailVerifiedAt: string | null;
+  lastLoginAt: string | null;
+  companyProfile: AppUserCompanyProfile | null;
+  dealsAsBuyer: number;
+  dealsAsSeller: number;
+}
+
 /** Deal item from GET /admin/api/deals */
 export interface Deal {
   id: number;

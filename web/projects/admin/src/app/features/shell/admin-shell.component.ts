@@ -54,6 +54,13 @@ export class AdminShellComponent {
       ],
     },
     {
+      labelKey: 'nav_users',
+      items: [
+        { labelKey: 'nav_companies',   path: '/users/companies',   icon: '🏢', permission: 'admin.users.view' },
+        { labelKey: 'nav_individuals', path: '/users/individuals', icon: '👤', permission: 'admin.users.view' },
+      ],
+    },
+    {
       labelKey: 'nav_management',
       items: [
         { labelKey: 'nav_admins',      path: '/admins',       icon: '👤', permission: 'admin.roles.manage' },

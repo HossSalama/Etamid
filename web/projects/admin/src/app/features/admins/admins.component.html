@@ -101,7 +101,16 @@
           </div>
           <div class="form-group">
             <label class="form-label required">{{ lang.t('password') }}</label>
-            <input class="form-control" type="password" [(ngModel)]="createPass" [placeholder]="lang.t('adm_password_ph')" />
+            <div class="password-wrapper">
+              <input class="form-control" [type]="showCreatePass() ? 'text' : 'password'" [(ngModel)]="createPass" [placeholder]="lang.t('adm_password_ph')" />
+              <button
+                type="button"
+                class="toggle-btn"
+                (click)="showCreatePass.set(!showCreatePass())"
+                tabindex="-1"
+                [attr.aria-label]="showCreatePass() ? lang.t('password_hide') : lang.t('password_show')"
+              >{{ showCreatePass() ? '👁️‍🗨️' : '👁️' }}</button>
+            </div>
           </div>
           @if (availableRoles().length > 0) {
             <div class="form-group">

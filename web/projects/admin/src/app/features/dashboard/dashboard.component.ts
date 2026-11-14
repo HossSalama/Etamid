@@ -71,7 +71,7 @@ export class DashboardComponent implements OnInit {
           const open = (res.data as Dispute[] ?? []).filter(
             (d) => d.status === 'under_review' || d.status === 'awaiting_info',
           ).length;
-          this.openDisputes.set(res.meta ? res.meta.total : open);
+          this.openDisputes.set(open);
         }
       },
       error: (err: HttpErrorResponse) => {

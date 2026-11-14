@@ -56,6 +56,23 @@ export const routes: Routes = [
           import('./features/deals/deals.component').then((m) => m.DealsComponent),
       },
       {
+        path: 'users/companies',
+        loadComponent: () =>
+          import('./features/users/users.component').then((m) => m.UsersComponent),
+        data: { type: 'company' },
+      },
+      {
+        path: 'users/individuals',
+        loadComponent: () =>
+          import('./features/users/users.component').then((m) => m.UsersComponent),
+        data: { type: 'individual' },
+      },
+      {
+        path: 'users/:id',
+        loadComponent: () =>
+          import('./features/users/user-detail.component').then((m) => m.UserDetailComponent),
+      },
+      {
         path: 'admins',
         loadComponent: () =>
           import('./features/admins/admins.component').then((m) => m.AdminsComponent),
