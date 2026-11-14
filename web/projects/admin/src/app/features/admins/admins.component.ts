@@ -30,6 +30,7 @@ export class AdminsComponent implements OnInit {
   protected createName     = signal('');
   protected createEmail    = signal('');
   protected createPass     = signal('');
+  protected showCreatePass = signal(false);
   protected createRoleIds  = signal<number[]>([]);
   protected createLoading  = signal(false);
   protected createError    = signal('');

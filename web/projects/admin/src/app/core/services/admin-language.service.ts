@@ -46,6 +46,13 @@ export class AdminLanguageService {
       : status;
   }
 
+  /** Returns a human-readable app-user status label. */
+  userStatusLabel(status: string): string {
+    return this.t(`users_status_${status}`) !== `users_status_${status}`
+      ? this.t(`users_status_${status}`)
+      : status;
+  }
+
   private getInitialLang(): LanguageCode {
     const stored = localStorage.getItem(STORAGE_KEY);
     return stored === 'en' ? 'en' : 'ar';
@@ -121,6 +128,8 @@ export class AdminLanguageService {
       login_email_ph:       'admin@etamid.com',
       login_password:       'كلمة المرور',
       login_password_ph:    '••••••••',
+      password_show:         'إظهار كلمة المرور',
+      password_hide:         'إخفاء كلمة المرور',
       login_submit:         'تسجيل الدخول',
       login_submitting:     'جارٍ تسجيل الدخول...',
       login_invalid:        'بيانات الدخول غير صحيحة.',
@@ -149,6 +158,7 @@ export class AdminLanguageService {
       dash_sellers:         'البائعون',
       dash_buyers:          'المشترون',
       dash_companies:       'الشركات',
+      dash_individuals:     'الأفراد',
       dash_deals:           'الصفقات',
 
       // Withdrawals
@@ -342,6 +352,43 @@ export class AdminLanguageService {
       deals_status_disputed:           'متنازع عليها',
       deals_status_refunded:           'مستردة',
 
+      // Users
+      nav_users:                 'المستخدمون',
+      nav_companies:             'الشركات',
+      nav_individuals:          'الأفراد',
+      users_title_companies:     'الشركات',
+      users_title_individuals:   'الأفراد',
+      users_col_name:            'الاسم',
+      users_col_code:            'الكود',
+      users_col_phone:           'الهاتف',
+      users_col_email:           'البريد الإلكتروني',
+      users_col_status:          'الحالة',
+      users_col_nafath:          'نفاذ',
+      users_col_created:         'تاريخ الإنشاء',
+      users_search_placeholder:  'ابحث بالاسم أو البريد أو الهاتف...',
+      users_status_pending_verification: 'بانتظار التحقق',
+      users_status_active:       'نشط',
+      users_status_suspended:    'موقوف',
+      users_status_deleted:      'محذوف',
+      users_empty:               'لا يوجد مستخدمون.',
+      users_detail_title:        'تفاصيل المستخدم',
+      users_detail_type:         'النوع',
+      users_detail_company:      'بيانات الشركة',
+      users_detail_company_name: 'اسم الشركة',
+      users_detail_cr:           'السجل التجاري',
+      users_detail_tax:          'الرقم الضريبي',
+      users_detail_owner_phone:  'هاتف المالك',
+      users_detail_deals_buyer:  'صفقات كمشترٍ',
+      users_detail_deals_seller: 'صفقات كبائع',
+      users_detail_language:     'اللغة',
+      users_detail_phone_verified: 'الهاتف موثّق',
+      users_detail_email_verified: 'البريد موثّق',
+      users_detail_last_login:   'آخر دخول',
+      users_yes:                 'نعم',
+      users_no:                  'لا',
+      users_delete:              'حذف المستخدم',
+      users_delete_confirm:      'هل أنت متأكد من حذف هذا المستخدم؟ لا يمكن التراجع عن هذا الإجراء.',
+
       // Profile
       prof_title:           'الملف الشخصي',
       prof_2fa_title:       'التحقق بخطوتين',
@@ -435,6 +482,8 @@ export class AdminLanguageService {
       login_email_ph:       'admin@etamid.com',
       login_password:       'Password',
       login_password_ph:    '••••••••',
+      password_show:         'Show password',
+      password_hide:         'Hide password',
       login_submit:         'Sign In',
       login_submitting:     'Signing in...',
       login_invalid:        'Invalid credentials.',
@@ -463,6 +512,7 @@ export class AdminLanguageService {
       dash_sellers:         'Sellers',
       dash_buyers:          'Buyers',
       dash_companies:       'Companies',
+      dash_individuals:     'Individuals',
       dash_deals:           'Deals',
 
       // Withdrawals
@@ -655,6 +705,43 @@ export class AdminLanguageService {
       deals_status_cancelled:          'Cancelled',
       deals_status_disputed:           'Disputed',
       deals_status_refunded:           'Refunded',
+
+      // Users
+      nav_users:                 'Users',
+      nav_companies:             'Companies',
+      nav_individuals:          'Individuals',
+      users_title_companies:     'Companies',
+      users_title_individuals:   'Individuals',
+      users_col_name:            'Name',
+      users_col_code:            'Code',
+      users_col_phone:           'Phone',
+      users_col_email:           'Email',
+      users_col_status:          'Status',
+      users_col_nafath:          'Nafath',
+      users_col_created:         'Created',
+      users_search_placeholder:  'Search by name, email or phone...',
+      users_status_pending_verification: 'Pending verification',
+      users_status_active:       'Active',
+      users_status_suspended:    'Suspended',
+      users_status_deleted:      'Deleted',
+      users_empty:               'No users found.',
+      users_detail_title:        'User details',
+      users_detail_type:         'Type',
+      users_detail_company:      'Company details',
+      users_detail_company_name: 'Company name',
+      users_detail_cr:           'Commercial register',
+      users_detail_tax:          'Tax number',
+      users_detail_owner_phone:  'Owner phone',
+      users_detail_deals_buyer:  'Deals as buyer',
+      users_detail_deals_seller: 'Deals as seller',
+      users_detail_language:     'Language',
+      users_detail_phone_verified: 'Phone verified',
+      users_detail_email_verified: 'Email verified',
+      users_detail_last_login:   'Last login',
+      users_yes:                 'Yes',
+      users_no:                  'No',
+      users_delete:              'Delete user',
+      users_delete_confirm:      'Are you sure you want to delete this user? This cannot be undone.',
 
       // Profile
       prof_title:           'Profile',

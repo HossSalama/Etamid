@@ -7,7 +7,7 @@
 <!-- Stats Grid -->
 <div class="stats-grid">
   @if (canViewWithdrawals) {
-    <div class="stat-card">
+    <a class="stat-card stat-card-link" routerLink="/withdrawals">
       <div class="stat-card-icon coral">⇥</div>
       <div class="stat-card-label">{{ lang.t('dash_pending_withdrawals') }}</div>
       @if (loadingWithdrawals()) {
@@ -15,11 +15,11 @@
       } @else {
         <div class="stat-card-value">{{ pendingWithdrawals() ?? '—' }}</div>
       }
-    </div>
+    </a>
   }
 
   @if (canViewDisputes) {
-    <div class="stat-card">
+    <a class="stat-card stat-card-link" routerLink="/disputes">
       <div class="stat-card-icon amber">⚖</div>
       <div class="stat-card-label">{{ lang.t('dash_open_disputes') }}</div>
       @if (loadingDisputes()) {
@@ -27,11 +27,11 @@
       } @else {
         <div class="stat-card-value">{{ openDisputes() ?? '—' }}</div>
       }
-    </div>
+    </a>
   }
 
   @if (canViewPenalties) {
-    <div class="stat-card">
+    <a class="stat-card stat-card-link" routerLink="/penalties">
       <div class="stat-card-icon coral">⚠</div>
       <div class="stat-card-label">{{ lang.t('dash_applied_penalties') }}</div>
       @if (loadingPenalties()) {
@@ -39,29 +39,20 @@
       } @else {
         <div class="stat-card-value">{{ appliedPenalties() ?? '—' }}</div>
       }
-    </div>
+    </a>
   }
 
   @if (canViewUsers && userCountsLoaded()) {
-    <div class="stat-card">
-      <div class="stat-card-icon teal">🛒</div>
-      <div class="stat-card-label">{{ lang.t('dash_sellers') }}</div>
+    <a class="stat-card stat-card-link" routerLink="/users/individuals">
+      <div class="stat-card-icon teal">👥</div>
+      <div class="stat-card-label">{{ lang.t('dash_individuals') }}</div>
       @if (loadingUserCounts()) {
         <div class="spinner"></div>
       } @else {
-        <div class="stat-card-value">{{ userCounts()?.sellers ?? '—' }}</div>
+        <div class="stat-card-value">{{ userCounts()?.individuals ?? '—' }}</div>
       }
-    </div>
-    <div class="stat-card">
-      <div class="stat-card-icon teal">🛍</div>
-      <div class="stat-card-label">{{ lang.t('dash_buyers') }}</div>
-      @if (loadingUserCounts()) {
-        <div class="spinner"></div>
-      } @else {
-        <div class="stat-card-value">{{ userCounts()?.buyers ?? '—' }}</div>
-      }
-    </div>
-    <div class="stat-card">
+    </a>
+    <a class="stat-card stat-card-link" routerLink="/users/companies">
       <div class="stat-card-icon teal">🏢</div>
       <div class="stat-card-label">{{ lang.t('dash_companies') }}</div>
       @if (loadingUserCounts()) {
@@ -69,11 +60,11 @@
       } @else {
         <div class="stat-card-value">{{ userCounts()?.companies ?? '—' }}</div>
       }
-    </div>
+    </a>
   }
 
   @if (canViewDeals) {
-    <div class="stat-card">
+    <a class="stat-card stat-card-link" routerLink="/deals">
       <div class="stat-card-icon amber">🤝</div>
       <div class="stat-card-label">{{ lang.t('dash_deals') }}</div>
       @if (loadingDeals()) {
@@ -81,7 +72,7 @@
       } @else {
         <div class="stat-card-value">{{ totalDeals() ?? '—' }}</div>
       }
-    </div>
+    </a>
   }
 </div>
 

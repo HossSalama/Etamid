@@ -1,1 +1,25 @@
 :host { display: block; }
+
+/* Password visibility toggle — same markup, classes and icons as the
+   website (user side) login: eye in a speech bubble when shown, plain
+   eye when hidden. */
+.password-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+
+  .form-control { padding-inline-end: 2.75rem; }
+
+  .toggle-btn {
+    position: absolute;
+    inset-inline-end: 0.75rem;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 1.1rem;
+    padding: 0.25rem;
+    display: flex;
+    align-items: center;
+  }
+}
+
