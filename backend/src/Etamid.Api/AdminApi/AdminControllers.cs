@@ -16,12 +16,22 @@ public sealed class AdminAuthController : AdminApiController
     public async Task<IActionResult> Login(AdminLoginCommand command, CancellationToken ct)
     {
         var result = await Sender.Send(command, ct);
-        return Respond(result, result.IsSuccess && result.Value.TwoFactorRequired ? "ADMIN_2FA_REQUIRED" : "ADMIN_LOGGED_IN");
+        return Respond(result, result.IsSuccess && (result.Value.TwoFactorRequired || result.Value.TwoFactorSetupRequired) ? "ADMIN_2FA_REQUIRED" : "ADMIN_LOGGED_IN");
     }
 
     [AllowAnonymous]
     [HttpPost("2fa/verify")]
     public async Task<IActionResult> VerifyTwoFactor(AdminVerifyTwoFactorCommand command, CancellationToken ct)
+        => Respond(await Sender.Send(command, ct), "ADMIN_LOGGED_IN");
+
+    [AllowAnonymous]
+    [HttpPost("2fa/setup-challenge")]
+    public async Task<IActionResult> SetupTwoFactorChallenge(AdminTwoFactorSetupChallengeCommand command, CancellationToken ct)
+        => Respond(await Sender.Send(command, ct), "ADMIN_2FA_SETUP_STARTED");
+
+    [AllowAnonymous]
+    [HttpPost("2fa/enable-challenge")]
+    public async Task<IActionResult> EnableTwoFactorChallenge(AdminTwoFactorEnableChallengeCommand command, CancellationToken ct)
         => Respond(await Sender.Send(command, ct), "ADMIN_LOGGED_IN");
 
     [AllowAnonymous]

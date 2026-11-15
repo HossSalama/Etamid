@@ -14,8 +14,9 @@ public sealed record AdminAuthResultDto(string AccessToken, string RefreshToken,
 
 public sealed record AdminChallengeDto(string ChallengeToken, int ExpiresInSeconds);
 
-/// <summary>Either a 2FA challenge (no tokens) or the full token set.</summary>
-public sealed record AdminLoginResultDto(bool TwoFactorRequired, AdminChallengeDto? Challenge, AdminAuthResultDto? Auth);
+/// <summary>Either a 2FA challenge (no tokens) or the full token set. When 2FA is not yet enabled,
+/// login returns a setup challenge instead: TwoFactorSetupRequired is true and Auth is null.</summary>
+public sealed record AdminLoginResultDto(bool TwoFactorRequired, bool TwoFactorSetupRequired, AdminChallengeDto? Challenge, AdminAuthResultDto? Auth);
 
 public sealed record AdminTwoFactorSetupDto(string Secret, string OtpAuthUri);
 

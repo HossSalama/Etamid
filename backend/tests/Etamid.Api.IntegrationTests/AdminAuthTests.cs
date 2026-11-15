@@ -69,10 +69,27 @@ public class AdminAuthTests(EtamidFactory factory) : IClassFixture<EtamidFactory
 
     private async Task<Session> SignIn(string email)
     {
+        // 2FA is mandatory: a 2FA-off admin gets no tokens from login, so signing in
+        // completes the setup-challenge -> enable-challenge flow first.
         var r = await Login(email, Password);
         r.StatusCode.Should().Be(HttpStatusCode.OK, await r.Content.ReadAsStringAsync());
-        var auth = (await Data(r)).GetProperty("auth");
-        return MakeSession(auth.GetProperty("accessToken").GetString()!, auth.GetProperty("refreshToken").GetString()!);
+        var data = await Data(r);
+        if (data.TryGetProperty("auth", out var auth) && auth.ValueKind != JsonValueKind.Null)
+            return MakeSession(auth.GetProperty("accessToken").GetString()!, auth.GetProperty("refreshToken").GetString()!);
+
+        if (data.TryGetProperty("twoFactorSetupRequired", out var setupRequired) && setupRequired.GetBoolean())
+        {
+            var challenge = data.GetProperty("challenge").GetProperty("challengeToken").GetString()!;
+            var setup = await _anon.PostAsJsonAsync("/admin/api/auth/2fa/setup-challenge", new { challengeToken = challenge });
+            setup.StatusCode.Should().Be(HttpStatusCode.OK, await setup.Content.ReadAsStringAsync());
+            var secret = (await Data(setup)).GetProperty("secret").GetString()!;
+            var enable = await _anon.PostAsJsonAsync("/admin/api/auth/2fa/enable-challenge", new { challengeToken = challenge, code = TotpNow(secret) });
+            enable.StatusCode.Should().Be(HttpStatusCode.OK, await enable.Content.ReadAsStringAsync());
+            var enabled = await Data(enable);
+            return MakeSession(enabled.GetProperty("accessToken").GetString()!, enabled.GetProperty("refreshToken").GetString()!);
+        }
+
+        throw new InvalidOperationException("SignIn: login returned neither tokens nor a 2FA setup challenge.");
     }
 
     private Session MakeSession(string access, string refresh)
@@ -100,10 +117,19 @@ public class AdminAuthTests(EtamidFactory factory) : IClassFixture<EtamidFactory
 
     // ------------------------------------------------------------------ login
     [Fact]
-    public async Task Login_success_returns_tokens_me_works_and_attempt_is_audited()
+    public async Task Login_with_2fa_off_requires_setup_then_tokens_me_works_and_attempt_is_audited()
     {
         var email = NewEmail();
         var id = await SeedAdmin(email, superAdmin: true);
+
+        // Login alone issues no tokens while 2FA is off: only a setup challenge.
+        var login = await Login(email, Password);
+        login.StatusCode.Should().Be(HttpStatusCode.OK);
+        var loginData = await Data(login);
+        loginData.GetProperty("twoFactorRequired").GetBoolean().Should().BeFalse();
+        loginData.GetProperty("twoFactorSetupRequired").GetBoolean().Should().BeTrue();
+        loginData.GetProperty("auth").ValueKind.Should().Be(JsonValueKind.Null);
+        loginData.GetProperty("challenge").GetProperty("challengeToken").GetString().Should().NotBeNullOrEmpty();
 
         var session = await SignIn(email);
         var me = await Data(await session.Client.GetAsync("/admin/api/auth/me"));
@@ -193,27 +219,74 @@ public class AdminAuthTests(EtamidFactory factory) : IClassFixture<EtamidFactory
     }
 
     [Fact]
-    public async Task Setup_and_enable_two_factor_then_login_requires_the_challenge()
+    public async Task Setup_challenge_and_enable_challenge_then_login_requires_verify()
     {
         var email = NewEmail();
         await SeedAdmin(email);
-        var session = await SignIn(email);
 
-        var setup = await session.Client.PostAsync("/admin/api/auth/2fa/setup", null);
-        setup.StatusCode.Should().Be(HttpStatusCode.OK, await setup.Content.ReadAsStringAsync());
-        var secret = (await Data(setup)).GetProperty("secret").GetString()!;
+        var login = await Login(email, Password);
+        login.StatusCode.Should().Be(HttpStatusCode.OK);
+        var loginData = await Data(login);
+        loginData.GetProperty("twoFactorSetupRequired").GetBoolean().Should().BeTrue();
+        var challenge = loginData.GetProperty("challenge").GetProperty("challengeToken").GetString()!;
 
-        var bad = await session.Client.PostAsJsonAsync("/admin/api/auth/2fa/enable", new { code = WrongCode(TotpNow(secret)) });
+        // Setup does not consume the challenge: calling it twice still works.
+        var setup1 = await _anon.PostAsJsonAsync("/admin/api/auth/2fa/setup-challenge", new { challengeToken = challenge });
+        setup1.StatusCode.Should().Be(HttpStatusCode.OK, await setup1.Content.ReadAsStringAsync());
+        var setup2 = await _anon.PostAsJsonAsync("/admin/api/auth/2fa/setup-challenge", new { challengeToken = challenge });
+        setup2.StatusCode.Should().Be(HttpStatusCode.OK, await setup2.Content.ReadAsStringAsync());
+        var setupData = await Data(setup2);
+        var secret = setupData.GetProperty("secret").GetString()!;
+        setupData.GetProperty("otpAuthUri").GetString().Should().NotBeNullOrEmpty();
+
+        var bad = await _anon.PostAsJsonAsync("/admin/api/auth/2fa/enable-challenge", new { challengeToken = challenge, code = WrongCode(TotpNow(secret)) });
         bad.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        (await Code(bad)).Should().Be("ADMIN_2FA_CODE_INVALID");
+        (await bad.Content.ReadAsStringAsync()).Should().NotContain("accessToken");
 
-        var enable = await session.Client.PostAsJsonAsync("/admin/api/auth/2fa/enable", new { code = TotpNow(secret) });
+        var enable = await _anon.PostAsJsonAsync("/admin/api/auth/2fa/enable-challenge", new { challengeToken = challenge, code = TotpNow(secret) });
         enable.StatusCode.Should().Be(HttpStatusCode.OK, await enable.Content.ReadAsStringAsync());
+        (await Data(enable)).GetProperty("accessToken").GetString().Should().NotBeNullOrEmpty();
+
+        // The challenge is single use.
+        var again = await _anon.PostAsJsonAsync("/admin/api/auth/2fa/enable-challenge", new { challengeToken = challenge, code = TotpNow(secret) });
+        again.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        (await Code(again)).Should().Be("ADMIN_2FA_CHALLENGE_INVALID");
 
         (await Data(await Login(email, Password))).GetProperty("twoFactorRequired").GetBoolean().Should().BeTrue();
 
         // The stored secret is encrypted, never the Base32 text.
         var stored = await Db(db => db.AdminUsers.AsNoTracking().Where(a => a.Email == email).Select(a => a.TwoFactorSecret).FirstAsync());
         stored.Should().NotBeNullOrEmpty().And.NotBe(secret);
+    }
+
+    [Fact]
+    public async Task Setup_challenge_and_enable_challenge_with_an_unknown_challenge_are_rejected()
+    {
+        var setup = await _anon.PostAsJsonAsync("/admin/api/auth/2fa/setup-challenge", new { challengeToken = "unknown-challenge" });
+        setup.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        (await Code(setup)).Should().Be("ADMIN_2FA_CHALLENGE_INVALID");
+
+        var enable = await _anon.PostAsJsonAsync("/admin/api/auth/2fa/enable-challenge", new { challengeToken = "unknown-challenge", code = "123456" });
+        enable.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        (await Code(enable)).Should().Be("ADMIN_2FA_CHALLENGE_INVALID");
+    }
+
+    [Fact]
+    public async Task Self_disable_two_factor_is_forbidden_and_leaves_2fa_on()
+    {
+        var email = NewEmail();
+        await SeedAdmin(email);
+        var session = await SignIn(email);   // enables 2FA through the mandatory flow
+
+        var r = await session.Client.PostAsJsonAsync("/admin/api/auth/2fa/disable", new { password = Password, code = "123456" });
+        r.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        (await Code(r)).Should().Be("ADMIN_FORBIDDEN");
+
+        var enabled = await Db(db => db.AdminUsers.AsNoTracking().Where(a => a.Email == email).Select(a => a.TwoFactorEnabled).FirstAsync());
+        enabled.Should().BeTrue();
+        var secret = await Db(db => db.AdminUsers.AsNoTracking().Where(a => a.Email == email).Select(a => a.TwoFactorSecret).FirstAsync());
+        secret.Should().NotBeNullOrEmpty();
     }
 
     // ------------------------------------------------------------------ refresh
@@ -434,6 +507,8 @@ public class AdminAuthTests(EtamidFactory factory) : IClassFixture<EtamidFactory
         });
 
         (await superSession.Client.PostAsync($"/admin/api/admins/{id}/reset-2fa", null)).StatusCode.Should().Be(HttpStatusCode.OK);
-        (await Data(await Login(email, Password))).GetProperty("twoFactorRequired").GetBoolean().Should().BeFalse();
+        var afterReset = await Data(await Login(email, Password));
+        afterReset.GetProperty("twoFactorRequired").GetBoolean().Should().BeFalse();
+        afterReset.GetProperty("twoFactorSetupRequired").GetBoolean().Should().BeTrue();
     }
 }

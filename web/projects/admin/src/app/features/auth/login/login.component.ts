@@ -40,9 +40,17 @@ export class LoginComponent {
           this.errorMsg.set(this.mapErrorCode(code, res.message));
           return;
         }
-        // twoFactorRequired is handled inside auth service tap; check the result
+        // twoFactorRequired / twoFactorSetupRequired are handled inside auth service tap; check the result
         if (res.data?.twoFactorRequired && res.data.challenge) {
           this.router.navigate(['/login/2fa'], {
+            state: {
+              challengeToken:   res.data.challenge.challengeToken,
+              expiresInSeconds: res.data.challenge.expiresInSeconds,
+            },
+          });
+        } else if (res.data?.twoFactorSetupRequired && res.data.challenge) {
+          // 2FA is mandatory and not enabled yet: force setup before any dashboard access.
+          this.router.navigate(['/login/2fa-setup'], {
             state: {
               challengeToken:   res.data.challenge.challengeToken,
               expiresInSeconds: res.data.challenge.expiresInSeconds,

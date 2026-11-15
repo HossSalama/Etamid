@@ -29,15 +29,6 @@ export class ProfileComponent {
   protected enableError   = signal('');
   protected enableSuccess = signal(false);
 
-  // 2FA Disable
-  protected disablePassword     = signal('');
-  protected showDisablePassword = signal(false);
-  protected disableCode     = signal('');
-  protected disableLoading  = signal(false);
-  protected disableError    = signal('');
-  protected disableSuccess  = signal(false);
-  protected showDisable     = signal(false);
-
   protected doSetup(): void {
     if (this.setupLoading()) return;
     this.setupLoading.set(true); this.setupError.set('');
@@ -75,30 +66,6 @@ export class ProfileComponent {
         }
       },
       error: (err: HttpErrorResponse) => { this.enableLoading.set(false); this.enableError.set(err.error?.message ?? this.lang.t('error_generic')); },
-    });
-  }
-
-  protected openDisable(): void { this.showDisable.set(true); this.disablePassword.set(''); this.disableCode.set(''); this.disableError.set(''); }
-  protected closeDisable(): void { this.showDisable.set(false); this.disableLoading.set(false); }
-
-  protected doDisable(): void {
-    const code = this.disableCode().replace(/\s/g, '');
-    if (this.disableLoading() || !this.disablePassword() || code.length !== 6) return;
-    this.disableLoading.set(true); this.disableError.set(''); this.disableSuccess.set(false);
-    this.auth.disable2fa(this.disablePassword(), code).subscribe({
-      next: (res) => {
-        this.disableLoading.set(false);
-        if (res.success) { this.disableSuccess.set(true); this.closeDisable(); }
-        else {
-          const c = res.errors?.[0]?.code ?? '';
-          this.disableError.set(
-            c === 'ADMIN_2FA_CODE_INVALID'    ? this.lang.t('prof_code_invalid') :
-            c === 'ADMIN_INVALID_CREDENTIALS' ? this.lang.t('prof_invalid_creds') :
-            c === 'ADMIN_2FA_NOT_ENABLED'     ? this.lang.t('prof_not_enabled') :
-            (res.message ?? this.lang.t('error_generic')));
-        }
-      },
-      error: (err: HttpErrorResponse) => { this.disableLoading.set(false); this.disableError.set(err.error?.message ?? this.lang.t('error_generic')); },
     });
   }
 

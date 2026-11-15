@@ -13,6 +13,11 @@ export const routes: Routes = [
       import('./features/auth/verify-2fa/verify-2fa.component').then((m) => m.Verify2faComponent),
   },
   {
+    path: 'login/2fa-setup',
+    loadComponent: () =>
+      import('./features/auth/setup-2fa/setup-2fa.component').then((m) => m.Setup2faComponent),
+  },
+  {
     path: '',
     loadComponent: () =>
       import('./features/shell/admin-shell.component').then((m) => m.AdminShellComponent),

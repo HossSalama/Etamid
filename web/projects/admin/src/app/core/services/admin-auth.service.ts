@@ -23,7 +23,7 @@ export class AdminAuthService {
       .post<ApiResponse<LoginResult>>(`${this.baseUrl}/login`, { email, password })
       .pipe(
         tap((res) => {
-          if (res.success && res.data && !res.data.twoFactorRequired && res.data.auth) {
+          if (res.success && res.data && !res.data.twoFactorRequired && !res.data.twoFactorSetupRequired && res.data.auth) {
             this.handleAuthSuccess(res.data.auth);
           }
         }),
@@ -34,6 +34,27 @@ export class AdminAuthService {
   verify2fa(challengeToken: string, code: string): Observable<ApiResponse<AuthResult>> {
     return this.http
       .post<ApiResponse<AuthResult>>(`${this.baseUrl}/2fa/verify`, { challengeToken, code })
+      .pipe(
+        tap((res) => {
+          if (res.success && res.data) {
+            this.handleAuthSuccess(res.data);
+          }
+        }),
+      );
+  }
+
+  /** POST /admin/api/auth/2fa/setup-challenge (anonymous, mandatory-2FA setup flow) */
+  setup2faWithChallenge(challengeToken: string): Observable<ApiResponse<{ secret: string; otpAuthUri: string }>> {
+    return this.http.post<ApiResponse<{ secret: string; otpAuthUri: string }>>(
+      `${this.baseUrl}/2fa/setup-challenge`,
+      { challengeToken },
+    );
+  }
+
+  /** POST /admin/api/auth/2fa/enable-challenge (anonymous, mandatory-2FA setup flow; returns tokens) */
+  enable2faWithChallenge(challengeToken: string, code: string): Observable<ApiResponse<AuthResult>> {
+    return this.http
+      .post<ApiResponse<AuthResult>>(`${this.baseUrl}/2fa/enable-challenge`, { challengeToken, code })
       .pipe(
         tap((res) => {
           if (res.success && res.data) {
@@ -54,17 +75,6 @@ export class AdminAuthService {
   /** POST /admin/api/auth/2fa/enable */
   enable2fa(code: string): Observable<ApiResponse<Admin>> {
     return this.http.post<ApiResponse<Admin>>(`${this.baseUrl}/2fa/enable`, { code }).pipe(
-      tap((res) => {
-        if (res.success && res.data) {
-          this.saveCurrentAdmin(res.data);
-        }
-      }),
-    );
-  }
-
-  /** POST /admin/api/auth/2fa/disable */
-  disable2fa(password: string, code: string): Observable<ApiResponse<Admin>> {
-    return this.http.post<ApiResponse<Admin>>(`${this.baseUrl}/2fa/disable`, { password, code }).pipe(
       tap((res) => {
         if (res.success && res.data) {
           this.saveCurrentAdmin(res.data);

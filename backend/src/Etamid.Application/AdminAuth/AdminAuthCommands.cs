@@ -29,8 +29,7 @@ public sealed class AdminLoginValidator : AbstractValidator<AdminLoginCommand>
 }
 
 public sealed class AdminLoginHandler(
-    IApplicationDbContext db, IPasswordHasher hasher, IClock clock,
-    AdminSessionService sessions, AdminProfileService profiles, AdminAuditService audit)
+    IApplicationDbContext db, IPasswordHasher hasher, IClock clock, AdminAuditService audit)
     : IRequestHandler<AdminLoginCommand, Result<AdminLoginResultDto>>
 {
     public static readonly TimeSpan ChallengeLifetime = TimeSpan.FromMinutes(5);
@@ -88,13 +87,26 @@ public sealed class AdminLoginHandler(
             });
             audit.Record(AuditActorType.Admin, admin.Id, "admin.login.2fa_required", "AdminUser", admin.Id);
             await db.SaveChangesAsync(ct);
-            return new AdminLoginResultDto(true, new AdminChallengeDto(raw, (int)ChallengeLifetime.TotalSeconds), null);
+            return new AdminLoginResultDto(true, false, new AdminChallengeDto(raw, (int)ChallengeLifetime.TotalSeconds), null);
         }
 
-        admin.RecordSuccessfulLogin(now);
-        audit.Record(AuditActorType.Admin, admin.Id, "admin.login.success", "AdminUser", admin.Id);
-        var pair = await sessions.StartSessionAsync(admin, ct);   // saves everything above
-        return new AdminLoginResultDto(false, null, await profiles.ToAuthResultAsync(pair, ct));
+        // 2FA is mandatory: an admin who has not enabled it gets no tokens. They must
+        // complete setup through the challenge endpoints instead (setup-challenge, then
+        // enable-challenge), which issue the session once 2FA is enabled.
+        var openSetup = await db.AdminTwoFactorChallenges
+            .Where(c => c.AdminUserId == admin.Id && c.ConsumedAt == null).ToListAsync(ct);
+        foreach (var previous in openSetup) previous.ConsumedAt = now;
+
+        var setupRaw = TokenHasher.NewToken();
+        db.AdminTwoFactorChallenges.Add(new AdminTwoFactorChallenge
+        {
+            AdminUserId = admin.Id,
+            TokenHash = TokenHasher.Hash(setupRaw),
+            ExpiresAt = now + ChallengeLifetime
+        });
+        audit.Record(AuditActorType.Admin, admin.Id, "admin.login.2fa_setup_required", "AdminUser", admin.Id);
+        await db.SaveChangesAsync(ct);
+        return new AdminLoginResultDto(false, true, new AdminChallengeDto(setupRaw, (int)ChallengeLifetime.TotalSeconds), null);
     }
 }
 
@@ -150,6 +162,119 @@ public sealed class AdminVerifyTwoFactorHandler(
         admin.RecordSuccessfulLogin(now);
         audit.Record(AuditActorType.Admin, admin.Id, "admin.login.success", "AdminUser", admin.Id, null, new { twoFactor = true });
         var pair = await sessions.StartSessionAsync(admin, ct);
+        return await profiles.ToAuthResultAsync(pair, ct);
+    }
+}
+
+// ======================================================================= 2FA setup via login challenge (mandatory 2FA)
+/// <summary>
+/// Validates a login challenge for an admin who has NOT enabled 2FA yet, exactly the way
+/// AdminVerifyTwoFactorHandler validates its challenge (exists, unconsumed, unexpired,
+/// fewer than 5 attempts, admin Active). The challenge is NOT consumed here: setup only
+/// stores a secret, enable consumes the challenge once the code proves the authenticator works.
+/// </summary>
+internal static class AdminSetupChallenge
+{
+    public static async Task<Result<(AdminTwoFactorChallenge Challenge, AdminUser Admin)>> LoadAsync(
+        IApplicationDbContext db, string challengeToken, IClock clock, CancellationToken ct)
+    {
+        var now = clock.UtcNow;
+        var hash = TokenHasher.Hash(challengeToken.Trim());
+        var challenge = await db.AdminTwoFactorChallenges.FirstOrDefaultAsync(c => c.TokenHash == hash && c.ConsumedAt == null, ct);
+        if (challenge is null || challenge.ExpiresAt <= now || challenge.Attempts >= AdminVerifyTwoFactorHandler.MaxChallengeAttempts)
+            return AdminErrors.TwoFactorChallengeInvalid;
+
+        var admin = await db.AdminUsers.FirstOrDefaultAsync(a => a.Id == challenge.AdminUserId, ct);
+        if (admin is null || admin.Status != AdminStatus.Active || admin.TwoFactorEnabled)
+        {
+            challenge.ConsumedAt = now;
+            await db.SaveChangesAsync(ct);
+            return AdminErrors.TwoFactorChallengeInvalid;
+        }
+
+        return (challenge, admin);
+    }
+}
+
+/// <summary>Anonymous step 1 of mandatory setup: given the login setup-challenge, generate/store an encrypted secret.</summary>
+public sealed record AdminTwoFactorSetupChallengeCommand(string ChallengeToken) : IRequest<Result<AdminTwoFactorSetupDto>>;
+
+public sealed class AdminTwoFactorSetupChallengeValidator : AbstractValidator<AdminTwoFactorSetupChallengeCommand>
+{
+    public AdminTwoFactorSetupChallengeValidator()
+        => RuleFor(x => x.ChallengeToken).MustBeRequired(200);
+}
+
+public sealed class AdminTwoFactorSetupChallengeHandler(
+    IApplicationDbContext db, IClock clock, ITotpService totp, IFieldProtector protector, AdminAuditService audit)
+    : IRequestHandler<AdminTwoFactorSetupChallengeCommand, Result<AdminTwoFactorSetupDto>>
+{
+    public async Task<Result<AdminTwoFactorSetupDto>> Handle(AdminTwoFactorSetupChallengeCommand cmd, CancellationToken ct)
+    {
+        var loaded = await AdminSetupChallenge.LoadAsync(db, cmd.ChallengeToken, clock, ct);
+        if (loaded.IsFailure) return loaded.Error;
+        var admin = loaded.Value.Admin;
+
+        // Stored encrypted but NOT active until /2fa/enable-challenge proves the authenticator works.
+        // The challenge stays open so enable-challenge can still use it.
+        var secret = totp.NewSecret();
+        admin.TwoFactorSecret = protector.Protect(secret);
+        audit.Record(AuditActorType.Admin, admin.Id, "admin.2fa.setup", "AdminUser", admin.Id);
+        await db.SaveChangesAsync(ct);
+        return new AdminTwoFactorSetupDto(secret, totp.BuildOtpAuthUri(AdminTwoFactorSetupHandler.Issuer, admin.Email, secret));
+    }
+}
+
+/// <summary>Anonymous step 2 of mandatory setup: verify the code, enable 2FA, consume the challenge, start a session.</summary>
+public sealed record AdminTwoFactorEnableChallengeCommand(string ChallengeToken, string Code) : IRequest<Result<AdminAuthResultDto>>;
+
+public sealed class AdminTwoFactorEnableChallengeValidator : AbstractValidator<AdminTwoFactorEnableChallengeCommand>
+{
+    public AdminTwoFactorEnableChallengeValidator()
+    {
+        RuleFor(x => x.ChallengeToken).MustBeRequired(200);
+        RuleFor(x => x.Code).NotEmpty().WithErrorCode("REQUIRED")
+            .Must(AdminCodes.IsSixDigits).WithErrorCode("ADMIN_2FA_CODE_INVALID");
+    }
+}
+
+public sealed class AdminTwoFactorEnableChallengeHandler(
+    IApplicationDbContext db, IClock clock, ITotpService totp, IFieldProtector protector,
+    AdminSessionService sessions, AdminProfileService profiles, AdminAuditService audit)
+    : IRequestHandler<AdminTwoFactorEnableChallengeCommand, Result<AdminAuthResultDto>>
+{
+    public async Task<Result<AdminAuthResultDto>> Handle(AdminTwoFactorEnableChallengeCommand cmd, CancellationToken ct)
+    {
+        var loaded = await AdminSetupChallenge.LoadAsync(db, cmd.ChallengeToken, clock, ct);
+        if (loaded.IsFailure) return loaded.Error;
+        var (challenge, admin) = loaded.Value;
+
+        var now = clock.UtcNow;
+        if (admin.IsLocked(now)) return AdminErrors.AccountLocked(admin.RemainingLockSeconds(now));
+
+        if (string.IsNullOrEmpty(admin.TwoFactorSecret))
+        {
+            challenge.ConsumedAt = now;
+            await db.SaveChangesAsync(ct);
+            return AdminErrors.TwoFactorSetupRequired;
+        }
+
+        if (!totp.Verify(protector.Unprotect(admin.TwoFactorSecret), cmd.Code))
+        {
+            challenge.Attempts++;
+            var locked = admin.RecordFailedLogin(now);   // a wrong code counts like a wrong password
+            audit.Record(AuditActorType.Admin, admin.Id, "admin.login.failed", "AdminUser", admin.Id, null, new { reason = "wrong_2fa_code" });
+            if (locked) audit.Record(AuditActorType.Admin, admin.Id, "admin.account.locked", "AdminUser", admin.Id);
+            await db.SaveChangesAsync(ct);
+            return locked ? AdminErrors.AccountLocked((int)AdminUser.LockoutDuration.TotalSeconds) : AdminErrors.TwoFactorCodeInvalid;
+        }
+
+        challenge.ConsumedAt = now;   // single use
+        admin.TwoFactorEnabled = true;
+        admin.RecordSuccessfulLogin(now);
+        audit.Record(AuditActorType.Admin, admin.Id, "admin.2fa.enable", "AdminUser", admin.Id, new { twoFactorEnabled = false }, new { twoFactorEnabled = true });
+        audit.Record(AuditActorType.Admin, admin.Id, "admin.login.success", "AdminUser", admin.Id, null, new { twoFactor = true });
+        var pair = await sessions.StartSessionAsync(admin, ct);   // saves everything above
         return await profiles.ToAuthResultAsync(pair, ct);
     }
 }
@@ -286,7 +411,12 @@ public sealed class AdminTwoFactorEnableHandler(
     }
 }
 
-/// <summary>Turning 2FA off needs the current password AND a current code. Failures count toward lockout.</summary>
+/// <summary>
+/// Self-disable is forbidden now that 2FA is mandatory: an admin who could turn 2FA off
+/// could bypass the requirement entirely. The endpoint/command shape is kept so callers
+/// get 403 (ADMIN_FORBIDDEN), not 404. The only recovery is a super-admin reset
+/// (POST /admin/api/admins/{id}/reset-2fa).
+/// </summary>
 public sealed record AdminTwoFactorDisableCommand(string Password, string Code) : IRequest<Result<AdminDto>>;
 
 public sealed class AdminTwoFactorDisableValidator : AbstractValidator<AdminTwoFactorDisableCommand>
@@ -298,33 +428,13 @@ public sealed class AdminTwoFactorDisableValidator : AbstractValidator<AdminTwoF
     }
 }
 
-public sealed class AdminTwoFactorDisableHandler(
-    IApplicationDbContext db, AdminAccessService access, IPasswordHasher hasher, ITotpService totp, IFieldProtector protector,
-    IClock clock, AdminProfileService profiles, AdminAuditService audit)
+public sealed class AdminTwoFactorDisableHandler(AdminAccessService access)
     : IRequestHandler<AdminTwoFactorDisableCommand, Result<AdminDto>>
 {
     public async Task<Result<AdminDto>> Handle(AdminTwoFactorDisableCommand cmd, CancellationToken ct)
     {
         var guard = await access.RequireAsync(null, false, ct);
         if (guard.IsFailure) return guard.Error;
-        var admin = guard.Value;
-        if (!admin.TwoFactorEnabled || string.IsNullOrEmpty(admin.TwoFactorSecret)) return AdminErrors.TwoFactorNotEnabled;
-
-        var now = clock.UtcNow;
-        if (admin.IsLocked(now)) return AdminErrors.AccountLocked(admin.RemainingLockSeconds(now));
-
-        if (!hasher.Verify(admin.PasswordHash, cmd.Password) || !totp.Verify(protector.Unprotect(admin.TwoFactorSecret), cmd.Code))
-        {
-            var locked = admin.RecordFailedLogin(now);
-            audit.Record(AuditActorType.Admin, admin.Id, "admin.2fa.disable_failed", "AdminUser", admin.Id);
-            await db.SaveChangesAsync(ct);
-            return locked ? AdminErrors.AccountLocked((int)AdminUser.LockoutDuration.TotalSeconds) : AdminErrors.InvalidCredentials;
-        }
-
-        admin.TwoFactorEnabled = false;
-        admin.TwoFactorSecret = null;
-        audit.Record(AuditActorType.Admin, admin.Id, "admin.2fa.disable", "AdminUser", admin.Id, new { twoFactorEnabled = true }, new { twoFactorEnabled = false });
-        await db.SaveChangesAsync(ct);
-        return await profiles.BuildAsync(admin, ct);
+        return AdminErrors.Forbidden;
     }
 }

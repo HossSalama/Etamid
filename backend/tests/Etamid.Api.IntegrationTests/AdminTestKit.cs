@@ -5,6 +5,7 @@ using Etamid.Application.Common.Interfaces;
 using Etamid.Domain.Admin;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using OtpNet;
 
 namespace Etamid.Api.IntegrationTests;
 
@@ -55,8 +56,31 @@ public static class AdminTestKit
         using var anon = factory.CreateClient();
         var login = await anon.PostAsJsonAsync("/admin/api/auth/login", new { email, password = Password });
         login.EnsureSuccessStatusCode();
-        var token = JsonDocument.Parse(await login.Content.ReadAsStringAsync()).RootElement
-            .GetProperty("data").GetProperty("auth").GetProperty("accessToken").GetString()!;
+        // 2FA is mandatory: a 2FA-off admin gets no tokens from login, so signing in
+        // completes the setup-challenge -> enable-challenge flow first.
+        var root = JsonDocument.Parse(await login.Content.ReadAsStringAsync()).RootElement.GetProperty("data");
+        string token;
+        if (root.TryGetProperty("auth", out var auth) && auth.ValueKind != JsonValueKind.Null)
+        {
+            token = auth.GetProperty("accessToken").GetString()!;
+        }
+        else if (root.GetProperty("twoFactorSetupRequired").GetBoolean())
+        {
+            var challenge = root.GetProperty("challenge").GetProperty("challengeToken").GetString()!;
+            var setup = await anon.PostAsJsonAsync("/admin/api/auth/2fa/setup-challenge", new { challengeToken = challenge });
+            setup.EnsureSuccessStatusCode();
+            var secret = JsonDocument.Parse(await setup.Content.ReadAsStringAsync()).RootElement
+                .GetProperty("data").GetProperty("secret").GetString()!;
+            var code = new Totp(Base32Encoding.ToBytes(secret)).ComputeTotp();
+            var enable = await anon.PostAsJsonAsync("/admin/api/auth/2fa/enable-challenge", new { challengeToken = challenge, code });
+            enable.EnsureSuccessStatusCode();
+            token = JsonDocument.Parse(await enable.Content.ReadAsStringAsync()).RootElement
+                .GetProperty("data").GetProperty("accessToken").GetString()!;
+        }
+        else
+        {
+            throw new InvalidOperationException("AdminTestKit: login returned neither tokens nor a 2FA setup challenge.");
+        }
 
         var client = factory.CreateClient();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
