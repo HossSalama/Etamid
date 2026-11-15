@@ -96,6 +96,22 @@ public class AdminUsersTests(EtamidFactory factory) : IClassFixture<EtamidFactor
         return (await Data(r)).GetProperty("id").GetInt64();
     }
 
+    /// <summary>A company deal in Draft (not finished). One installment, summing to the total.</summary>
+    private static async Task<long> CreateCompanyDealDraft(Party creator, Party counterparty)
+    {
+        var due = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(30)).ToString("yyyy-MM-dd");
+        var r = await creator.Client!.PostAsJsonAsync("/api/v1/company-deals", new
+        {
+            counterpartyPhoneOrCode = counterparty.Phone,
+            title = "Admin users test company deal", details = "Test",
+            totalAmount = 1000m, startDate = DateOnly.FromDateTime(DateTime.UtcNow).ToString("yyyy-MM-dd"),
+            approvalSendDaysBefore = 7, approvalResponseDays = 3,
+            installments = new[] { new { label = "Only", amount = 1000m, dueDate = due } }
+        });
+        (await Succeeded(r)).Should().BeTrue(await r.Content.ReadAsStringAsync());
+        return (await Data(r)).GetProperty("id").GetInt64();
+    }
+
     private static IEnumerable<long> Ids(JsonElement items) => items.EnumerateArray().Select(i => i.GetProperty("id").GetInt64());
 
     private async Task<JsonElement> List(AdminClient admin, string query = "")
@@ -276,6 +292,52 @@ public class AdminUsersTests(EtamidFactory factory) : IClassFixture<EtamidFactor
         (await Succeeded(await admin.Client.DeleteAsync($"/admin/api/users/{buyer.Id}"))).Should().BeTrue();
         // the deal itself is untouched
         (await Db(db => db.Deals.AsNoTracking().CountAsync(d => d.Id == dealId))).Should().Be(1);
+    }
+
+    [Fact]
+    public async Task Delete_is_blocked_while_the_user_has_an_unfinished_company_deal()
+    {
+        var admin = await AdminTestKit.CreateAsync(factory, "admin.users.manage");
+        var creator = await NewCompany();
+        var counterparty = await NewIndividual();
+        var dealId = await CreateCompanyDealDraft(creator, counterparty);   // Draft: not finished
+
+        // both sides are blocked, creator and counterparty alike
+        foreach (var party in new[] { creator, counterparty })
+        {
+            var blocked = await admin.Client.DeleteAsync($"/admin/api/users/{party.Id}");
+            (await ErrorCode(blocked)).Should().Be("USER_HAS_ACTIVE_DEALS");
+        }
+        (await Db(db => db.Users.AsNoTracking().Where(u => u.Id == creator.Id).Select(u => u.Status).FirstAsync())).Should().Be(AccountStatus.Active);
+        (await Db(db => db.AuditLogs.AsNoTracking().CountAsync(a => a.Action == "admin.user.delete" && a.EntityId == creator.Id))).Should().Be(0);
+
+        // submit + accept: Active is still not finished
+        var submit = await creator.Client!.PostAsJsonAsync($"/api/v1/company-deals/{dealId}/submit", new { });
+        (await Succeeded(submit)).Should().BeTrue(await submit.Content.ReadAsStringAsync());
+        var accept = await counterparty.Client!.PostAsJsonAsync($"/api/v1/company-deals/{dealId}/accept", new { acceptTerms = true });
+        (await Succeeded(accept)).Should().BeTrue(await accept.Content.ReadAsStringAsync());
+
+        var stillBlocked = await admin.Client.DeleteAsync($"/admin/api/users/{creator.Id}");
+        (await ErrorCode(stillBlocked)).Should().Be("USER_HAS_ACTIVE_DEALS");
+    }
+
+    [Fact]
+    public async Task Delete_is_allowed_once_the_company_deal_is_rejected()
+    {
+        var admin = await AdminTestKit.CreateAsync(factory, "admin.users.manage");
+        var creator = await NewCompany();
+        var counterparty = await NewIndividual();
+        var dealId = await CreateCompanyDealDraft(creator, counterparty);
+
+        var submit = await creator.Client!.PostAsJsonAsync($"/api/v1/company-deals/{dealId}/submit", new { });
+        (await Succeeded(submit)).Should().BeTrue(await submit.Content.ReadAsStringAsync());
+        // reason 13 is a company_reject_reason seed
+        var reject = await counterparty.Client!.PostAsJsonAsync($"/api/v1/company-deals/{dealId}/reject", new { reasonId = 13, note = "no" });
+        (await Succeeded(reject)).Should().BeTrue(await reject.Content.ReadAsStringAsync());
+
+        (await Succeeded(await admin.Client.DeleteAsync($"/admin/api/users/{creator.Id}"))).Should().BeTrue();
+        // the company deal itself is untouched
+        (await Db(db => db.CompanyDeals.AsNoTracking().CountAsync(d => d.Id == dealId))).Should().Be(1);
     }
 
     [Fact]

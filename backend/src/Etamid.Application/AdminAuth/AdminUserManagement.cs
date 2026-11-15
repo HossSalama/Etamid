@@ -2,6 +2,7 @@ using Etamid.Application.Common.Interfaces;
 using Etamid.Application.Common.Models;
 using Etamid.Application.Identity.Errors;
 using Etamid.Domain.Admin;
+using Etamid.Domain.CompanyDeals;
 using Etamid.Domain.Deals;
 using Etamid.Domain.Identity;
 using Etamid.SharedKernel;
@@ -129,7 +130,8 @@ public sealed record DeleteAdminUserCommand(long Id) : IRequest<Result>;
 
 /// <summary>
 /// Soft delete: Status = Deleted + DeletedAt (User.MarkDeleted). Refused while the user is buyer or seller in a deal that is not
-/// finished. The user row, CompanyProfile, wallet and every deal stay. Active app sessions (refresh tokens) are revoked.
+/// finished, or creator or counterparty in a company deal that is not finished. The user row, CompanyProfile, wallet and every
+/// deal stay. Active app sessions (refresh tokens) are revoked.
 /// </summary>
 public sealed class DeleteAdminUserHandler(
     IApplicationDbContext db, AdminAccessService access, AdminAuditService audit, IClock clock)
@@ -137,6 +139,10 @@ public sealed class DeleteAdminUserHandler(
 {
     private static readonly DealStatus[] FinishedDealStatuses =
         [DealStatus.Released, DealStatus.Rejected, DealStatus.Cancelled, DealStatus.Expired, DealStatus.Refunded];
+
+    // CompanyDeal has no Refunded/Expired end: Completed, Rejected and Cancelled are its finished states.
+    private static readonly CompanyDealStatus[] FinishedCompanyDealStatuses =
+        [CompanyDealStatus.Completed, CompanyDealStatus.Rejected, CompanyDealStatus.Cancelled];
 
     public async Task<Result> Handle(DeleteAdminUserCommand cmd, CancellationToken ct)
     {
@@ -150,6 +156,10 @@ public sealed class DeleteAdminUserHandler(
         var hasActiveDeal = await db.Deals.AsNoTracking().AnyAsync(
             d => (d.BuyerId == user.Id || d.SellerId == user.Id) && !FinishedDealStatuses.Contains(d.Status), ct);
         if (hasActiveDeal) return AdminUserErrors.HasActiveDeals;
+
+        var hasActiveCompanyDeal = await db.CompanyDeals.AsNoTracking().AnyAsync(
+            d => (d.CreatorUserId == user.Id || d.CounterpartyUserId == user.Id) && !FinishedCompanyDealStatuses.Contains(d.Status), ct);
+        if (hasActiveCompanyDeal) return AdminUserErrors.HasActiveDeals;
 
         var now = clock.UtcNow;
         var before = user.Status;
