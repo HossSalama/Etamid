@@ -20,7 +20,6 @@ public sealed class RegisterIndividualValidator : AbstractValidator<RegisterIndi
         RuleFor(x => x.Phone).MustBeSaudiPhone();
         RuleFor(x => x.Email).MustBeEmail();
         RuleFor(x => x.Password).MustBeStrongPassword();
-        RuleFor(x => x.AcceptTerms).Equal(true).WithErrorCode("TERMS_NOT_ACCEPTED");
     }
 }
 
@@ -46,7 +45,6 @@ public sealed class RegisterCompanyValidator : AbstractValidator<RegisterCompany
         RuleFor(x => x.TaxNo!).MaximumLength(30).WithErrorCode("TOO_LONG").When(x => x.TaxNo is not null);
         RuleFor(x => x.Email).MustBeEmail();
         RuleFor(x => x.Password).MustBeStrongPassword();
-        RuleFor(x => x.AcceptTerms).Equal(true).WithErrorCode("TERMS_NOT_ACCEPTED");
     }
 }
 

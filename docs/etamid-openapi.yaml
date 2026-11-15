@@ -117,13 +117,13 @@ paths:
           application/json:
             schema:
               type: object
-              required: [username, phone, email, password, acceptTerms]
+              required: [username, phone, email, password]
               properties:
                 username: { type: string, example: "ندى الشرقاوي" }
                 phone: { type: string, example: "0551234567" }
                 email: { type: string, format: email }
                 password: { type: string, format: password, minLength: 8 }
-                acceptTerms: { type: boolean, description: يجب أن تكون true }
+                acceptTerms: { type: boolean, description: اختياري — ترسله واجهة الويب فقط }
       responses:
         "201": { $ref: '#/components/responses/OtpSent' }
         default:
@@ -140,7 +140,7 @@ paths:
           application/json:
             schema:
               type: object
-              required: [companyName, ownerPhone, commercialRegNo, email, password, acceptTerms]
+              required: [companyName, ownerPhone, commercialRegNo, email, password]
               properties:
                 companyName: { type: string }
                 ownerPhone: { type: string }
@@ -148,7 +148,7 @@ paths:
                 taxNo: { type: string, nullable: true, description: اختياري }
                 email: { type: string, format: email }
                 password: { type: string, format: password }
-                acceptTerms: { type: boolean }
+                acceptTerms: { type: boolean, description: اختياري — ترسله واجهة الويب فقط }
       responses:
         "201": { $ref: '#/components/responses/OtpSent' }
         default:

@@ -55,13 +55,13 @@
                     "individual"
                   ]
                 },
-                "description": "## Register an Individual Account\n\n**Public endpoint — no authentication required.**\n\nCreates an **unverified** individual account and sends a 6-digit OTP to the phone by SMS.\n\n### Request Fields\n| Field | Type | Required | Rules |\n|---|---|---|---|\n| username | string | ✅ | Max 150 chars |\n| phone | string | ✅ | Saudi mobile `05XXXXXXXX`, unique |\n| email | string | ✅ | Valid email, unique |\n| password | string | ✅ | ≥ 8 chars, at least one letter and one number |\n| acceptTerms | boolean | ✅ | Must be `true`; the accepted terms version is stored |\n\n### Business Rules\n- Phone and email are globally unique.\n- If the phone exists but was **never verified**, the account data is updated and a new OTP is sent (no 409).\n- The password is stored hashed (Argon2id).\n- The account stays `pending_verification` until the OTP is verified.\n\n### Next Step\nCall `POST /auth/otp/verify` with the OTP received by SMS.\n\n### Frontend Notes\n- Show the OTP screen on `201`.\n- Start the resend countdown from `resendAfterSeconds`.\n- Display field errors from `errors[].field`.",
+                "description": "## Register an Individual Account\n\n**Public endpoint — no authentication required.**\n\nCreates an **unverified** individual account and sends a 6-digit OTP to the phone by SMS.\n\n### Request Fields\n| Field | Type | Required | Rules |\n|---|---|---|---|\n| username | string | ✅ | Max 150 chars |\n| phone | string | ✅ | Saudi mobile `05XXXXXXXX`, unique |\n| email | string | ✅ | Valid email, unique |\n| password | string | ✅ | ≥ 8 chars, at least one letter and one number |\n\n### Business Rules\n- Phone and email are globally unique.\n- If the phone exists but was **never verified**, the account data is updated and a new OTP is sent (no 409).\n- The password is stored hashed (Argon2id).\n- The account stays `pending_verification` until the OTP is verified.\n\n### Next Step\nCall `POST /auth/otp/verify` with the OTP received by SMS.\n\n### Frontend Notes\n- Show the OTP screen on `201`.\n- Start the resend countdown from `resendAfterSeconds`.\n- Display field errors from `errors[].field`.",
                 "auth": {
                   "type": "noauth"
                 },
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"username\": \"Nada Alsharawi\",\n  \"phone\": \"0551234567\",\n  \"email\": \"nada@example.com\",\n  \"password\": \"Passw0rd!\",\n  \"acceptTerms\": true\n}",
+                  "raw": "{\n  \"username\": \"Nada Alsharawi\",\n  \"phone\": \"0551234567\",\n  \"email\": \"nada@example.com\",\n  \"password\": \"Passw0rd!\"\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -276,7 +276,7 @@
                       "value": "application/json"
                     }
                   ],
-                  "body": "{\n  \"success\": false,\n  \"message\": \"Validation failed.\",\n  \"data\": null,\n  \"errors\": [\n    {\n      \"code\": \"WEAK_PASSWORD\",\n      \"field\": \"password\",\n      \"message\": \"Password must be at least 8 characters and include a letter and a number.\"\n    },\n    {\n      \"code\": \"TERMS_NOT_ACCEPTED\",\n      \"field\": \"acceptTerms\",\n      \"message\": \"You must accept the terms.\"\n    }\n  ]\n}"
+                  "body": "{\n  \"success\": false,\n  \"message\": \"Validation failed.\",\n  \"data\": null,\n  \"errors\": [\n    {\n      \"code\": \"WEAK_PASSWORD\",\n      \"field\": \"password\",\n      \"message\": \"Password must be at least 8 characters and include a letter and a number.\"\n    }\n  ]\n}"
                 }
               ]
             },
@@ -323,13 +323,13 @@
                     "company"
                   ]
                 },
-                "description": "## Register a Company Account\n\n**Public endpoint — no authentication required.**\n\nCreates an **unverified** company account and sends an OTP to the owner's phone.\n\n### Request Fields\n| Field | Type | Required | Rules |\n|---|---|---|---|\n| companyName | string | ✅ | Max 200 chars |\n| ownerPhone | string | ✅ | Owner mobile, unique |\n| commercialRegNo | string | ✅ | Unique commercial registration number |\n| taxNo | string | No | Optional tax number |\n| email | string | ✅ | Valid email, unique |\n| password | string | ✅ | ≥ 8 chars, at least one letter and one number |\n| acceptTerms | boolean | ✅ | Must be `true` |\n\n### Business Rules\n- After OTP verification the company has `reviewStatus = pending_review` until an admin approves the commercial registration.\n- A company can sign in while pending, but cannot create deals until approved.\n\n### Next Step\nCall `POST /auth/otp/verify`.\n\n### Frontend Notes\n- Show a 'Your company is under review' banner when `reviewStatus` is `pending_review`.",
+                "description": "## Register a Company Account\n\n**Public endpoint — no authentication required.**\n\nCreates an **unverified** company account and sends an OTP to the owner's phone.\n\n### Request Fields\n| Field | Type | Required | Rules |\n|---|---|---|---|\n| companyName | string | ✅ | Max 200 chars |\n| ownerPhone | string | ✅ | Owner mobile, unique |\n| commercialRegNo | string | ✅ | Unique commercial registration number |\n| taxNo | string | No | Optional tax number |\n| email | string | ✅ | Valid email, unique |\n| password | string | ✅ | ≥ 8 chars, at least one letter and one number |\n\n### Business Rules\n- After OTP verification the company has `reviewStatus = pending_review` until an admin approves the commercial registration.\n- A company can sign in while pending, but cannot create deals until approved.\n\n### Next Step\nCall `POST /auth/otp/verify`.\n\n### Frontend Notes\n- Show a 'Your company is under review' banner when `reviewStatus` is `pending_review`.",
                 "auth": {
                   "type": "noauth"
                 },
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"companyName\": \"Future Tech Company\",\n  \"ownerPhone\": \"0501112233\",\n  \"commercialRegNo\": \"1010123456\",\n  \"taxNo\": \"300012345600003\",\n  \"email\": \"info@futuretech.example.com\",\n  \"password\": \"Passw0rd!\",\n  \"acceptTerms\": true\n}",
+                  "raw": "{\n  \"companyName\": \"Future Tech Company\",\n  \"ownerPhone\": \"0501112233\",\n  \"commercialRegNo\": \"1010123456\",\n  \"taxNo\": \"300012345600003\",\n  \"email\": \"info@futuretech.example.com\",\n  \"password\": \"Passw0rd!\"\n}",
                   "options": {
                     "raw": {
                       "language": "json"
