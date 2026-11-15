@@ -26,6 +26,11 @@ public class AdminAuthTests(EtamidFactory factory) : IClassFixture<EtamidFactory
     private static async Task<string> Code(HttpResponseMessage r)
         => (await Json(r)).GetProperty("errors")[0].GetProperty("code").GetString()!;
 
+    // Errors arrive as HTTP 200 with { success: false, errors: [{ code }] }
+    // (owner decision 2026-11-09, Hoss's BaseApiController pattern).
+    private static async Task<bool> Succeeded(HttpResponseMessage r)
+        => (await Json(r)).GetProperty("success").GetBoolean();
+
     private static string NewEmail() => $"admin.{Interlocked.Increment(ref _counter)}@example.com";
 
     private async Task<long> SeedAdmin(string email, bool superAdmin = false, bool disabled = false, string? totpSecret = null)
@@ -150,7 +155,8 @@ public class AdminAuthTests(EtamidFactory factory) : IClassFixture<EtamidFactory
         var wrong = await Login(email, "Wrong#Passw0rd!x");
         var unknown = await Login("nobody." + NewEmail(), Password);
 
-        wrong.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        wrong.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await Succeeded(wrong)).Should().BeFalse();
         unknown.StatusCode.Should().Be(wrong.StatusCode);
         (await Code(unknown)).Should().Be(await Code(wrong)).And.Be("ADMIN_INVALID_CREDENTIALS");
         (await Json(unknown)).GetProperty("message").GetString().Should().Be((await Json(wrong)).GetProperty("message").GetString());
@@ -166,12 +172,15 @@ public class AdminAuthTests(EtamidFactory factory) : IClassFixture<EtamidFactory
         await SeedAdmin(email);
 
         for (var i = 0; i < 4; i++)
-            (await Login(email, "Wrong#Passw0rd!x")).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+            (await Login(email, "Wrong#Passw0rd!x")).StatusCode.Should().Be(HttpStatusCode.OK);
         var fifth = await Login(email, "Wrong#Passw0rd!x");
-        fifth.StatusCode.Should().Be(HttpStatusCode.TooManyRequests);
+        fifth.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await Succeeded(fifth)).Should().BeFalse();
+        (await Code(fifth)).Should().Be("ADMIN_ACCOUNT_LOCKED");
 
         var locked = await Login(email, Password);
-        locked.StatusCode.Should().Be(HttpStatusCode.TooManyRequests);
+        locked.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await Succeeded(locked)).Should().BeFalse();
         (await Code(locked)).Should().Be("ADMIN_ACCOUNT_LOCKED");
         locked.Headers.Contains("Retry-After").Should().BeTrue();
     }
@@ -183,7 +192,8 @@ public class AdminAuthTests(EtamidFactory factory) : IClassFixture<EtamidFactory
         await SeedAdmin(email, disabled: true);
 
         var r = await Login(email, Password);
-        r.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        r.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await Succeeded(r)).Should().BeFalse();
         (await Code(r)).Should().Be("ADMIN_INVALID_CREDENTIALS");
     }
 
@@ -204,7 +214,8 @@ public class AdminAuthTests(EtamidFactory factory) : IClassFixture<EtamidFactory
 
         var good = TotpNow(secret);
         var wrong = await _anon.PostAsJsonAsync("/admin/api/auth/2fa/verify", new { challengeToken = challenge, code = WrongCode(good) });
-        wrong.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        wrong.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await Succeeded(wrong)).Should().BeFalse();
         (await Code(wrong)).Should().Be("ADMIN_2FA_CODE_INVALID");
         (await wrong.Content.ReadAsStringAsync()).Should().NotContain("accessToken");
 
@@ -214,7 +225,8 @@ public class AdminAuthTests(EtamidFactory factory) : IClassFixture<EtamidFactory
 
         // The challenge is single use.
         var again = await _anon.PostAsJsonAsync("/admin/api/auth/2fa/verify", new { challengeToken = challenge, code = good });
-        again.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        again.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await Succeeded(again)).Should().BeFalse();
         (await Code(again)).Should().Be("ADMIN_2FA_CHALLENGE_INVALID");
     }
 
@@ -240,7 +252,8 @@ public class AdminAuthTests(EtamidFactory factory) : IClassFixture<EtamidFactory
         setupData.GetProperty("otpAuthUri").GetString().Should().NotBeNullOrEmpty();
 
         var bad = await _anon.PostAsJsonAsync("/admin/api/auth/2fa/enable-challenge", new { challengeToken = challenge, code = WrongCode(TotpNow(secret)) });
-        bad.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        bad.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await Succeeded(bad)).Should().BeFalse();
         (await Code(bad)).Should().Be("ADMIN_2FA_CODE_INVALID");
         (await bad.Content.ReadAsStringAsync()).Should().NotContain("accessToken");
 
@@ -250,7 +263,8 @@ public class AdminAuthTests(EtamidFactory factory) : IClassFixture<EtamidFactory
 
         // The challenge is single use.
         var again = await _anon.PostAsJsonAsync("/admin/api/auth/2fa/enable-challenge", new { challengeToken = challenge, code = TotpNow(secret) });
-        again.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        again.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await Succeeded(again)).Should().BeFalse();
         (await Code(again)).Should().Be("ADMIN_2FA_CHALLENGE_INVALID");
 
         (await Data(await Login(email, Password))).GetProperty("twoFactorRequired").GetBoolean().Should().BeTrue();
@@ -264,11 +278,13 @@ public class AdminAuthTests(EtamidFactory factory) : IClassFixture<EtamidFactory
     public async Task Setup_challenge_and_enable_challenge_with_an_unknown_challenge_are_rejected()
     {
         var setup = await _anon.PostAsJsonAsync("/admin/api/auth/2fa/setup-challenge", new { challengeToken = "unknown-challenge" });
-        setup.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        setup.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await Succeeded(setup)).Should().BeFalse();
         (await Code(setup)).Should().Be("ADMIN_2FA_CHALLENGE_INVALID");
 
         var enable = await _anon.PostAsJsonAsync("/admin/api/auth/2fa/enable-challenge", new { challengeToken = "unknown-challenge", code = "123456" });
-        enable.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        enable.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await Succeeded(enable)).Should().BeFalse();
         (await Code(enable)).Should().Be("ADMIN_2FA_CHALLENGE_INVALID");
     }
 
@@ -280,7 +296,8 @@ public class AdminAuthTests(EtamidFactory factory) : IClassFixture<EtamidFactory
         var session = await SignIn(email);   // enables 2FA through the mandatory flow
 
         var r = await session.Client.PostAsJsonAsync("/admin/api/auth/2fa/disable", new { password = Password, code = "123456" });
-        r.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        r.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await Succeeded(r)).Should().BeFalse();
         (await Code(r)).Should().Be("ADMIN_FORBIDDEN");
 
         var enabled = await Db(db => db.AdminUsers.AsNoTracking().Where(a => a.Email == email).Select(a => a.TwoFactorEnabled).FirstAsync());
@@ -305,13 +322,21 @@ public class AdminAuthTests(EtamidFactory factory) : IClassFixture<EtamidFactory
         secondRefresh.Should().NotBe(first.Refresh);
 
         var reuse = await _anon.PostAsJsonAsync("/admin/api/auth/refresh", new { refreshToken = first.Refresh });
-        reuse.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        reuse.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await Succeeded(reuse)).Should().BeFalse();
         (await Code(reuse)).Should().Be("ADMIN_REFRESH_REUSED");
 
-        (await _anon.PostAsJsonAsync("/admin/api/auth/refresh", new { refreshToken = secondRefresh })).StatusCode
-            .Should().Be(HttpStatusCode.Unauthorized);
-        (await MakeSession(secondAccess, secondRefresh).Client.GetAsync("/admin/api/auth/me")).StatusCode
-            .Should().Be(HttpStatusCode.Unauthorized, "reuse revoked all sessions, so even the live access token dies");
+        // The second refresh token was revoked when reuse was detected.
+        var secondRefreshAgain = await _anon.PostAsJsonAsync("/admin/api/auth/refresh", new { refreshToken = secondRefresh });
+        secondRefreshAgain.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await Succeeded(secondRefreshAgain)).Should().BeFalse();
+        (await Code(secondRefreshAgain)).Should().Be("ADMIN_TOKEN_INVALID");
+
+        // Reuse revoked all sessions, so even the live access token dies.
+        var deadMe = await MakeSession(secondAccess, secondRefresh).Client.GetAsync("/admin/api/auth/me");
+        deadMe.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await Succeeded(deadMe)).Should().BeFalse();
+        (await Code(deadMe)).Should().Be("ADMIN_TOKEN_INVALID");
     }
 
     [Fact]
@@ -333,9 +358,16 @@ public class AdminAuthTests(EtamidFactory factory) : IClassFixture<EtamidFactory
         var session = await SignIn(email);
 
         (await session.Client.PostAsync("/admin/api/auth/logout", null)).StatusCode.Should().Be(HttpStatusCode.OK);
-        (await session.Client.GetAsync("/admin/api/auth/me")).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
-        (await _anon.PostAsJsonAsync("/admin/api/auth/refresh", new { refreshToken = session.Refresh })).StatusCode
-            .Should().Be(HttpStatusCode.Unauthorized);
+
+        var deadMe = await session.Client.GetAsync("/admin/api/auth/me");
+        deadMe.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await Succeeded(deadMe)).Should().BeFalse();
+        (await Code(deadMe)).Should().Be("ADMIN_TOKEN_INVALID");
+
+        var deadRefresh = await _anon.PostAsJsonAsync("/admin/api/auth/refresh", new { refreshToken = session.Refresh });
+        deadRefresh.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await Succeeded(deadRefresh)).Should().BeFalse();
+        (await Code(deadRefresh)).Should().Be("ADMIN_TOKEN_INVALID");
     }
 
     // ------------------------------------------------------------------ 401 / 403
@@ -374,14 +406,15 @@ public class AdminAuthTests(EtamidFactory factory) : IClassFixture<EtamidFactory
     }
 
     [Fact]
-    public async Task Missing_permission_is_403()
+    public async Task Missing_permission_is_refused_with_a_forbidden_code()
     {
         var email = NewEmail();
         await SeedAdmin(email);   // no roles
         var session = await SignIn(email);
 
         var r = await session.Client.GetAsync("/admin/api/audit-logs");
-        r.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        r.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await Succeeded(r)).Should().BeFalse();
         (await Code(r)).Should().Be("ADMIN_FORBIDDEN");
     }
 
@@ -407,7 +440,8 @@ public class AdminAuthTests(EtamidFactory factory) : IClassFixture<EtamidFactory
         (await other.Client.GetAsync("/admin/api/roles")).StatusCode.Should().Be(HttpStatusCode.OK);
         // ... may not write (role membership).
         var write = await other.Client.PostAsJsonAsync("/admin/api/roles", new { name = "nope-" + NewEmail() });
-        write.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        write.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await Succeeded(write)).Should().BeFalse();
         (await Code(write)).Should().Be("ADMIN_SUPER_ADMIN_REQUIRED");
     }
 
@@ -426,7 +460,10 @@ public class AdminAuthTests(EtamidFactory factory) : IClassFixture<EtamidFactory
             .StatusCode.Should().Be(HttpStatusCode.OK);
         var b = await SignIn(bEmail);   // the token is issued BEFORE the permission exists
 
-        (await b.Client.GetAsync("/admin/api/audit-logs")).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        var denied = await b.Client.GetAsync("/admin/api/audit-logs");
+        denied.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await Succeeded(denied)).Should().BeFalse();
+        (await Code(denied)).Should().Be("ADMIN_FORBIDDEN");
 
         (await superSession.Client.PostAsJsonAsync($"/admin/api/roles/{roleId}/permissions", new { permissions = new[] { "admin.audit.view" } }))
             .StatusCode.Should().Be(HttpStatusCode.OK);
@@ -434,7 +471,10 @@ public class AdminAuthTests(EtamidFactory factory) : IClassFixture<EtamidFactory
 
         (await superSession.Client.PostAsJsonAsync($"/admin/api/roles/{roleId}/permissions", new { permissions = Array.Empty<string>() }))
             .StatusCode.Should().Be(HttpStatusCode.OK);
-        (await b.Client.GetAsync("/admin/api/audit-logs")).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        var deniedAgain = await b.Client.GetAsync("/admin/api/audit-logs");
+        deniedAgain.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await Succeeded(deniedAgain)).Should().BeFalse();
+        (await Code(deniedAgain)).Should().Be("ADMIN_FORBIDDEN");
 
         // Management writes are audited with before/after values.
         var audit = await Db(db => db.AuditLogs.AsNoTracking().Where(a => a.Action == "admin.role.permissions" && a.EntityId == roleId).ToListAsync());
@@ -450,11 +490,13 @@ public class AdminAuthTests(EtamidFactory factory) : IClassFixture<EtamidFactory
         var session = await SignIn(email);
 
         var edit = await session.Client.PostAsJsonAsync("/admin/api/roles/1/permissions", new { permissions = Array.Empty<string>() });
-        edit.StatusCode.Should().Be(HttpStatusCode.Conflict);
+        edit.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await Succeeded(edit)).Should().BeFalse();
         (await Code(edit)).Should().Be("ADMIN_ROLE_PROTECTED");
 
         var self = await session.Client.PostAsync($"/admin/api/admins/{id}/disable", null);
-        self.StatusCode.Should().Be(HttpStatusCode.Conflict);
+        self.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await Succeeded(self)).Should().BeFalse();
         (await Code(self)).Should().Be("ADMIN_CANNOT_DISABLE_SELF");
     }
 
@@ -470,8 +512,15 @@ public class AdminAuthTests(EtamidFactory factory) : IClassFixture<EtamidFactory
 
         (await superSession.Client.PostAsync($"/admin/api/admins/{targetId}/disable", null)).StatusCode.Should().Be(HttpStatusCode.OK);
 
-        (await target.Client.GetAsync("/admin/api/auth/me")).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
-        (await Login(targetEmail, Password)).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        var deadMe = await target.Client.GetAsync("/admin/api/auth/me");
+        deadMe.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await Succeeded(deadMe)).Should().BeFalse();
+        (await Code(deadMe)).Should().Be("ADMIN_TOKEN_INVALID");
+
+        var deadLogin = await Login(targetEmail, Password);
+        deadLogin.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await Succeeded(deadLogin)).Should().BeFalse();
+        (await Code(deadLogin)).Should().Be("ADMIN_INVALID_CREDENTIALS");
 
         (await superSession.Client.PostAsync($"/admin/api/admins/{targetId}/enable", null)).StatusCode.Should().Be(HttpStatusCode.OK);
         (await Login(targetEmail, Password)).StatusCode.Should().Be(HttpStatusCode.OK);

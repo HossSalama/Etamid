@@ -32,6 +32,11 @@ public class AdminDashboardTests(EtamidFactory factory) : IClassFixture<EtamidFa
     private static async Task<string> Code(HttpResponseMessage r)
         => (await Json(r)).GetProperty("errors")[0].GetProperty("code").GetString()!;
 
+    // Errors arrive as HTTP 200 with { success: false, errors: [{ code }] }
+    // (owner decision 2026-11-09, Hoss's BaseApiController pattern).
+    private static async Task<bool> Succeeded(HttpResponseMessage r)
+        => (await Json(r)).GetProperty("success").GetBoolean();
+
     private static string Key() => Guid.NewGuid().ToString("N");
 
     private async Task<T> Db<T>(Func<IApplicationDbContext, Task<T>> work)
@@ -156,7 +161,9 @@ public class AdminDashboardTests(EtamidFactory factory) : IClassFixture<EtamidFa
     {
         var ghost = $"ghost-{Guid.NewGuid():N}@example.com";
         var login = await _anon.PostAsJsonAsync("/admin/api/auth/login", new { email = ghost, password = "Wrong#123" });
-        login.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        login.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await Succeeded(login)).Should().BeFalse();
+        (await Code(login)).Should().Be("ADMIN_INVALID_CREDENTIALS");
 
         var admin = await AdminTestKit.CreateAsync(factory, "admin.audit.view");
         var r = await admin.Client.GetAsync("/admin/api/audit-logs?action=admin.login.failed&pageSize=100");
@@ -253,7 +260,8 @@ public class AdminDashboardTests(EtamidFactory factory) : IClassFixture<EtamidFa
         iRows.Should().NotContain(x => x.GetProperty("id").GetInt64() == pendingId);
 
         var bad = await admin.Client.GetAsync("/admin/api/deals?status=bogus");
-        bad.StatusCode.Should().Be((HttpStatusCode)422, await bad.Content.ReadAsStringAsync());
+        bad.StatusCode.Should().Be(HttpStatusCode.OK, await bad.Content.ReadAsStringAsync());
+        (await Succeeded(bad)).Should().BeFalse();
         (await Code(bad)).Should().Be("INVALID_VALUE");
     }
 
@@ -290,11 +298,20 @@ public class AdminDashboardTests(EtamidFactory factory) : IClassFixture<EtamidFa
     }
 
     [Fact]
-    public async Task NewEndpoints_AdminWithoutPermission_Returns403()
+    public async Task NewEndpoints_AdminWithoutPermission_AreRefusedWithForbiddenCode()
     {
         var admin = await AdminTestKit.CreateAsync(factory); // no permissions at all
-        (await admin.Client.GetAsync("/admin/api/audit-logs")).StatusCode.Should().Be(HttpStatusCode.Forbidden);
-        (await admin.Client.GetAsync("/admin/api/users/counts")).StatusCode.Should().Be(HttpStatusCode.Forbidden);
-        (await admin.Client.GetAsync("/admin/api/deals")).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        var auditLogs = await admin.Client.GetAsync("/admin/api/audit-logs");
+        auditLogs.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await Succeeded(auditLogs)).Should().BeFalse();
+        (await Code(auditLogs)).Should().Be("ADMIN_FORBIDDEN");
+        var counts = await admin.Client.GetAsync("/admin/api/users/counts");
+        counts.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await Succeeded(counts)).Should().BeFalse();
+        (await Code(counts)).Should().Be("ADMIN_FORBIDDEN");
+        var deals = await admin.Client.GetAsync("/admin/api/deals");
+        deals.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await Succeeded(deals)).Should().BeFalse();
+        (await Code(deals)).Should().Be("ADMIN_FORBIDDEN");
     }
 }
