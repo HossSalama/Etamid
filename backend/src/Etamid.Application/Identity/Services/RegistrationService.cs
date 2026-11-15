@@ -36,6 +36,19 @@ public sealed class RegistrationService(
         if (existing is not null && (existing.Status != AccountStatus.PendingVerification || existing.Type != type))
             return IdentityErrors.PhoneExists;
 
+        // No phone match: an unverified account that owns this email refreshes
+        // instead of failing (owner decision 2026-11-15) — same rule as the
+        // phone side: only PendingVerification accounts of the same type.
+        if (existing is null)
+        {
+            var emailOwner = await db.Users
+                .Include(u => u.CompanyProfile)
+                .FirstOrDefaultAsync(u => u.Email == email && u.DeletedAt == null, ct);
+            if (emailOwner is not null && (emailOwner.Status != AccountStatus.PendingVerification || emailOwner.Type != type))
+                return IdentityErrors.EmailExists;
+            existing = emailOwner;
+        }
+
         var existingId = existing?.Id ?? 0;
         var emailChanged = existing is not null && !string.Equals(existing.Email, email, StringComparison.OrdinalIgnoreCase);
 
@@ -61,7 +74,7 @@ public sealed class RegistrationService(
         if (existing is not null)
         {
             user = existing;
-            user.RefreshUnverifiedRegistration(name, email, hash, LanguageHelper.Current);
+            user.RefreshUnverifiedRegistration(name, email, hash, LanguageHelper.Current, phone);
             if (company is not null)
             {
                 if (user.CompanyProfile is null)

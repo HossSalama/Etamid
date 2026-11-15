@@ -48,12 +48,14 @@ public sealed class User : AuditableEntity<long>
         };
 
     /// <summary>An unverified account that registers again simply refreshes its data.</summary>
-    public void RefreshUnverifiedRegistration(string name, string email, string passwordHash, Language language)
+    public void RefreshUnverifiedRegistration(string name, string email, string passwordHash, Language language, PhoneNumber phone)
     {
         Name = name.Trim();
         Email = email.Trim().ToLowerInvariant();
         PasswordHash = passwordHash;
         Language = language;
+        Phone = phone.Local;
+        PhoneNormalized = phone.E164;
     }
 
     public void AttachCompanyProfile(CompanyProfile profile) => CompanyProfile = profile;
