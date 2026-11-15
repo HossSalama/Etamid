@@ -23,10 +23,18 @@ public sealed class ExceptionHandlingMiddleware(RequestDelegate next, ILogger<Ex
                 .Select(f => new ApiError { Code = f.Code, Field = f.Field, Message = localizer.Get(f.Code) })
                 .ToList();
 
+            // The outer message carries the same detail as errors[]
+            // (owner decision 2026-11-15): mobile clients display message
+            // directly. Falls back to the generic text only when there are
+            // no per-field errors.
+            var message = errors.Count > 0
+                ? string.Join(" ", errors.Select(e => e.Message))
+                : localizer.Get("VALIDATION_FAILED");
+
             // Like every other API error, validation failures return HTTP 200
             // with the error in the envelope (owner decision 2026-11-09).
             await Write(context, StatusCodes.Status200OK,
-                ApiResponse.Fail(localizer.Get("VALIDATION_FAILED"), errors));
+                ApiResponse.Fail(message, errors));
         }
         catch (Exception ex)
         {

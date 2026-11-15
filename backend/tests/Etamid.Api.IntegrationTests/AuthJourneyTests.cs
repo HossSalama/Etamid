@@ -254,6 +254,28 @@ public class AuthJourneyTests(EtamidFactory factory) : IClassFixture<EtamidFacto
         Code(await Json(malformed)).Should().Be("INVALID_PHONE");
     }
 
+    /// <summary>
+    /// The outer message carries the same detail as errors[] (owner decision
+    /// 2026-11-15): mobile clients display message directly, so a validation
+    /// failure names the actual problem instead of "Validation failed.".
+    /// </summary>
+    [Fact]
+    public async Task Validation_failures_put_the_detail_in_the_outer_message()
+    {
+        var malformed = await Post("/api/v1/auth/login", new { phone = "123", password = Password });
+        malformed.StatusCode.Should().Be(HttpStatusCode.OK);
+        var body = await Json(malformed);
+        Code(body).Should().Be("INVALID_PHONE");
+        body.GetProperty("message").GetString().Should().Be("Enter a valid Saudi mobile number (05XXXXXXXX).");
+
+        var twoBad = await Post("/api/v1/auth/register/individual",
+            new { username = "testuser", phone = "123", email = "t2@example.com", password = "weak", acceptTerms = true });
+        twoBad.StatusCode.Should().Be(HttpStatusCode.OK);
+        var outer = (await Json(twoBad)).GetProperty("message").GetString()!;
+        outer.Should().Contain("Enter a valid Saudi mobile number (05XXXXXXXX).");
+        outer.Should().Contain("Password must be 6-64 characters, with no spaces and at least one symbol such as #.");
+    }
+
     [Fact]
     public async Task Me_without_token_is_200_with_the_envelope()
     {

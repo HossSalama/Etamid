@@ -48,9 +48,17 @@ public static class ServiceCollectionExtensions
                         })
                         .ToList();
 
+                    // The outer message carries the same detail as errors[]
+                    // (owner decision 2026-11-15): each entry names its
+                    // field, since all model-binding errors share the
+                    // INVALID_VALUE text.
+                    var message = errors.Count > 0
+                        ? string.Join(" ", errors.Select(e => e.Field is null ? e.Message : $"{e.Field}: {e.Message}"))
+                        : localizer.Get("VALIDATION_FAILED");
+
                     // Model-binding errors also return HTTP 200 with the envelope
                     // (owner decision 2026-11-09), like every other API error.
-                    return new Microsoft.AspNetCore.Mvc.ObjectResult(ApiResponse.Fail(localizer.Get("VALIDATION_FAILED"), errors))
+                    return new Microsoft.AspNetCore.Mvc.ObjectResult(ApiResponse.Fail(message, errors))
                     {
                         StatusCode = StatusCodes.Status200OK
                     };
