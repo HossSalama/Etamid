@@ -207,11 +207,11 @@ import { BottomNavComponent } from '../../core/components/bottom-nav/bottom-nav.
               <div class="propose-form">
                 <label class="form-label">{{ lang.t('dispute_propose_resolution') }}</label>
                 <select [(ngModel)]="proposalResolution" class="form-select">
-                  <option value="release_seller">{{ lang.t('dispute_resolution_release_seller') }}</option>
-                  <option value="refund_buyer">{{ lang.t('dispute_resolution_refund_buyer') }}</option>
-                  <option value="partial">{{ lang.t('dispute_resolution_partial') }}</option>
+                  <option value="ReleaseSeller">{{ lang.t('dispute_resolution_release_seller') }}</option>
+                  <option value="RefundBuyer">{{ lang.t('dispute_resolution_refund_buyer') }}</option>
+                  <option value="Partial">{{ lang.t('dispute_resolution_partial') }}</option>
                 </select>
-                @if (proposalResolution === 'partial') {
+                @if (proposalResolution === 'Partial') {
                   <label class="form-label" style="margin-top: 0.5rem;">{{ lang.t('dispute_seller_percent') }} (%)</label>
                   <input
                     type="number"
@@ -447,7 +447,7 @@ export class DisputePageComponent implements OnInit {
 
   messageText = '';
   messageFile: File | null = null;
-  proposalResolution: 'release_seller' | 'refund_buyer' | 'partial' = 'release_seller';
+  proposalResolution: 'ReleaseSeller' | 'RefundBuyer' | 'Partial' = 'ReleaseSeller';
   proposalPercent: number | null = null;
 
   private dealId = 0;
@@ -581,7 +581,7 @@ export class DisputePageComponent implements OnInit {
   proposeSettlement(): void {
     this.isProcessing.set(true);
     this.error.set(null);
-    const percent = this.proposalResolution === 'partial' ? (this.proposalPercent ?? undefined) : undefined;
+    const percent = this.proposalResolution === 'Partial' ? (this.proposalPercent ?? undefined) : undefined;
     this.dealsApi.proposeSettlement(this.dealId, this.proposalResolution, percent).subscribe({
       next: (response) => {
         this.isProcessing.set(false);

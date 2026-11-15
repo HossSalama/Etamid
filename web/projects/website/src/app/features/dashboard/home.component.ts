@@ -315,7 +315,7 @@ export interface DealItem {
                 @if (withdrawError()) {
                   <p class="wallet-message wallet-message-error" role="alert">{{ lang.t(withdrawError()!) }}</p>
                 }
-                <button type="button" class="btn btn-black" (click)="submitWithdrawal()">
+                <button type="button" class="btn btn-black" (click)="submitWithdrawal()" [disabled]="isSubmittingWithdrawal()">
                   {{ lang.t('wallet_withdraw_submit') }}
                 </button>
               </div>
@@ -399,7 +399,7 @@ export interface DealItem {
             </div>
 
             <!-- Support Card -->
-            <div class="support-card">
+            <a routerLink="/contact" class="support-card">
               <div class="support-content">
                 <span class="support-icon">💬</span>
                 <div>
@@ -408,7 +408,7 @@ export interface DealItem {
                 </div>
               </div>
               <span class="support-chevron">&gt;</span>
-            </div>
+            </a>
           }
         </section>
 
@@ -455,6 +455,14 @@ export interface DealItem {
               >
                 <span>{{ lang.t('home_tab_completed') }}</span>
                 <span class="tab-count">{{ completedDealsCount() }}</span>
+              </button>
+              <button
+                class="tab-item"
+                [class.active]="selectedTab() === 'declined'"
+                (click)="selectedTab.set('declined')"
+              >
+                <span>{{ lang.t('home_tab_declined') }}</span>
+                <span class="tab-count">{{ declinedDealsCount() }}</span>
               </button>
             </div>
 
@@ -812,91 +820,6 @@ export interface DealItem {
         }
         }
       </main>
-
-      <!-- REAL NEW DEAL MODAL -->
-      @if (showNewDealModal()) {
-        <div class="modal-backdrop" (click)="closeModal()">
-          <div class="new-deal-modal" (click)="$event.stopPropagation()">
-            <div class="modal-header">
-              <h3>{{ lang.t('modal_deal_title') }}</h3>
-              <button (click)="closeModal()" class="modal-close-btn">✕</button>
-            </div>
-
-            <form [formGroup]="dealForm" (ngSubmit)="onCreateDealSubmit()" class="modal-form">
-              <!-- Counterparty Phone -->
-              <div class="form-group">
-                <label for="partyPhone">{{ lang.t('modal_party_phone') }}</label>
-                <input
-                  id="partyPhone"
-                  type="tel"
-                  formControlName="partyPhone"
-                  placeholder="05XXXXXXXX"
-                  dir="ltr"
-                  class="modal-input"
-                />
-                @if (dealForm.get('partyPhone')?.touched && dealForm.get('partyPhone')?.invalid) {
-                  <small class="error-text">{{ lang.t('modal_party_phone_error') }}</small>
-                }
-              </div>
-
-              <!-- Deal Title -->
-              <div class="form-group">
-                <label for="title">{{ lang.t('modal_title_label') }}</label>
-                <input
-                  id="title"
-                  type="text"
-                  formControlName="title"
-                  [placeholder]="lang.t('modal_title_placeholder')"
-                  class="modal-input"
-                />
-                @if (dealForm.get('title')?.touched && dealForm.get('title')?.invalid) {
-                  <small class="error-text">{{ lang.t('modal_title_error') }}</small>
-                }
-              </div>
-
-              <!-- Deal Amount -->
-              <div class="form-group">
-                <label for="amount">{{ lang.t('modal_amount_label') }}</label>
-                <input
-                  id="amount"
-                  type="number"
-                  formControlName="amount"
-                  placeholder="0.00"
-                  class="modal-input"
-                  dir="ltr"
-                />
-                @if (dealForm.get('amount')?.touched && dealForm.get('amount')?.invalid) {
-                  <small class="error-text">{{ lang.t('modal_amount_error') }}</small>
-                }
-              </div>
-
-              <!-- Description / Release conditions -->
-              <div class="form-group">
-                <label for="description">{{ lang.t('modal_desc_label') }}</label>
-                <textarea
-                  id="description"
-                  rows="3"
-                  formControlName="description"
-                  [placeholder]="lang.t('modal_desc_placeholder')"
-                  class="modal-input"
-                ></textarea>
-              </div>
-
-              <button
-                type="submit"
-                class="btn btn-black modal-submit-btn"
-                [disabled]="dealForm.invalid || isSubmittingDeal()"
-              >
-                @if (isSubmittingDeal()) {
-                  <span>{{ lang.t('modal_submitting') }}</span>
-                } @else {
-                  <span>{{ lang.t('modal_submit') }}</span>
-                }
-              </button>
-            </form>
-          </div>
-        </div>
-      }
 
       <!-- Bottom Navigation Bar -->
       <app-bottom-nav [activeNav]="activeNav()" (navChange)="onNavChange($event)" />
@@ -1446,6 +1369,7 @@ export interface DealItem {
       justify-content: space-between;
       align-items: center;
       cursor: pointer;
+      text-decoration: none;
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
 
       .support-content {
@@ -1764,88 +1688,6 @@ export interface DealItem {
       }
     }
 
-    .modal-backdrop {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: rgba(0, 0, 0, 0.5);
-      display: flex;
-      align-items: flex-end;
-      justify-content: center;
-      z-index: 1000;
-    }
-
-    .new-deal-modal {
-      background: #ffffff;
-      width: 100%;
-      max-width: 440px;
-      border-radius: 24px 24px 0 0;
-      padding: 1.75rem 1.5rem 2rem;
-
-      .modal-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 1.25rem;
-
-        h3 {
-          font-size: 1.15rem;
-          font-weight: 800;
-          color: #111827;
-        }
-
-        .modal-close-btn {
-          background: none;
-          border: none;
-          font-size: 1.2rem;
-          cursor: pointer;
-          color: #6b7280;
-        }
-      }
-
-      .modal-form {
-        display: flex;
-        flex-direction: column;
-        gap: 1rem;
-
-        .form-group {
-          display: flex;
-          flex-direction: column;
-          gap: 0.35rem;
-
-          label {
-            font-size: 0.85rem;
-            font-weight: 700;
-            color: #374151;
-          }
-
-          .modal-input {
-            border: 1.5px solid #e5e7eb;
-            border-radius: 12px;
-            padding: 0.75rem 1rem;
-            font-size: 0.95rem;
-            outline: none;
-
-            &:focus {
-              border-color: #eb5757;
-            }
-          }
-
-          .error-text {
-            color: #eb5757;
-            font-size: 0.75rem;
-            font-weight: 600;
-          }
-        }
-
-        .modal-submit-btn {
-          height: 48px;
-          margin-top: 0.5rem;
-        }
-      }
-    }
   `]
 })
 export class HomeComponent {
@@ -1857,12 +1699,11 @@ export class HomeComponent {
   private readonly notificationsApi = inject(NotificationsService);
   readonly lang = inject(LanguageService);
 
-  readonly selectedTab = signal<'new' | 'in_progress' | 'completed'>('new');
+  readonly selectedTab = signal<'new' | 'in_progress' | 'completed' | 'declined'>('new');
   readonly activeNav = signal<'home' | 'deals' | 'wallet' | 'profile'>('home');
-  readonly showNewDealModal = signal(false);
-  readonly isSubmittingDeal = signal(false);
   readonly unreadNotifications = signal(false);
   readonly isLoadingDeals = signal(false);
+  readonly isSubmittingWithdrawal = signal(false);
   readonly dealLoadError = signal(false);
   readonly isAcceptingDeal = signal<string | null>(null);
   readonly isProcessingDeal = signal<string | null>(null);
@@ -2040,15 +1881,18 @@ export class HomeComponent {
   }
 
   submitWithdrawal(): void {
+    if (this.isSubmittingWithdrawal()) return;
     const amount = this.withdrawAmount();
     if (!amount || amount <= 0) {
       this.withdrawError.set('wallet_amount_error');
       return;
     }
     this.withdrawError.set(null);
+    this.isSubmittingWithdrawal.set(true);
     const key = Date.now().toString(36) + Math.random().toString(36).slice(2);
     this.dealsApi.requestWithdrawal(amount, key).subscribe({
       next: (response) => {
+        this.isSubmittingWithdrawal.set(false);
         if (!response.success || !response.data) {
           this.withdrawError.set('wallet_withdraw_error');
           return;
@@ -2060,6 +1904,7 @@ export class HomeComponent {
         this.walletWithdrawalsTotal.update((total) => total + 1);
       },
       error: (err: unknown) => {
+        this.isSubmittingWithdrawal.set(false);
         const code = (err as { error?: { errors?: Array<{ code?: string }> } })?.error?.errors?.[0]?.code;
         this.withdrawError.set(
           code === 'WALLET_INSUFFICIENT_BALANCE'
@@ -2268,6 +2113,8 @@ export class HomeComponent {
       return this.deals().filter((d) => d.status === 'pending');
     } else if (tab === 'in_progress') {
       return this.deals().filter((d) => d.status === 'in_progress');
+    } else if (tab === 'declined') {
+      return this.deals().filter((d) => d.status === 'declined');
     } else {
       return this.deals().filter((d) => d.status === 'completed');
     }
@@ -2276,13 +2123,7 @@ export class HomeComponent {
   readonly newDealsCount = computed(() => this.deals().filter((d) => d.status === 'pending').length);
   readonly inProgressDealsCount = computed(() => this.deals().filter((d) => d.status === 'in_progress').length);
   readonly completedDealsCount = computed(() => this.deals().filter((d) => d.status === 'completed').length);
-
-  readonly dealForm = this.fb.group({
-    partyPhone: ['', [Validators.required, Validators.pattern(/^05[0-9]{8}$/)]],
-    title: ['', [Validators.required, Validators.minLength(3)]],
-    amount: [null as number | null, [Validators.required, Validators.min(10)]],
-    description: [''],
-  });
+  readonly declinedDealsCount = computed(() => this.deals().filter((d) => d.status === 'declined').length);
 
   onOpenNewDeal(): void {
     if (!this.authService.isAuthenticated()) {
@@ -2290,47 +2131,6 @@ export class HomeComponent {
     } else {
       this.router.navigate(['/deals/new']);
     }
-  }
-
-  closeModal(): void {
-    this.showNewDealModal.set(false);
-  }
-
-  onCreateDealSubmit(): void {
-    if (this.dealForm.invalid) return;
-
-    this.isSubmittingDeal.set(true);
-    const formVal = this.dealForm.getRawValue();
-
-    const newDeal: DealItem = {
-      id: Date.now().toString(),
-      code: Math.floor(10000 + Math.random() * 90000).toString(),
-      counterParty: formVal.partyPhone || 'طرف آخر',
-      counterpartyId: null,
-      role: 'بائع',
-      title: formVal.title || '',
-      description: formVal.description || '',
-      amount: Number(formVal.amount),
-      date: new Date().toLocaleTimeString(this.lang.isAr() ? 'ar-SA' : 'en-US', { hour: '2-digit', minute: '2-digit' }),
-      status: 'pending',
-      statusText: this.lang.isAr() ? 'في انتظار موافقة الطرف الآخر' : 'Awaiting counterparty acceptance',
-      rawStatus: 'pending_acceptance',
-      availableActions: [],
-      pendingEdit: null,
-      imageUrl: null,
-      needShipping: false,
-      shippingCompanyNameAr: null,
-      shippingCompanyNameEn: null,
-      shippingAddressText: null,
-      trackingNumber: null,
-      shipmentStatus: null,
-    };
-
-    this.deals.update((current) => [newDeal, ...current]);
-
-    this.isSubmittingDeal.set(false);
-    this.showNewDealModal.set(false);
-    this.selectedTab.set('new');
   }
 
   acceptDeal(id: string): void {

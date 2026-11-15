@@ -44,13 +44,23 @@ public static class DealBadge
         // Text: whole days while a day or more is left, whole hours below a day,
         // whole minutes below an hour. Hours/minutes use ceiling so the badge never
         // says "0 minutes left" (or "0 hours left") while seconds still remain.
+        // Singular units use the singular word ("1 day left", not "1 days left").
         string text;
         if (remaining >= TimeSpan.FromDays(1))
-            text = $"{(int)Math.Floor(remaining.TotalDays)} days left";
+        {
+            var days = (int)Math.Floor(remaining.TotalDays);
+            text = days == 1 ? "1 day left" : $"{days} days left";
+        }
         else if (remaining >= TimeSpan.FromHours(1))
-            text = $"{(int)Math.Ceiling(remaining.TotalHours)} hours left";
+        {
+            var hours = (int)Math.Ceiling(remaining.TotalHours);
+            text = hours == 1 ? "1 hour left" : $"{hours} hours left";
+        }
         else
-            text = $"{(int)Math.Ceiling(remaining.TotalMinutes)} minutes left";
+        {
+            var minutes = (int)Math.Ceiling(remaining.TotalMinutes);
+            text = minutes == 1 ? "1 minute left" : $"{minutes} minutes left";
+        }
 
         return new DealBadgeDto(text, color, remainingSeconds);
     }

@@ -54,6 +54,17 @@ public class DealBadgeTests
     }
 
     [Fact]
+    public void Singular_units_use_singular_words()
+    {
+        DealBadge.For(DealStatus.PendingAcceptance, Now.AddDays(1).AddHours(2), null, null, Now)!
+            .Text.Should().Be("1 day left");
+        DealBadge.For(DealStatus.PendingAcceptance, Now.AddHours(1), null, null, Now)!
+            .Text.Should().Be("1 hour left");
+        DealBadge.For(DealStatus.PendingAcceptance, Now.AddSeconds(30), null, null, Now)!
+            .Text.Should().Be("1 minute left");
+    }
+
+    [Fact]
     public void Past_deadline_is_grey_expired_with_zero_seconds()
     {
         var badge = DealBadge.For(DealStatus.PendingAcceptance, Now.AddHours(-1), null, null, Now);
