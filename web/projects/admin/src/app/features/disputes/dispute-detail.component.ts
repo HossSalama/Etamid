@@ -48,13 +48,11 @@ export class DisputeDetailComponent implements OnInit {
   protected load(id?: number): void {
     const targetId = id ?? (this.dispute()?.id ?? 0);
     this.loading.set(true);
-    // No single-dispute GET — load full page and find by id
-    this.api.listDisputes({ pageSize: 100 }).subscribe({
+    this.api.getDispute(targetId).subscribe({
       next: (res) => {
         this.loading.set(false);
         if (res.success) {
-          const found = (res.data ?? []).find(d => d.id === targetId);
-          if (found) this.dispute.set(found);
+          if (res.data) this.dispute.set(res.data);
           else this.error.set(this.lang.t('not_found'));
         } else {
           this.error.set(res.message);
@@ -127,9 +125,19 @@ export class DisputeDetailComponent implements OnInit {
     return map[status] ?? status;
   }
 
-  protected formatDate(dt: string | null): string {
+  protected formatDate(dt: string | null | undefined): string {
     if (!dt) return '—';
     return new Date(dt).toLocaleString(this.lang.currentLang() === 'ar' ? 'ar-SA' : 'en-US', { dateStyle: 'medium', timeStyle: 'short' });
+  }
+
+  /** Reason in the UI language, falling back to the other language, then '—'. */
+  protected reasonLabel(): string {
+    const d = this.dispute();
+    if (!d) return '—';
+    const label = this.lang.currentLang() === 'ar'
+      ? (d.reasonNameAr ?? d.reasonNameEn)
+      : (d.reasonNameEn ?? d.reasonNameAr);
+    return label ?? '—';
   }
 
   protected isResolved(): boolean {

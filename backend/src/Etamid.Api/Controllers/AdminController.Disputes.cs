@@ -13,6 +13,10 @@ public sealed partial class AdminController
         CancellationToken ct = default)
         => RespondPaged(await Sender.Send(new ListDisputesQuery(status, page, pageSize), ct));
 
+    [HttpGet("disputes/{disputeId:long}")]
+    public async Task<IActionResult> GetDisputeDetail(long disputeId, CancellationToken ct = default)
+        => Respond(await Sender.Send(new GetDisputeDetailQuery(disputeId), ct));
+
     [HttpPost("disputes/{disputeId:long}/request-info")]
     public async Task<IActionResult> RequestDisputeInfo(long disputeId, RequestDisputeInfoCommand command, CancellationToken ct)
         => Respond(await Sender.Send(command with { DisputeId = disputeId }, ct), "DISPUTE_INFO_REQUESTED");

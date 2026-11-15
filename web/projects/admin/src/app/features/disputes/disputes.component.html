@@ -34,7 +34,7 @@
               <td>#{{ item.id }}</td>
               <td>#{{ item.dealId }}</td>
               <td><span [class]="statusBadge(item.status)">{{ statusLabel(item.status) }}</span></td>
-              <td>#{{ item.openedByUserId }}</td>
+              <td>{{ item.openedByName ?? '—' }}</td>
               <td><small>{{ formatDate(item.createdAt) }}</small></td>
               <td>
                 <a [routerLink]="['/disputes', item.id]" class="btn btn-sm btn-secondary">{{ lang.t('dis_view') }}</a>

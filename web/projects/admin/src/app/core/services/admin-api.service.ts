@@ -199,6 +199,10 @@ export class AdminApiService {
     return this.http.get<ApiResponse<Dispute[]>>(`/api/v1/admin/disputes${q}`);
   }
 
+  getDispute(disputeId: number): Observable<ApiResponse<Dispute>> {
+    return this.http.get<ApiResponse<Dispute>>(`/api/v1/admin/disputes/${disputeId}`);
+  }
+
   requestDisputeInfo(
     disputeId: number,
     body: { note?: string; deadlineDays: number },

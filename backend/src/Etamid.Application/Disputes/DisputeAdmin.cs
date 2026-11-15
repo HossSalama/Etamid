@@ -76,6 +76,35 @@ public sealed class ListDisputesHandler(IApplicationDbContext db, AdminAccessSer
     }
 }
 
+// ---------- GET /admin/disputes/{id} ----------
+// The detail page used to load the list and find by id, but the list DTO has no
+// reason / details / opened-by id / messages, so the page showed "—" and "#".
+// This returns the full DisputeDetailDto (same shape the user-facing dispute
+// endpoint returns, via the same mapper).
+
+public sealed record GetDisputeDetailQuery(long DisputeId) : IRequest<Result<DisputeDetailDto>>;
+
+public sealed class GetDisputeDetailHandler(IApplicationDbContext db, AdminAccessService access, IFileUrlResolver files)
+    : IRequestHandler<GetDisputeDetailQuery, Result<DisputeDetailDto>>
+{
+    public async Task<Result<DisputeDetailDto>> Handle(GetDisputeDetailQuery r, CancellationToken ct)
+    {
+        var guard = await access.RequireOperatorAsync(Etamid.Domain.Admin.AdminPermissionCodes.DisputesView, ct);
+        if (guard.IsFailure) return guard.Error;
+
+        var dispute = await db.Disputes.AsNoTracking().FirstOrDefaultAsync(d => d.Id == r.DisputeId, ct);
+        if (dispute is null) return DisputeErrors.NotFound;
+
+        var deal = await db.Deals.AsNoTracking().FirstOrDefaultAsync(d => d.Id == dispute.DealId, ct);
+        if (deal is null) return DealErrors.NotFound;
+
+        // viewerId 0 = nobody: an admin id must never be compared with the buyer/seller user ids.
+        return await DisputeMapper.DetailAsync(
+            db, dispute, deal.BuyerId, deal.SellerId, deal.Title, deal.Amount, deal.Currency,
+            0L, true, ct, files);
+    }
+}
+
 // ---------- POST /admin/disputes/{id}/request-info ----------
 
 public sealed record RequestDisputeInfoCommand(long DisputeId, string? Note, int DeadlineDays)

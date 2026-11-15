@@ -49,9 +49,10 @@ components:
         admin: { $ref: '#/components/schemas/Admin' }
     LoginResult:
       type: object
-      description: When twoFactorRequired is true only challenge is set (no tokens).
+      description: "When twoFactorRequired is true only challenge is set (no tokens). 2FA is mandatory: when twoFactorSetupRequired is true only challenge is set (no tokens) and the admin must complete setup-challenge then enable-challenge."
       properties:
         twoFactorRequired: { type: boolean }
+        twoFactorSetupRequired: { type: boolean }
         challenge:
           type: object
           nullable: true
@@ -79,7 +80,7 @@ paths:
         required: true
         content: { application/json: { schema: { type: object, required: [email, password], properties: { email: { type: string }, password: { type: string } } } } }
       responses:
-        '200': { description: "LoginResult (tokens, or a 5-minute single-use 2FA challenge).", content: { application/json: { schema: { $ref: '#/components/schemas/LoginResult' } } } }
+        '200': { description: "LoginResult (a 5-minute single-use 2FA challenge when 2FA is enabled or not yet set up; tokens only after 2FA is enabled).", content: { application/json: { schema: { $ref: '#/components/schemas/LoginResult' } } } }
         '401': { description: ADMIN_INVALID_CREDENTIALS }
         '429': { $ref: '#/components/responses/TooMany' }
   /admin/api/auth/2fa/verify:
@@ -92,6 +93,29 @@ paths:
       responses:
         '200': { description: AuthResult }
         '401': { description: "ADMIN_2FA_CODE_INVALID or ADMIN_2FA_CHALLENGE_INVALID" }
+        '429': { $ref: '#/components/responses/TooMany' }
+  /admin/api/auth/2fa/setup-challenge:
+    post:
+      summary: Mandatory-2FA setup step 1 (anonymous). Exchange the login setup-challenge for a TOTP secret (stored encrypted, inactive until enabled). Does not consume the challenge.
+      security: []
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, required: [challengeToken], properties: { challengeToken: { type: string } } } } }
+      responses:
+        '200': { description: "{ secret, otpAuthUri }" }
+        '401': { description: ADMIN_2FA_CHALLENGE_INVALID }
+        '429': { $ref: '#/components/responses/TooMany' }
+  /admin/api/auth/2fa/enable-challenge:
+    post:
+      summary: Mandatory-2FA setup step 2 (anonymous). Verify a current code, enable 2FA, consume the challenge and start a session. A wrong code issues nothing and counts toward lockout.
+      security: []
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, required: [challengeToken, code], properties: { challengeToken: { type: string }, code: { type: string, example: '123456' } } } } }
+      responses:
+        '200': { description: AuthResult }
+        '401': { description: "ADMIN_2FA_CODE_INVALID or ADMIN_2FA_CHALLENGE_INVALID" }
+        '409': { description: ADMIN_2FA_SETUP_REQUIRED }
         '429': { $ref: '#/components/responses/TooMany' }
   /admin/api/auth/refresh:
     post:
@@ -120,9 +144,9 @@ paths:
       responses: { '200': { description: Admin }, '401': { description: ADMIN_2FA_CODE_INVALID }, '409': { description: ADMIN_2FA_SETUP_REQUIRED or ADMIN_2FA_ALREADY_ENABLED } }
   /admin/api/auth/2fa/disable:
     post:
-      summary: Disable 2FA. Needs the current password AND a current code.
+      summary: Self-disable is forbidden now that 2FA is mandatory (ADMIN_FORBIDDEN). The only recovery is a super-admin reset (POST /admin/api/admins/{id}/reset-2fa).
       requestBody: { required: true, content: { application/json: { schema: { type: object, required: [password, code], properties: { password: { type: string }, code: { type: string } } } } } }
-      responses: { '200': { description: Admin }, '401': { description: ADMIN_INVALID_CREDENTIALS }, '409': { description: ADMIN_2FA_NOT_ENABLED } }
+      responses: { '403': { description: ADMIN_FORBIDDEN }, '401': { $ref: '#/components/responses/Unauthorized' } }
   /admin/api/admins:
     get:
       summary: List admins. Needs admin.roles.manage.
@@ -273,6 +297,11 @@ paths:
     get:
       summary: List disputes. Permission admin.disputes.view.
       responses: { '200': { description: Paginated disputes }, '401': { $ref: '#/components/responses/Unauthorized' }, '403': { $ref: '#/components/responses/Forbidden' } }
+  /api/v1/admin/disputes/{disputeId}:
+    get:
+      summary: One dispute with reason, details, messages and attachments. Permission admin.disputes.view.
+      parameters: [ { name: disputeId, in: path, required: true, schema: { type: integer, format: int64 } } ]
+      responses: { '200': { description: Dispute detail }, '401': { $ref: '#/components/responses/Unauthorized' }, '403': { $ref: '#/components/responses/Forbidden' }, '404': { description: DISPUTE_NOT_FOUND } }
   /api/v1/admin/disputes/{disputeId}/request-info:
     post:
       summary: Ask both parties for more information. Permission admin.disputes.decide. Audit action admin.dispute.request_info (there is no ByAdminId column for it).

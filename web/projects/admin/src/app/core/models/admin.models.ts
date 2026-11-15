@@ -21,6 +21,7 @@ export interface AuthResult {
 /** Returned by POST /admin/api/auth/login */
 export interface LoginResult {
   twoFactorRequired: boolean;
+  twoFactorSetupRequired: boolean;
   challenge: { challengeToken: string; expiresInSeconds: number } | null;
   auth: AuthResult | null;
 }
@@ -154,4 +155,59 @@ export interface Dispute {
   resolvedByAdminId: number | null;
   createdAt: string;
   updatedAt: string;
+
+  // ---- Detail-only fields from GET /api/v1/admin/disputes/{id} (absent on list items) ----
+  number?: string;
+  dealTitle?: string;
+  dealAmount?: number;
+  dealCurrency?: string;
+  resolutionNote?: string | null;
+  reasonId?: number;
+  reasonNameAr?: string | null;
+  reasonNameEn?: string | null;
+  openedById?: number;
+  openedByName?: string | null;
+  againstName?: string | null;
+  role?: string;
+  infoDeadlineAt?: string | null;
+  resolvedAt?: string | null;
+  messages?: DisputeMessage[];
+  attachments?: DisputeAttachment[];
+  openProposal?: DisputeSettlementProposal | null;
+  availableActions?: string[];
+}
+
+/** Attachment on a dispute (detail only) */
+export interface DisputeAttachment {
+  id: number;
+  fileId: number;
+  fileName: string;
+  fileUrl: string | null;
+  contentType: string;
+  sizeBytes: number;
+  uploadedByName: string | null;
+  createdAt: string;
+}
+
+/** One message of a dispute thread (detail only) */
+export interface DisputeMessage {
+  id: number;
+  senderType: string;
+  senderName: string | null;
+  message: string | null;
+  isInternalNote: boolean;
+  createdAt: string;
+  attachments: DisputeAttachment[];
+}
+
+/** Open settlement proposal on a dispute (detail only) */
+export interface DisputeSettlementProposal {
+  id: number;
+  proposedById: number;
+  proposedByName: string | null;
+  resolution: string;
+  sellerPercent: number | null;
+  status: string;
+  createdAt: string;
+  decidedAt: string | null;
 }

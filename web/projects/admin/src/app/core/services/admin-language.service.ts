@@ -147,6 +147,11 @@ export class AdminLanguageService {
       verify_2fa_invalid:   'رمز التحقق غير صحيح.',
       verify_2fa_invalid_challenge: 'رمز التحدي غير صالح. أعد تسجيل الدخول.',
 
+      setup_2fa_title:      'إعداد التحقق بخطوتين مطلوب',
+      setup_2fa_subtitle:   'التحقق بخطوتين إجباري لجميع المسؤولين. أضف المفتاح إلى تطبيق المصادقة ثم أكّد برمز التحقق.',
+      setup_2fa_submit:     'تفعيل والدخول',
+      setup_2fa_submitting: 'جارٍ التفعيل...',
+
       // Dashboard
       dash_title:           'لوحة التحكم',
       dash_pending_withdrawals: 'سحوبات معلقة',
@@ -229,6 +234,11 @@ export class AdminLanguageService {
       dis_seller_percent:   'نسبة البائع %',
       dis_resolved_by:      'فصل فيه المشرف',
       dis_empty:            'لا توجد نزاعات.',
+      dis_messages:         'الرسائل',
+      dis_no_messages:      'لا توجد رسائل بعد.',
+      dis_sender_buyer:     'مشتري',
+      dis_sender_seller:    'بائع',
+      dis_sender_admin:     'مشرف',
 
       // Admins
       adm_title:            'إدارة المشرفين',
@@ -393,6 +403,7 @@ export class AdminLanguageService {
       prof_title:           'الملف الشخصي',
       prof_2fa_title:       'التحقق بخطوتين',
       prof_2fa_enabled:     '2FA مفعّل — حسابك أكثر أمانًا.',
+      prof_2fa_required:    'التحقق بخطوتين مطلوب لجميع المسؤولين ولا يمكن تعطيله.',
       prof_2fa_disabled:    '2FA غير مفعّل.',
       prof_setup_2fa:       'إعداد 2FA',
       prof_enable_2fa:      'تفعيل 2FA',
@@ -501,6 +512,11 @@ export class AdminLanguageService {
       verify_2fa_invalid:   'Invalid verification code.',
       verify_2fa_invalid_challenge: 'Invalid challenge token. Please log in again.',
 
+      setup_2fa_title:      'Two-Factor Setup Required',
+      setup_2fa_subtitle:   'Two-factor authentication is mandatory for all admins. Add the key to your authenticator app, then confirm with a code.',
+      setup_2fa_submit:     'Enable & Sign In',
+      setup_2fa_submitting: 'Enabling...',
+
       // Dashboard
       dash_title:           'Dashboard',
       dash_pending_withdrawals: 'Pending Withdrawals',
@@ -583,6 +599,11 @@ export class AdminLanguageService {
       dis_seller_percent:   'Seller %',
       dis_resolved_by:      'Resolved by admin',
       dis_empty:            'No disputes found.',
+      dis_messages:         'Messages',
+      dis_no_messages:      'No messages yet.',
+      dis_sender_buyer:     'Buyer',
+      dis_sender_seller:    'Seller',
+      dis_sender_admin:     'Admin',
 
       // Admins
       adm_title:            'Admin Management',
@@ -747,6 +768,7 @@ export class AdminLanguageService {
       prof_title:           'Profile',
       prof_2fa_title:       'Two-Factor Authentication',
       prof_2fa_enabled:     '2FA is enabled — your account is more secure.',
+      prof_2fa_required:    'Two-factor authentication is required for all admins and cannot be disabled.',
       prof_2fa_disabled:    '2FA is not enabled.',
       prof_setup_2fa:       'Set up 2FA',
       prof_enable_2fa:      'Enable 2FA',

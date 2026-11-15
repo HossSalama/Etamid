@@ -25,7 +25,13 @@ public static class ServiceCollectionExtensions
 
         services.AddControllers(o => o.SuppressImplicitRequiredAttributeForNonNullableReferenceTypes = true)
             .AddJsonOptions(o =>
-                o.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.SnakeCaseLower)))
+            {
+                o.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.SnakeCaseLower));
+                // All timestamps are UTC (see UtcDateTimeJsonConverter): always emit 'Z',
+                // never a bare value a browser would read as local time.
+                o.JsonSerializerOptions.Converters.Add(new UtcDateTimeJsonConverter());
+                o.JsonSerializerOptions.Converters.Add(new UtcNullableDateTimeJsonConverter());
+            })
             .ConfigureApiBehaviorOptions(o =>
             {
                 // Model-binding errors (malformed JSON, wrong types) use the same envelope as every other error.
