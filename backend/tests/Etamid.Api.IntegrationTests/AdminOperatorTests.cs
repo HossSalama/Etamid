@@ -337,7 +337,7 @@ public class AdminOperatorTests(EtamidFactory factory) : IClassFixture<EtamidFac
 
     // ------------------------------------------------------------------ disputes
     [Fact]
-    public async Task Dispute_request_info_and_decide_fill_the_admin_id_and_write_audit_rows()
+    public async Task Dispute_request_info_and_execute_agreement_fill_the_admin_id_and_write_audit_rows()
     {
         var disputeId = await OpenDispute();
         var admin = await AdminTestKit.CreateAsync(factory, "admin.disputes.view", "admin.disputes.decide");
@@ -348,13 +348,14 @@ public class AdminOperatorTests(EtamidFactory factory) : IClassFixture<EtamidFac
         info.StatusCode.Should().Be(HttpStatusCode.OK, await info.Content.ReadAsStringAsync());
         await AssertAudit("admin.dispute.request_info", disputeId, admin.AdminId, "UnderReview", "AwaitingInfo");
 
-        var decided = await Post(admin.Client, $"/api/v1/admin/disputes/{disputeId}/decide",
+        // The old /decide endpoint is gone: the admin only executes the parties' agreement.
+        var executed = await Post(admin.Client, $"/api/v1/admin/disputes/{disputeId}/execute-agreement",
             new { resolution = "RefundBuyer", note = "The item was damaged in transit." });
-        decided.StatusCode.Should().Be(HttpStatusCode.OK, await decided.Content.ReadAsStringAsync());
+        executed.StatusCode.Should().Be(HttpStatusCode.OK, await executed.Content.ReadAsStringAsync());
 
         (await Db(db => db.Disputes.AsNoTracking().Where(d => d.Id == disputeId).Select(d => d.ResolvedByAdminId).FirstAsync()))
             .Should().Be(admin.AdminId);
-        await AssertAudit("admin.dispute.decide", disputeId, admin.AdminId, "AwaitingInfo", "Closed");
+        await AssertAudit("admin.dispute.execute_agreement", disputeId, admin.AdminId, "AwaitingInfo", "Closed");
 
         // The decision message is attributed to the admin, not to an app user.
         var message = await Db(db => db.DisputeMessages.AsNoTracking()
@@ -377,7 +378,7 @@ public class AdminOperatorTests(EtamidFactory factory) : IClassFixture<EtamidFac
         var writes = new[]
         {
             ($"/api/v1/admin/disputes/{disputeId}/request-info", (object)new { note = "x", deadlineDays = 3 }),
-            ($"/api/v1/admin/disputes/{disputeId}/decide", new { resolution = "ReleaseSeller", note = "x" })
+            ($"/api/v1/admin/disputes/{disputeId}/execute-agreement", new { resolution = "ReleaseSeller", note = "x" })
         };
         foreach (var (url, body) in writes)
         {
@@ -415,6 +416,6 @@ public class AdminOperatorTests(EtamidFactory factory) : IClassFixture<EtamidFac
 
         (await Db(db => db.Disputes.AsNoTracking().Where(d => d.Id == disputeId).Select(d => d.Status).FirstAsync()))
             .Should().Be(DisputeStatus.UnderReview);
-        (await AuditRows("admin.dispute.decide", disputeId)).Should().BeEmpty();
+        (await AuditRows("admin.dispute.execute_agreement", disputeId)).Should().BeEmpty();
     }
 }

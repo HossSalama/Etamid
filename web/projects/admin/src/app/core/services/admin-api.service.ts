@@ -213,7 +213,7 @@ export class AdminApiService {
     );
   }
 
-  decideDispute(
+  executeAgreement(
     disputeId: number,
     body: {
       resolution: 'ReleaseSeller' | 'RefundBuyer' | 'Partial';
@@ -222,7 +222,27 @@ export class AdminApiService {
     },
   ): Observable<ApiResponse<unknown>> {
     return this.http.post<ApiResponse<unknown>>(
-      `/api/v1/admin/disputes/${disputeId}/decide`,
+      `/api/v1/admin/disputes/${disputeId}/execute-agreement`,
+      body,
+    );
+  }
+
+  sendDisputeDocuments(
+    disputeId: number,
+    body: { note?: string },
+  ): Observable<ApiResponse<Dispute>> {
+    return this.http.post<ApiResponse<Dispute>>(
+      `/api/v1/admin/disputes/${disputeId}/send-documents`,
+      body,
+    );
+  }
+
+  postDisputeMessage(
+    disputeId: number,
+    body: { message: string; isInternalNote?: boolean },
+  ): Observable<ApiResponse<unknown>> {
+    return this.http.post<ApiResponse<unknown>>(
+      `/api/v1/admin/disputes/${disputeId}/messages`,
       body,
     );
   }

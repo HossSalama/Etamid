@@ -30,14 +30,30 @@ export class DisputeDetailComponent implements OnInit {
   protected reqLoading   = signal(false);
   protected reqError     = signal('');
 
-  protected showDecide    = signal(false);
-  protected decideRes     = signal<'ReleaseSeller' | 'RefundBuyer' | 'Partial'>('ReleaseSeller');
-  protected decidePercent = signal(50);
-  protected decideNote    = signal('');
-  protected decideLoading = signal(false);
-  protected decideError   = signal('');
+  // Execute the parties' agreement (not a decision: the admin never decides).
+  protected showExecute    = signal(false);
+  protected executeRes     = signal<'ReleaseSeller' | 'RefundBuyer' | 'Partial'>('ReleaseSeller');
+  protected executePercent = signal(50);
+  protected executeNote    = signal('');
+  protected executeLoading = signal(false);
+  protected executeError   = signal('');
 
-  protected readonly canDecide = this.auth.hasPermission('admin.disputes.decide');
+  // Send the dispute documents to the buyer for court.
+  protected showSendDocs    = signal(false);
+  protected sendDocsNote    = signal('');
+  protected sendDocsLoading = signal(false);
+  protected sendDocsError   = signal('');
+
+  // Message the parties (visible to both; internal note = admins only).
+  protected msgText      = signal('');
+  protected msgInternal  = signal(false);
+  protected msgLoading   = signal(false);
+  protected msgError     = signal('');
+
+  // Same permission code as before (admin.disputes.decide): it now gates the
+  // operator actions above instead of a decision. The code itself is seeded
+  // in the database, so it is kept unchanged.
+  protected readonly canOperate = this.auth.hasPermission('admin.disputes.decide');
 
   ngOnInit(): void {
     const id = Number(this.route.snapshot.paramMap.get('id'));
@@ -81,23 +97,55 @@ export class DisputeDetailComponent implements OnInit {
     });
   }
 
-  protected openDecide(): void { this.showDecide.set(true); this.decideRes.set('ReleaseSeller'); this.decidePercent.set(50); this.decideNote.set(''); this.decideError.set(''); }
-  protected closeDecide(): void { this.showDecide.set(false); this.decideLoading.set(false); }
+  protected openExecute(): void { this.showExecute.set(true); this.executeRes.set('ReleaseSeller'); this.executePercent.set(50); this.executeNote.set(''); this.executeError.set(''); }
+  protected closeExecute(): void { this.showExecute.set(false); this.executeLoading.set(false); }
 
-  protected submitDecide(): void {
-    if (this.decideLoading() || !this.decideNote().trim()) return;
-    this.decideLoading.set(true); this.decideError.set('');
-    this.api.decideDispute(this.dispute()!.id, {
-      resolution: this.decideRes(),
-      sellerPercent: this.decideRes() === 'Partial' ? this.decidePercent() : undefined,
-      note: this.decideNote().trim(),
+  protected submitExecute(): void {
+    if (this.executeLoading() || !this.executeNote().trim()) return;
+    this.executeLoading.set(true); this.executeError.set('');
+    this.api.executeAgreement(this.dispute()!.id, {
+      resolution: this.executeRes(),
+      sellerPercent: this.executeRes() === 'Partial' ? this.executePercent() : undefined,
+      note: this.executeNote().trim(),
     }).subscribe({
       next: (res: { success: boolean; message?: string }) => {
-        this.decideLoading.set(false);
-        if (res.success) { this.closeDecide(); this.load(); }
-        else this.decideError.set(res.message ?? this.lang.t('error_generic'));
+        this.executeLoading.set(false);
+        if (res.success) { this.closeExecute(); this.load(); }
+        else this.executeError.set(res.message ?? this.lang.t('error_generic'));
       },
-      error: (err: HttpErrorResponse) => { this.decideLoading.set(false); this.decideError.set(err.error?.message ?? this.lang.t('error_generic')); },
+      error: (err: HttpErrorResponse) => { this.executeLoading.set(false); this.executeError.set(err.error?.message ?? this.lang.t('error_generic')); },
+    });
+  }
+
+  protected openSendDocs(): void { this.showSendDocs.set(true); this.sendDocsNote.set(''); this.sendDocsError.set(''); }
+  protected closeSendDocs(): void { this.showSendDocs.set(false); this.sendDocsLoading.set(false); }
+
+  protected submitSendDocs(): void {
+    if (this.sendDocsLoading()) return;
+    this.sendDocsLoading.set(true); this.sendDocsError.set('');
+    this.api.sendDisputeDocuments(this.dispute()!.id, { note: this.sendDocsNote().trim() || undefined }).subscribe({
+      next: (res) => {
+        this.sendDocsLoading.set(false);
+        if (res.success) { if (res.data) this.dispute.set(res.data as Dispute); this.closeSendDocs(); }
+        else this.sendDocsError.set(res.message ?? this.lang.t('error_generic'));
+      },
+      error: (err: HttpErrorResponse) => { this.sendDocsLoading.set(false); this.sendDocsError.set(err.error?.message ?? this.lang.t('error_generic')); },
+    });
+  }
+
+  protected submitMessage(): void {
+    if (this.msgLoading() || !this.msgText().trim()) return;
+    this.msgLoading.set(true); this.msgError.set('');
+    this.api.postDisputeMessage(this.dispute()!.id, {
+      message: this.msgText().trim(),
+      isInternalNote: this.msgInternal(),
+    }).subscribe({
+      next: (res) => {
+        this.msgLoading.set(false);
+        if (res.success) { this.msgText.set(''); this.msgInternal.set(false); this.load(); }
+        else this.msgError.set(res.message ?? this.lang.t('error_generic'));
+      },
+      error: (err: HttpErrorResponse) => { this.msgLoading.set(false); this.msgError.set(err.error?.message ?? this.lang.t('error_generic')); },
     });
   }
 

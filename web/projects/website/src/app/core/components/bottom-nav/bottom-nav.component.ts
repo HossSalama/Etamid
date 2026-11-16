@@ -3,7 +3,7 @@ import { Router } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
 import { LanguageService } from '../../services/language.service';
 
-export type NavTab = 'home' | 'deals' | 'shop' | 'company' | 'wallet' | 'profile';
+export type NavTab = 'home' | 'deals' | 'company' | 'wallet' | 'profile';
 
 @Component({
   selector: 'app-bottom-nav',
@@ -30,17 +30,6 @@ export type NavTab = 'home' | 'deals' | 'shop' | 'company' | 'wallet' | 'profile
       >
         <span class="nav-icon" aria-hidden="true">📑</span>
         <span class="nav-label">{{ lang.t('home_nav_deals') }}</span>
-      </button>
-
-      <button
-        type="button"
-        class="nav-item"
-        [class.active]="activeNav === 'shop'"
-        (click)="onSelect('shop')"
-        [attr.aria-current]="activeNav === 'shop' ? 'page' : null"
-      >
-        <span class="nav-icon" aria-hidden="true">🛍️</span>
-        <span class="nav-label">{{ lang.t('shop_nav') }}</span>
       </button>
 
       <button
@@ -97,10 +86,6 @@ export class BottomNavComponent {
   private readonly router = inject(Router);
 
   onSelect(tab: NavTab): void {
-    if (tab === 'shop') {
-      void this.router.navigate(['/shop']);
-      return;
-    }
     if (tab === 'company') {
       void this.router.navigate(['/company-deals']);
       return;

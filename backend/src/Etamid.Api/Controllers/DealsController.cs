@@ -87,18 +87,6 @@ public sealed class DealsController : BaseApiController
     public async Task<IActionResult> AddDisputeAttachment(long id, AddDisputeAttachmentCommand command, CancellationToken ct)
         => Respond(await Sender.Send(command with { DealId = id }, ct), "DISPUTE_ATTACHMENT_ADDED", StatusCodes.Status201Created);
 
-    [HttpPost("{id:long}/dispute/settlement/propose")]
-    public async Task<IActionResult> ProposeSettlement(long id, ProposeSettlementCommand command, CancellationToken ct)
-        => Respond(await Sender.Send(command with { DealId = id }, ct), "DISPUTE_SETTLEMENT_PROPOSED", StatusCodes.Status201Created);
-
-    [HttpPost("{id:long}/dispute/settlement/{proposalId:long}/accept")]
-    public async Task<IActionResult> AcceptSettlement(long id, long proposalId, CancellationToken ct)
-        => Respond(await Sender.Send(new AcceptSettlementCommand(id, proposalId), ct), "DISPUTE_SETTLEMENT_ACCEPTED");
-
-    [HttpPost("{id:long}/dispute/settlement/{proposalId:long}/reject")]
-    public async Task<IActionResult> RejectSettlement(long id, long proposalId, CancellationToken ct)
-        => Respond(await Sender.Send(new RejectSettlementCommand(id, proposalId), ct), "DISPUTE_SETTLEMENT_REJECTED");
-
     [HttpPost("{id:long}/rating")]
     public async Task<IActionResult> Rate(long id, RateDealCommand command, CancellationToken ct)
         => Respond(await Sender.Send(command with { DealId = id }, ct), "RATING_CREATED", StatusCodes.Status201Created);

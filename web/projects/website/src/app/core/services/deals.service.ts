@@ -196,21 +196,6 @@ export interface Withdrawal {
   createdAt: string;
 }
 
-export interface ShopProduct {
-  id: number;
-  name: string;
-  description: string | null;
-  price: number;
-  quantity: number;
-  imageUrl: string | null;
-  createdAt: string;
-  sellerId: number;
-  sellerName: string;
-  storeName: string | null;
-  sellerCode: string;
-  isCompany: boolean;
-}
-
 export interface ProposeEditRequest {
   amount?: number | null;
   durationValue?: number | null;
@@ -436,17 +421,6 @@ export interface DisputeMessage {
   attachments: DisputeAttachment[];
 }
 
-export interface SettlementProposal {
-  id: number;
-  proposedById: number;
-  proposedByName: string | null;
-  resolution: string;
-  sellerPercent: number | null;
-  status: string;
-  createdAt: string;
-  decidedAt: string | null;
-}
-
 export interface DisputeDetail {
   id: number;
   number: string;
@@ -471,7 +445,6 @@ export interface DisputeDetail {
   createdAt: string;
   messages: DisputeMessage[];
   attachments: DisputeAttachment[];
-  openProposal: SettlementProposal | null;
   availableActions: string[];
 }
 
@@ -531,8 +504,17 @@ export class DealsService {
     return this.http.post<ApiResponse<unknown>>(`${this.baseUrl}/deals/${id}/edits/${editId}/cancel`, null);
   }
 
-  openDispute(id: number, reasonId: number, details: string): Observable<ApiResponse<unknown>> {
-    return this.http.post<ApiResponse<unknown>>(`${this.baseUrl}/deals/${id}/dispute`, { reasonId, details });
+  openDispute(
+    id: number,
+    reasonId: number,
+    details: string,
+    filePublicIds?: string[],
+  ): Observable<ApiResponse<unknown>> {
+    return this.http.post<ApiResponse<unknown>>(`${this.baseUrl}/deals/${id}/dispute`, {
+      reasonId,
+      details,
+      ...(filePublicIds?.length ? { filePublicIds } : {}),
+    });
   }
 
   // ---------- Disputes ----------
@@ -559,31 +541,6 @@ export class DealsService {
     return this.http.post<ApiResponse<DisputeAttachment>>(
       `${this.baseUrl}/deals/${dealId}/dispute/attachments`,
       { filePublicId },
-    );
-  }
-
-  proposeSettlement(
-    dealId: number,
-    resolution: string,
-    sellerPercent?: number,
-  ): Observable<ApiResponse<SettlementProposal>> {
-    return this.http.post<ApiResponse<SettlementProposal>>(
-      `${this.baseUrl}/deals/${dealId}/dispute/settlement/propose`,
-      { resolution, ...(sellerPercent !== undefined ? { sellerPercent } : {}) },
-    );
-  }
-
-  acceptSettlement(dealId: number, proposalId: number): Observable<ApiResponse<unknown>> {
-    return this.http.post<ApiResponse<unknown>>(
-      `${this.baseUrl}/deals/${dealId}/dispute/settlement/${proposalId}/accept`,
-      null,
-    );
-  }
-
-  rejectSettlement(dealId: number, proposalId: number): Observable<ApiResponse<unknown>> {
-    return this.http.post<ApiResponse<unknown>>(
-      `${this.baseUrl}/deals/${dealId}/dispute/settlement/${proposalId}/reject`,
-      null,
     );
   }
 
@@ -694,12 +651,6 @@ export class DealsService {
     formData.append('file', file, file.name);
     formData.append('purpose', 'store_banner');
     return this.http.post<ApiResponse<{ fileId: string; url: string }>>(`${this.baseUrl}/uploads`, formData);
-  }
-
-  getShopProducts(page = 1, pageSize = 20): Observable<ApiResponse<ShopProduct[]>> {
-    return this.http.get<ApiResponse<ShopProduct[]>>(`${this.baseUrl}/products`, {
-      params: { page, pageSize },
-    });
   }
 
   getSellerProducts(sellerId: number, page = 1, pageSize = 20): Observable<ApiResponse<Product[]>> {

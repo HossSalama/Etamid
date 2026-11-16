@@ -65,26 +65,17 @@ public sealed class PostDisputeMessageHandler(
         db.DisputeMessages.Add(message);
 
         // Internal notes are operator-only and never visible to the parties,
-        // so they never notify anyone. A party message notifies the other party;
-        // an operator message notifies both parties.
-        if (!r.IsInternalNote)
+        // so they never notify anyone. An operator message notifies both parties
+        // (it is visible to both). A party message notifies nobody: it goes to
+        // the admin only — the other party cannot see it (16 Nov 2026).
+        if (!r.IsInternalNote && isOperator)
         {
-            if (isOperator)
-            {
-                notifications.Create(deal.BuyerId, NotificationType.DisputeUpdate,
-                    "NOTIF_DISPUTE_UPDATE_TITLE", "NOTIF_DISPUTE_UPDATE_BODY", deal.Title,
-                    dealId: deal.Id, disputeId: dispute.Id);
-                notifications.Create(deal.SellerId, NotificationType.DisputeUpdate,
-                    "NOTIF_DISPUTE_UPDATE_TITLE", "NOTIF_DISPUTE_UPDATE_BODY", deal.Title,
-                    dealId: deal.Id, disputeId: dispute.Id);
-            }
-            else
-            {
-                notifications.Create(userId == deal.BuyerId ? deal.SellerId : deal.BuyerId,
-                    NotificationType.DisputeUpdate,
-                    "NOTIF_DISPUTE_UPDATE_TITLE", "NOTIF_DISPUTE_UPDATE_BODY", deal.Title,
-                    dealId: deal.Id, disputeId: dispute.Id);
-            }
+            notifications.Create(deal.BuyerId, NotificationType.DisputeUpdate,
+                "NOTIF_DISPUTE_UPDATE_TITLE", "NOTIF_DISPUTE_UPDATE_BODY", deal.Title,
+                dealId: deal.Id, disputeId: dispute.Id);
+            notifications.Create(deal.SellerId, NotificationType.DisputeUpdate,
+                "NOTIF_DISPUTE_UPDATE_TITLE", "NOTIF_DISPUTE_UPDATE_BODY", deal.Title,
+                dealId: deal.Id, disputeId: dispute.Id);
         }
 
         var saved = await db.SaveGuardedAsync(ct);

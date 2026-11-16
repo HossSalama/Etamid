@@ -304,13 +304,25 @@ paths:
       responses: { '200': { description: Dispute detail }, '401': { $ref: '#/components/responses/Unauthorized' }, '403': { $ref: '#/components/responses/Forbidden' }, '404': { description: DISPUTE_NOT_FOUND } }
   /api/v1/admin/disputes/{disputeId}/request-info:
     post:
-      summary: Ask both parties for more information. Permission admin.disputes.decide. Audit action admin.dispute.request_info (there is no ByAdminId column for it).
+      summary: Ask the buyer for more information (notifies the buyer only). Permission admin.disputes.decide. Audit action admin.dispute.request_info (there is no ByAdminId column for it).
       parameters: [ { name: disputeId, in: path, required: true, schema: { type: integer, format: int64 } } ]
       requestBody: { required: true, content: { application/json: { schema: { type: object, required: [deadlineDays], properties: { note: { type: string }, deadlineDays: { type: integer } } } } } }
       responses: { '200': { description: Dispute detail }, '403': { $ref: '#/components/responses/Forbidden' } }
-  /api/v1/admin/disputes/{disputeId}/decide:
+  /api/v1/admin/disputes/{disputeId}/execute-agreement:
     post:
-      summary: Decide the dispute (release / refund / partial); the money moves in the same request. Permission admin.disputes.decide. Fills ResolvedByAdminId, audit action admin.dispute.decide.
+      summary: Execute what the buyer and the seller agreed between themselves (release / refund / partial); the money moves in the same request. The admin never decides a dispute. Permission admin.disputes.decide. Fills ResolvedByAdminId, audit action admin.dispute.execute_agreement.
       parameters: [ { name: disputeId, in: path, required: true, schema: { type: integer, format: int64 } } ]
       requestBody: { required: true, content: { application/json: { schema: { type: object, required: [resolution, note], properties: { resolution: { type: string, enum: [ReleaseSeller, RefundBuyer, Partial] }, sellerPercent: { type: integer }, note: { type: string } } } } } }
       responses: { '200': { description: Execution result }, '403': { $ref: '#/components/responses/Forbidden' } }
+  /api/v1/admin/disputes/{disputeId}/send-documents:
+    post:
+      summary: Send the dispute documents to the buyer so the buyer can take the case to court. Moves no money and closes nothing; the dispute stays open and the escrow stays frozen. Permission admin.disputes.decide. Audit action admin.dispute.send_documents.
+      parameters: [ { name: disputeId, in: path, required: true, schema: { type: integer, format: int64 } } ]
+      requestBody: { required: false, content: { application/json: { schema: { type: object, properties: { note: { type: string } } } } } }
+      responses: { '200': { description: Dispute detail }, '403': { $ref: '#/components/responses/Forbidden' } }
+  /api/v1/admin/disputes/{disputeId}/messages:
+    post:
+      summary: The admin messages the parties (visible to both parties; isInternalNote hides it from both). Permission admin.disputes.decide. Audit action admin.dispute.message.
+      parameters: [ { name: disputeId, in: path, required: true, schema: { type: integer, format: int64 } } ]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [message], properties: { message: { type: string }, isInternalNote: { type: boolean } } } } } }
+      responses: { '200': { description: Dispute message }, '403': { $ref: '#/components/responses/Forbidden' } }

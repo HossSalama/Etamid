@@ -247,13 +247,14 @@ public class NotificationTests(EtamidFactory factory) : IClassFixture<EtamidFact
         var seller = await NewUser();
         var dealId = await InspectionDeal(buyer, seller);
 
-        var open = await Post(seller.Client, $"/api/v1/deals/{dealId}/dispute",
+        // Only the buyer opens a dispute (design decision, 16 Nov 2026): the seller is the one notified.
+        var open = await Post(buyer.Client, $"/api/v1/deals/{dealId}/dispute",
             new { reasonId = DisputeReason, details = "Item arrived damaged" });
         open.StatusCode.Should().Be(HttpStatusCode.Created, await open.Content.ReadAsStringAsync());
         var disputeId = (await Json(open)).GetProperty("data").GetProperty("id").GetInt64();
 
-        var buyerItems = await List(buyer.Client);
-        var update = buyerItems.EnumerateArray().FirstOrDefault(i => i.GetProperty("type").GetString() == "dispute_update");
+        var sellerItems = await List(seller.Client);
+        var update = sellerItems.EnumerateArray().FirstOrDefault(i => i.GetProperty("type").GetString() == "dispute_update");
         update.ValueKind.Should().NotBe(JsonValueKind.Undefined);
         update.GetProperty("dealId").GetInt64().Should().Be(dealId);
         update.GetProperty("disputeId").GetInt64().Should().Be(disputeId);

@@ -83,7 +83,8 @@ public static class DealActions
                 break;
             case DealStatus.Inspection:
                 if (isBuyer) actions.Add("release");
-                if (deal.InspectionEndsAt is { } ends && now <= ends) actions.Add("dispute");
+                // Only the buyer opens a dispute (design decision, 16 Nov 2026).
+                if (isBuyer && deal.InspectionEndsAt is { } ends && now <= ends) actions.Add("dispute");
                 break;
         }
 
