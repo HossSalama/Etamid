@@ -27,4 +27,10 @@ public static class ValidationRules
         => rule
             .NotEmpty().WithErrorCode("REQUIRED")
             .MaximumLength(maxLength).WithErrorCode("TOO_LONG");
+
+    /// <summary>Commercial registration number: exactly 9 digits, nothing else (no external check).</summary>
+    public static IRuleBuilderOptions<T, string> MustBeCommercialRegNo<T>(this IRuleBuilder<T, string> rule)
+        => rule
+            .NotEmpty().WithErrorCode("REQUIRED")
+            .Matches(@"^\d{9}$").WithErrorCode("INVALID_VALUE");
 }

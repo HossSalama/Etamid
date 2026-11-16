@@ -3,7 +3,7 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { BottomNavComponent, NavTab } from '../../core/components/bottom-nav/bottom-nav.component';
 import { AuthService } from '../../core/services/auth.service';
-import { DealEdit, DealSummary, DealsService, LookupItem, UserAddress, Wallet, WalletTransaction, Withdrawal } from '../../core/services/deals.service';
+import { DealEdit, DealSummary, DealsService, BankAccount, LookupItem, UserAddress, Wallet, WalletTransaction, Withdrawal } from '../../core/services/deals.service';
 import { LanguageService } from '../../core/services/language.service';
 import { NotificationsService } from '../../core/services/notifications.service';
 import { MyAddressesComponent } from '../profile/my-addresses.component';
@@ -407,6 +407,70 @@ export interface DealItem {
               </div>
               <span class="support-chevron">&gt;</span>
             </a>
+          }
+
+          @if (authService.isAuthenticated()) {
+            <!-- Bank account: static — the user enters it once, it shows here -->
+            <div class="bank-account-block">
+              <div class="section-title-row">
+                <h3>{{ lang.t('bank_title') }}</h3>
+                @if (bankAccount() && !isEditingBankAccount()) {
+                  <button type="button" class="btn btn-outline-coral" (click)="startEditBankAccount()">
+                    {{ lang.t('bank_edit') }}
+                  </button>
+                }
+              </div>
+
+              @if (isLoadingBankAccount()) {
+                <p>{{ lang.t('wallet_loading') }}</p>
+              } @else if (bankAccount() && !isEditingBankAccount()) {
+                <div class="bank-account-view">
+                  <p><span>{{ lang.t('bank_holder_label') }}:</span> {{ bankAccount()!.holderName }}</p>
+                  <p><span>{{ lang.t('bank_bank_label') }}:</span> {{ bankAccount()!.bankName }}</p>
+                  <p><span>{{ lang.t('bank_iban_label') }}:</span> <span dir="ltr">{{ bankAccount()!.ibanMasked }}</span></p>
+                </div>
+              } @else {
+                @if (!bankAccount()) {
+                  <p>{{ lang.t('bank_empty') }}</p>
+                }
+                <div class="withdraw-form">
+                  <label>
+                    <span>{{ lang.t('bank_holder_label') }}</span>
+                    <input type="text"
+                      [value]="bankHolderName()"
+                      (input)="bankHolderName.set($any($event.target).value)"
+                      [placeholder]="lang.t('bank_holder_placeholder')" />
+                  </label>
+                  <label>
+                    <span>{{ lang.t('bank_iban_label') }}</span>
+                    <input type="text" dir="ltr"
+                      [value]="bankIban()"
+                      (input)="bankIban.set($any($event.target).value)"
+                      [placeholder]="lang.t('bank_iban_placeholder')" />
+                  </label>
+                  @if (bankAccount()) {
+                    <p class="withdraw-dest">{{ lang.t('bank_iban_again_hint') }}</p>
+                  }
+                  @if (bankError()) {
+                    <p class="wallet-message wallet-message-error" role="alert">{{ lang.t(bankError()!) }}</p>
+                  }
+                  <div class="deal-actions-row">
+                    <button type="button" class="btn btn-black" (click)="submitBankAccount()" [disabled]="isSavingBankAccount()">
+                      {{ lang.t('bank_save') }}
+                    </button>
+                    @if (bankAccount()) {
+                      <button type="button" class="btn btn-outline-coral" (click)="cancelEditBankAccount()">
+                        {{ lang.t('bank_cancel') }}
+                      </button>
+                    }
+                  </div>
+                </div>
+              }
+
+              @if (bankSaved()) {
+                <p class="wallet-message wallet-message-success" role="alert">{{ lang.t('bank_saved') }}</p>
+              }
+            </div>
           }
         </section>
 
@@ -1275,6 +1339,35 @@ export interface DealItem {
       color: #047857;
     }
 
+    .bank-account-block {
+      margin-top: 1.5rem;
+
+      h3 {
+        font-size: 1rem;
+        font-weight: 800;
+        color: #111827;
+        margin: 0;
+      }
+
+      p {
+        font-size: 0.85rem;
+        color: #6b7280;
+        margin: 0.25rem 0;
+      }
+    }
+
+    .bank-account-view {
+      p {
+        font-size: 0.9rem;
+        color: #111827;
+        margin: 0.35rem 0;
+
+        span:first-child {
+          color: #6b7280;
+        }
+      }
+    }
+
     .wallet-history-block {
       margin-top: 1.5rem;
 
@@ -1753,6 +1846,14 @@ export class HomeComponent {
   readonly withdrawError = signal<string | null>(null);
   readonly withdrawSuccess = signal(false);
   readonly isActivatingWallet = signal(false);
+  readonly bankAccount = signal<BankAccount | null>(null);
+  readonly isLoadingBankAccount = signal(false);
+  readonly isEditingBankAccount = signal(false);
+  readonly bankHolderName = signal('');
+  readonly bankIban = signal('');
+  readonly isSavingBankAccount = signal(false);
+  readonly bankError = signal<string | null>(null);
+  readonly bankSaved = signal(false);
   private walletTxPage = 1;
   private walletWithdrawalPage = 1;
 
@@ -1788,6 +1889,7 @@ export class HomeComponent {
       this.authService.refreshProfile().subscribe({ error: () => {} });
       this.loadDeals();
       this.loadWallet();
+      this.loadBankAccount();
       this.loadUnreadNotifications();
     }
   }
@@ -1846,6 +1948,82 @@ export class HomeComponent {
         this.isActivatingWallet.set(false);
       },
     });
+  }
+
+  loadBankAccount(): void {
+    if (!this.authService.isAuthenticated()) return;
+    this.isLoadingBankAccount.set(true);
+    this.dealsApi.getMyBankAccount().subscribe({
+      next: (response) => {
+        this.isLoadingBankAccount.set(false);
+        if (!response.success) return;
+        this.bankAccount.set(response.data ?? null);
+      },
+      error: () => {
+        this.isLoadingBankAccount.set(false);
+      },
+    });
+  }
+
+  startEditBankAccount(): void {
+    this.bankHolderName.set(this.bankAccount()?.holderName ?? '');
+    this.bankIban.set('');
+    this.bankError.set(null);
+    this.bankSaved.set(false);
+    this.isEditingBankAccount.set(true);
+  }
+
+  cancelEditBankAccount(): void {
+    this.isEditingBankAccount.set(false);
+    this.bankError.set(null);
+  }
+
+  submitBankAccount(): void {
+    if (this.isSavingBankAccount()) return;
+    const holderName = this.bankHolderName().trim();
+    const iban = this.bankIban().replace(/[\s-]/g, '').toUpperCase();
+    if (!holderName || !iban) {
+      this.bankError.set('bank_error_required');
+      return;
+    }
+    if (!/^SA\d{22}$/.test(iban)) {
+      this.bankError.set('bank_error_invalid_iban');
+      return;
+    }
+    this.bankError.set(null);
+    this.bankSaved.set(false);
+    this.isSavingBankAccount.set(true);
+    this.dealsApi.saveBankAccount(holderName, iban).subscribe({
+      next: (response) => {
+        this.isSavingBankAccount.set(false);
+        if (!response.success || !response.data) {
+          this.bankError.set(this.bankErrorKey(response.errors?.[0]?.code));
+          return;
+        }
+        this.bankAccount.set(response.data);
+        this.bankSaved.set(true);
+        this.isEditingBankAccount.set(false);
+        this.bankIban.set('');
+        this.loadWallet();
+      },
+      error: () => {
+        this.isSavingBankAccount.set(false);
+        this.bankError.set('bank_error_generic');
+      },
+    });
+  }
+
+  private bankErrorKey(code: string | undefined): string {
+    switch (code) {
+      case 'INVALID_IBAN':
+        return 'bank_error_invalid_iban';
+      case 'UNSUPPORTED_BANK':
+        return 'bank_error_unsupported';
+      case 'IBAN_EXISTS':
+        return 'bank_error_exists';
+      default:
+        return 'bank_error_generic';
+    }
   }
 
   loadWalletTransactions(): void {

@@ -323,13 +323,13 @@
                     "company"
                   ]
                 },
-                "description": "## Register a Company Account\n\n**Public endpoint — no authentication required.**\n\nCreates an **unverified** company account and sends an OTP to the owner's phone.\n\n### Request Fields\n| Field | Type | Required | Rules |\n|---|---|---|---|\n| companyName | string | ✅ | Max 200 chars |\n| ownerPhone | string | ✅ | Owner mobile, unique |\n| commercialRegNo | string | ✅ | Unique commercial registration number |\n| taxNo | string | No | Optional tax number |\n| email | string | ✅ | Valid email, unique |\n| password | string | ✅ | ≥ 8 chars, at least one letter and one number |\n\n### Business Rules\n- After OTP verification the company has `reviewStatus = pending_review` until an admin approves the commercial registration.\n- A company can sign in while pending, but cannot create deals until approved.\n\n### Next Step\nCall `POST /auth/otp/verify`.\n\n### Frontend Notes\n- Show a 'Your company is under review' banner when `reviewStatus` is `pending_review`.",
+                "description": "## Register a Company Account\n\n**Public endpoint — no authentication required.**\n\nCreates an **unverified** company account and sends an OTP to the owner's phone.\n\n### Request Fields\n| Field | Type | Required | Rules |\n|---|---|---|---|\n| companyName | string | ✅ | Max 200 chars |\n| ownerPhone | string | ✅ | Owner mobile, unique |\n| commercialRegNo | string | ✅ | Exactly 9 digits, unique — no external verification |\n| taxNo | string | No | Optional tax number |\n| email | string | ✅ | Valid email, unique |\n| password | string | ✅ | ≥ 8 chars, at least one letter and one number |\n\n### Business Rules\n- After OTP verification the company has `reviewStatus = pending_review` until an admin approves the commercial registration.\n- A company can sign in while pending, but cannot create deals until approved.\n\n### Next Step\nCall `POST /auth/otp/verify`.\n\n### Frontend Notes\n- Show a 'Your company is under review' banner when `reviewStatus` is `pending_review`.",
                 "auth": {
                   "type": "noauth"
                 },
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"companyName\": \"Future Tech Company\",\n  \"ownerPhone\": \"0501112233\",\n  \"commercialRegNo\": \"1010123456\",\n  \"taxNo\": \"300012345600003\",\n  \"email\": \"info@futuretech.example.com\",\n  \"password\": \"Passw0rd!\"\n}",
+                  "raw": "{\n  \"companyName\": \"Future Tech Company\",\n  \"ownerPhone\": \"0501112233\",\n  \"commercialRegNo\": \"101012345\",\n  \"taxNo\": \"300012345600003\",\n  \"email\": \"info@futuretech.example.com\",\n  \"password\": \"Passw0rd!\"\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -365,13 +365,13 @@
                         "company"
                       ]
                     },
-                    "description": "## Register a Company Account\n\n**Public endpoint — no authentication required.**\n\nCreates an **unverified** company account and sends an OTP to the owner's phone.\n\n### Request Fields\n| Field | Type | Required | Rules |\n|---|---|---|---|\n| companyName | string | ✅ | Max 200 chars |\n| ownerPhone | string | ✅ | Owner mobile, unique |\n| commercialRegNo | string | ✅ | Unique commercial registration number |\n| taxNo | string | No | Optional tax number |\n| email | string | ✅ | Valid email, unique |\n| password | string | ✅ | ≥ 8 chars, at least one letter and one number |\n| acceptTerms | boolean | ✅ | Must be `true` |\n\n### Business Rules\n- After OTP verification the company has `reviewStatus = pending_review` until an admin approves the commercial registration.\n- A company can sign in while pending, but cannot create deals until approved.\n\n### Next Step\nCall `POST /auth/otp/verify`.\n\n### Frontend Notes\n- Show a 'Your company is under review' banner when `reviewStatus` is `pending_review`.",
+                    "description": "## Register a Company Account\n\n**Public endpoint — no authentication required.**\n\nCreates an **unverified** company account and sends an OTP to the owner's phone.\n\n### Request Fields\n| Field | Type | Required | Rules |\n|---|---|---|---|\n| companyName | string | ✅ | Max 200 chars |\n| ownerPhone | string | ✅ | Owner mobile, unique |\n| commercialRegNo | string | ✅ | Exactly 9 digits, unique — no external verification |\n| taxNo | string | No | Optional tax number |\n| email | string | ✅ | Valid email, unique |\n| password | string | ✅ | ≥ 8 chars, at least one letter and one number |\n| acceptTerms | boolean | ✅ | Must be `true` |\n\n### Business Rules\n- After OTP verification the company has `reviewStatus = pending_review` until an admin approves the commercial registration.\n- A company can sign in while pending, but cannot create deals until approved.\n\n### Next Step\nCall `POST /auth/otp/verify`.\n\n### Frontend Notes\n- Show a 'Your company is under review' banner when `reviewStatus` is `pending_review`.",
                     "auth": {
                       "type": "noauth"
                     },
                     "body": {
                       "mode": "raw",
-                      "raw": "{\n  \"companyName\": \"Future Tech Company\",\n  \"ownerPhone\": \"0501112233\",\n  \"commercialRegNo\": \"1010123456\",\n  \"taxNo\": \"300012345600003\",\n  \"email\": \"info@futuretech.example.com\",\n  \"password\": \"Passw0rd!\",\n  \"acceptTerms\": true\n}",
+                      "raw": "{\n  \"companyName\": \"Future Tech Company\",\n  \"ownerPhone\": \"0501112233\",\n  \"commercialRegNo\": \"101012345\",\n  \"taxNo\": \"300012345600003\",\n  \"email\": \"info@futuretech.example.com\",\n  \"password\": \"Passw0rd!\",\n  \"acceptTerms\": true\n}",
                       "options": {
                         "raw": {
                           "language": "json"
@@ -417,13 +417,13 @@
                         "company"
                       ]
                     },
-                    "description": "## Register a Company Account\n\n**Public endpoint — no authentication required.**\n\nCreates an **unverified** company account and sends an OTP to the owner's phone.\n\n### Request Fields\n| Field | Type | Required | Rules |\n|---|---|---|---|\n| companyName | string | ✅ | Max 200 chars |\n| ownerPhone | string | ✅ | Owner mobile, unique |\n| commercialRegNo | string | ✅ | Unique commercial registration number |\n| taxNo | string | No | Optional tax number |\n| email | string | ✅ | Valid email, unique |\n| password | string | ✅ | ≥ 8 chars, at least one letter and one number |\n| acceptTerms | boolean | ✅ | Must be `true` |\n\n### Business Rules\n- After OTP verification the company has `reviewStatus = pending_review` until an admin approves the commercial registration.\n- A company can sign in while pending, but cannot create deals until approved.\n\n### Next Step\nCall `POST /auth/otp/verify`.\n\n### Frontend Notes\n- Show a 'Your company is under review' banner when `reviewStatus` is `pending_review`.",
+                    "description": "## Register a Company Account\n\n**Public endpoint — no authentication required.**\n\nCreates an **unverified** company account and sends an OTP to the owner's phone.\n\n### Request Fields\n| Field | Type | Required | Rules |\n|---|---|---|---|\n| companyName | string | ✅ | Max 200 chars |\n| ownerPhone | string | ✅ | Owner mobile, unique |\n| commercialRegNo | string | ✅ | Exactly 9 digits, unique — no external verification |\n| taxNo | string | No | Optional tax number |\n| email | string | ✅ | Valid email, unique |\n| password | string | ✅ | ≥ 8 chars, at least one letter and one number |\n| acceptTerms | boolean | ✅ | Must be `true` |\n\n### Business Rules\n- After OTP verification the company has `reviewStatus = pending_review` until an admin approves the commercial registration.\n- A company can sign in while pending, but cannot create deals until approved.\n\n### Next Step\nCall `POST /auth/otp/verify`.\n\n### Frontend Notes\n- Show a 'Your company is under review' banner when `reviewStatus` is `pending_review`.",
                     "auth": {
                       "type": "noauth"
                     },
                     "body": {
                       "mode": "raw",
-                      "raw": "{\n  \"companyName\": \"Future Tech Company\",\n  \"ownerPhone\": \"0501112233\",\n  \"commercialRegNo\": \"1010123456\",\n  \"taxNo\": \"300012345600003\",\n  \"email\": \"info@futuretech.example.com\",\n  \"password\": \"Passw0rd!\",\n  \"acceptTerms\": true\n}",
+                      "raw": "{\n  \"companyName\": \"Future Tech Company\",\n  \"ownerPhone\": \"0501112233\",\n  \"commercialRegNo\": \"101012345\",\n  \"taxNo\": \"300012345600003\",\n  \"email\": \"info@futuretech.example.com\",\n  \"password\": \"Passw0rd!\",\n  \"acceptTerms\": true\n}",
                       "options": {
                         "raw": {
                           "language": "json"
@@ -469,13 +469,13 @@
                         "company"
                       ]
                     },
-                    "description": "## Register a Company Account\n\n**Public endpoint — no authentication required.**\n\nCreates an **unverified** company account and sends an OTP to the owner's phone.\n\n### Request Fields\n| Field | Type | Required | Rules |\n|---|---|---|---|\n| companyName | string | ✅ | Max 200 chars |\n| ownerPhone | string | ✅ | Owner mobile, unique |\n| commercialRegNo | string | ✅ | Unique commercial registration number |\n| taxNo | string | No | Optional tax number |\n| email | string | ✅ | Valid email, unique |\n| password | string | ✅ | ≥ 8 chars, at least one letter and one number |\n| acceptTerms | boolean | ✅ | Must be `true` |\n\n### Business Rules\n- After OTP verification the company has `reviewStatus = pending_review` until an admin approves the commercial registration.\n- A company can sign in while pending, but cannot create deals until approved.\n\n### Next Step\nCall `POST /auth/otp/verify`.\n\n### Frontend Notes\n- Show a 'Your company is under review' banner when `reviewStatus` is `pending_review`.",
+                    "description": "## Register a Company Account\n\n**Public endpoint — no authentication required.**\n\nCreates an **unverified** company account and sends an OTP to the owner's phone.\n\n### Request Fields\n| Field | Type | Required | Rules |\n|---|---|---|---|\n| companyName | string | ✅ | Max 200 chars |\n| ownerPhone | string | ✅ | Owner mobile, unique |\n| commercialRegNo | string | ✅ | Exactly 9 digits, unique — no external verification |\n| taxNo | string | No | Optional tax number |\n| email | string | ✅ | Valid email, unique |\n| password | string | ✅ | ≥ 8 chars, at least one letter and one number |\n| acceptTerms | boolean | ✅ | Must be `true` |\n\n### Business Rules\n- After OTP verification the company has `reviewStatus = pending_review` until an admin approves the commercial registration.\n- A company can sign in while pending, but cannot create deals until approved.\n\n### Next Step\nCall `POST /auth/otp/verify`.\n\n### Frontend Notes\n- Show a 'Your company is under review' banner when `reviewStatus` is `pending_review`.",
                     "auth": {
                       "type": "noauth"
                     },
                     "body": {
                       "mode": "raw",
-                      "raw": "{\n  \"companyName\": \"Future Tech Company\",\n  \"ownerPhone\": \"0501112233\",\n  \"commercialRegNo\": \"1010123456\",\n  \"taxNo\": \"300012345600003\",\n  \"email\": \"info@futuretech.example.com\",\n  \"password\": \"Passw0rd!\",\n  \"acceptTerms\": true\n}",
+                      "raw": "{\n  \"companyName\": \"Future Tech Company\",\n  \"ownerPhone\": \"0501112233\",\n  \"commercialRegNo\": \"101012345\",\n  \"taxNo\": \"300012345600003\",\n  \"email\": \"info@futuretech.example.com\",\n  \"password\": \"Passw0rd!\",\n  \"acceptTerms\": true\n}",
                       "options": {
                         "raw": {
                           "language": "json"
@@ -662,7 +662,7 @@
                       "value": "application/json"
                     }
                   ],
-                  "body": "{\n  \"success\": true,\n  \"message\": \"Account verified.\",\n  \"data\": {\n    \"accessToken\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.mock-access-token\",\n    \"refreshToken\": \"mock-refresh-token-8f2c1a9d\",\n    \"expiresInSeconds\": 3600,\n    \"user\": {\n      \"id\": 201,\n      \"code\": \"FUTURE01\",\n      \"type\": \"company\",\n      \"name\": \"Future Tech Company\",\n      \"phone\": \"0501112233\",\n      \"email\": \"info@futuretech.example.com\",\n      \"avatarUrl\": null,\n      \"language\": \"en\",\n      \"phoneVerified\": true,\n      \"nafathVerified\": false,\n      \"walletActivated\": false,\n      \"bankAccount\": null,\n      \"company\": {\n        \"commercialRegNo\": \"1010123456\",\n        \"taxNo\": \"300012345600003\"\n      },\n      \"reviewStatus\": \"pending_review\"\n    }\n  }\n}"
+                  "body": "{\n  \"success\": true,\n  \"message\": \"Account verified.\",\n  \"data\": {\n    \"accessToken\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.mock-access-token\",\n    \"refreshToken\": \"mock-refresh-token-8f2c1a9d\",\n    \"expiresInSeconds\": 3600,\n    \"user\": {\n      \"id\": 201,\n      \"code\": \"FUTURE01\",\n      \"type\": \"company\",\n      \"name\": \"Future Tech Company\",\n      \"phone\": \"0501112233\",\n      \"email\": \"info@futuretech.example.com\",\n      \"avatarUrl\": null,\n      \"language\": \"en\",\n      \"phoneVerified\": true,\n      \"nafathVerified\": false,\n      \"walletActivated\": false,\n      \"bankAccount\": null,\n      \"company\": {\n        \"commercialRegNo\": \"101012345\",\n        \"taxNo\": \"300012345600003\"\n      },\n      \"reviewStatus\": \"pending_review\"\n    }\n  }\n}"
                 },
                 {
                   "name": "400 — Invalid Code",
@@ -1202,7 +1202,7 @@
                       "value": "application/json"
                     }
                   ],
-                  "body": "{\n  \"success\": true,\n  \"message\": \"Signed in.\",\n  \"data\": {\n    \"accessToken\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.mock-access-token\",\n    \"refreshToken\": \"mock-refresh-token-8f2c1a9d\",\n    \"expiresInSeconds\": 3600,\n    \"user\": {\n      \"id\": 201,\n      \"code\": \"FUTURE01\",\n      \"type\": \"company\",\n      \"name\": \"Future Tech Company\",\n      \"phone\": \"0501112233\",\n      \"email\": \"info@futuretech.example.com\",\n      \"avatarUrl\": null,\n      \"language\": \"en\",\n      \"phoneVerified\": true,\n      \"nafathVerified\": false,\n      \"walletActivated\": true,\n      \"bankAccount\": null,\n      \"company\": {\n        \"commercialRegNo\": \"1010123456\",\n        \"taxNo\": \"300012345600003\"\n      },\n      \"reviewStatus\": \"approved\"\n    }\n  }\n}"
+                  "body": "{\n  \"success\": true,\n  \"message\": \"Signed in.\",\n  \"data\": {\n    \"accessToken\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.mock-access-token\",\n    \"refreshToken\": \"mock-refresh-token-8f2c1a9d\",\n    \"expiresInSeconds\": 3600,\n    \"user\": {\n      \"id\": 201,\n      \"code\": \"FUTURE01\",\n      \"type\": \"company\",\n      \"name\": \"Future Tech Company\",\n      \"phone\": \"0501112233\",\n      \"email\": \"info@futuretech.example.com\",\n      \"avatarUrl\": null,\n      \"language\": \"en\",\n      \"phoneVerified\": true,\n      \"nafathVerified\": false,\n      \"walletActivated\": true,\n      \"bankAccount\": null,\n      \"company\": {\n        \"commercialRegNo\": \"101012345\",\n        \"taxNo\": \"300012345600003\"\n      },\n      \"reviewStatus\": \"approved\"\n    }\n  }\n}"
                 },
                 {
                   "name": "401 — Invalid Credentials",
@@ -2584,7 +2584,7 @@
                       "value": "application/json"
                     }
                   ],
-                  "body": "{\n  \"success\": true,\n  \"message\": \"Success\",\n  \"data\": {\n    \"id\": 201,\n    \"code\": \"FUTURE01\",\n    \"type\": \"company\",\n    \"name\": \"Future Tech Company\",\n    \"phone\": \"0501112233\",\n    \"email\": \"info@futuretech.example.com\",\n    \"avatarUrl\": null,\n    \"language\": \"en\",\n    \"phoneVerified\": true,\n    \"nafathVerified\": false,\n    \"walletActivated\": true,\n    \"bankAccount\": null,\n    \"company\": {\n      \"commercialRegNo\": \"1010123456\",\n      \"taxNo\": \"300012345600003\"\n    },\n    \"reviewStatus\": \"approved\"\n  }\n}"
+                  "body": "{\n  \"success\": true,\n  \"message\": \"Success\",\n  \"data\": {\n    \"id\": 201,\n    \"code\": \"FUTURE01\",\n    \"type\": \"company\",\n    \"name\": \"Future Tech Company\",\n    \"phone\": \"0501112233\",\n    \"email\": \"info@futuretech.example.com\",\n    \"avatarUrl\": null,\n    \"language\": \"en\",\n    \"phoneVerified\": true,\n    \"nafathVerified\": false,\n    \"walletActivated\": true,\n    \"bankAccount\": null,\n    \"company\": {\n      \"commercialRegNo\": \"101012345\",\n      \"taxNo\": \"300012345600003\"\n    },\n    \"reviewStatus\": \"approved\"\n  }\n}"
                 },
                 {
                   "name": "401 — Unauthorized",

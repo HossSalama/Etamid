@@ -80,7 +80,7 @@ public class AdminDashboardTests(EtamidFactory factory) : IClassFixture<EtamidFa
         var name = "Dashboard Company " + n;
 
         var registration = await _anon.PostAsJsonAsync("/api/v1/auth/register/company",
-            new { companyName = name, ownerPhone = local, commercialRegNo = "10" + n.ToString("D8"), taxNo = (string?)null, email, password = Password, acceptTerms = true });
+            new { companyName = name, ownerPhone = local, commercialRegNo = n.ToString("D9"), taxNo = (string?)null, email, password = Password, acceptTerms = true });
         registration.StatusCode.Should().Be(HttpStatusCode.Created, await registration.Content.ReadAsStringAsync());
         var verify = await _anon.PostAsJsonAsync("/api/v1/auth/otp/verify", new { phone = local, code = factory.Emails.CodeFor(email) });
         verify.StatusCode.Should().Be(HttpStatusCode.OK, await verify.Content.ReadAsStringAsync());
@@ -107,6 +107,29 @@ public class AdminDashboardTests(EtamidFactory factory) : IClassFixture<EtamidFa
         });
         create.StatusCode.Should().Be(HttpStatusCode.Created, await create.Content.ReadAsStringAsync());
         return (await Data(create)).GetProperty("id").GetInt64();
+    }
+
+    // ------------------------------------------------------------------ commercial registration number
+    [Theory]
+    [InlineData("12345678")]   // 8 digits
+    [InlineData("1234567890")] // 10 digits
+    [InlineData("12345678A")]  // a letter, not a digit
+    [InlineData("CRAU12345")]  // the old test format
+    public async Task RegisterCompany_rejects_a_commercial_reg_no_that_is_not_9_digits(string commercialRegNo)
+    {
+        var n = Interlocked.Increment(ref _counter);
+        var local = $"05077{n:D5}";
+        var email = $"badcr.{n}@example.com";
+
+        var registration = await _anon.PostAsJsonAsync("/api/v1/auth/register/company",
+            new
+            {
+                companyName = "Bad CR Co " + n, ownerPhone = local, commercialRegNo,
+                taxNo = (string?)null, email, password = Password, acceptTerms = true
+            });
+
+        (await Succeeded(registration)).Should().BeFalse(await registration.Content.ReadAsStringAsync());
+        (await Code(registration)).Should().Be("INVALID_VALUE");
     }
 
     private async Task SendWebhook(string providerPaymentId, decimal amount)

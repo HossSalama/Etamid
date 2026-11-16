@@ -144,7 +144,7 @@ paths:
               properties:
                 companyName: { type: string }
                 ownerPhone: { type: string }
-                commercialRegNo: { type: string }
+                commercialRegNo: { type: string, pattern: '^\d{9}$', description: 'رقم السجل التجاري — 9 أرقام بالظبط، من غير أي تحقق خارجي' }
                 taxNo: { type: string, nullable: true, description: اختياري }
                 email: { type: string, format: email }
                 password: { type: string, format: password }
@@ -2799,7 +2799,7 @@ components:
           type: object
           nullable: true
           properties:
-            commercialRegNo: { type: string }
+            commercialRegNo: { type: string, pattern: '^\d{9}$' }
             taxNo: { type: string, nullable: true }
     BankAccount:
       type: object

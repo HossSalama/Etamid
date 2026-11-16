@@ -79,7 +79,7 @@ public class AdminUsersTests(EtamidFactory factory) : IClassFixture<EtamidFactor
         var name = $"Admin Users Co {n}";
 
         var reg = await _anon.PostAsJsonAsync("/api/v1/auth/register/company",
-            new { companyName = name, ownerPhone = phone, commercialRegNo = "CRAU" + n, taxNo = "TAX" + n, email, password = Password, acceptTerms = true });
+            new { companyName = name, ownerPhone = phone, commercialRegNo = n.ToString("D9"), taxNo = "TAX" + n, email, password = Password, acceptTerms = true });
         (await Succeeded(reg)).Should().BeTrue(await reg.Content.ReadAsStringAsync());
         var client = await SignIn(phone, email);
         return new Party(client, phone, name, email, await IdByPhone(phone));
@@ -210,7 +210,7 @@ public class AdminUsersTests(EtamidFactory factory) : IClassFixture<EtamidFactor
         companyDetail.GetProperty("type").GetString().Should().Be("company");
         var profile = companyDetail.GetProperty("companyProfile");
         profile.GetProperty("companyName").GetString().Should().Be(company.Name);
-        profile.GetProperty("commercialRegNo").GetString().Should().StartWith("CRAU");
+        profile.GetProperty("commercialRegNo").GetString().Should().MatchRegex(@"^\d{9}$");
         profile.GetProperty("taxNo").GetString().Should().StartWith("TAX");
         profile.GetProperty("ownerPhone").GetString().Should().Be(company.Phone);
 

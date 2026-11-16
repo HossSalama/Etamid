@@ -95,7 +95,7 @@ public class ShopTests(EtamidFactory factory) : IClassFixture<EtamidFactory>
         var name = "S Company " + n;
 
         var registration = await _anon.PostAsJsonAsync("/api/v1/auth/register/company",
-            new { companyName = name, ownerPhone = local, commercialRegNo = "CR" + n, taxNo = (string?)null, email, password = Password, acceptTerms = true });
+            new { companyName = name, ownerPhone = local, commercialRegNo = n.ToString("D9"), taxNo = (string?)null, email, password = Password, acceptTerms = true });
         registration.StatusCode.Should().Be(HttpStatusCode.Created, await registration.Content.ReadAsStringAsync());
         var code = factory.Emails.CodeFor(email);
         var verify = await _anon.PostAsJsonAsync("/api/v1/auth/otp/verify", new { phone = local, code });

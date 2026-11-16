@@ -41,7 +41,7 @@ public sealed class RegisterCompanyValidator : AbstractValidator<RegisterCompany
     {
         RuleFor(x => x.CompanyName).MustBeRequired(200);
         RuleFor(x => x.OwnerPhone).MustBeSaudiPhone();
-        RuleFor(x => x.CommercialRegNo).MustBeRequired(30);
+        RuleFor(x => x.CommercialRegNo).MustBeCommercialRegNo();
         RuleFor(x => x.TaxNo!).MaximumLength(30).WithErrorCode("TOO_LONG").When(x => x.TaxNo is not null);
         RuleFor(x => x.Email).MustBeEmail();
         RuleFor(x => x.Password).MustBeStrongPassword();

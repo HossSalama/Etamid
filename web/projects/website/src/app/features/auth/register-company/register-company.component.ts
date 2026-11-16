@@ -409,7 +409,7 @@ export class RegisterCompanyComponent {
 
   readonly form = this.fb.group({
     companyName: ['', [Validators.required]],
-    commercialRegNo: ['', [Validators.required, Validators.pattern(/^[0-9]{10}$/)]],
+    commercialRegNo: ['', [Validators.required, Validators.pattern(/^[0-9]{9}$/)]],
     taxNo: ['', [Validators.pattern(/^[0-9]{15}$/)]],
     ownerPhone: ['', [Validators.required, Validators.pattern(/^05[0-9]{8}$/)]],
     email: ['', [Validators.required, Validators.email]],

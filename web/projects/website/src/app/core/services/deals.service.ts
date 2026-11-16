@@ -115,6 +115,13 @@ export interface Counterparty {
   sellerId: number;
 }
 
+export interface BankAccount {
+  holderName: string;
+  ibanMasked: string;
+  bankName: string;
+  bankLogoUrl: string | null;
+}
+
 export interface Wallet {
   activated: boolean;
   activatedAt: string | null;
@@ -596,6 +603,14 @@ export class DealsService {
     return this.http.get<ApiResponse<SellerReview[]>>(`${this.baseUrl}/sellers/${sellerId}/reviews`, {
       params: { page, pageSize },
     });
+  }
+
+  getMyBankAccount(): Observable<ApiResponse<BankAccount | null>> {
+    return this.http.get<ApiResponse<BankAccount | null>>(`${this.baseUrl}/me/bank-account`);
+  }
+
+  saveBankAccount(holderName: string, iban: string): Observable<ApiResponse<BankAccount | null>> {
+    return this.http.put<ApiResponse<BankAccount | null>>(`${this.baseUrl}/me/bank-account`, { holderName, iban });
   }
 
   getWallet(): Observable<ApiResponse<Wallet>> {
