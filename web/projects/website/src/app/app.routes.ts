@@ -119,6 +119,13 @@ export const routes: Routes = [
       ),
   },
   {
+    path: 'deals/:id',
+    loadComponent: () =>
+      import('./features/deals/deal-detail.component').then(
+        (m) => m.DealDetailComponent
+      ),
+  },
+  {
     path: 'deals/:id/dispute',
     loadComponent: () =>
       import('./features/disputes/dispute-page.component').then(

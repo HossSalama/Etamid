@@ -92,15 +92,56 @@ export interface DealEdit {
   respondedAt: string | null;
 }
 
+export interface DealTimelineItem {
+  from: string | null;
+  to: string;
+  actorType: string;
+  at: string;
+  note: string | null;
+}
+
+export interface DealBadge {
+  text: string;
+  color: string;
+  remainingSeconds: number;
+}
+
 export interface DealDetail {
   id: number;
-  status: string;
+  number: number;
+  title: string;
+  description: string;
   amount: number;
+  currency: string;
+  status: string;
+  role: string;
+  counterpartyName: string;
+  counterpartyCode: string;
   durationValue: number;
   durationUnit: string;
-  description: string;
-  availableActions: string[];
+  needShipping: boolean;
+  shippingCompanyId: number | null;
+  shippingAddressId: number | null;
+  feeAmount: number | null;
+  sellerNetAmount: number | null;
+  isDisputed: boolean;
+  createdAt: string;
+  respondDeadlineAt: string;
+  acceptedAt: string | null;
+  fundedAt: string | null;
+  deliveredAt: string | null;
+  inspectionEndsAt: string | null;
+  completedAt: string | null;
+  expiresAt: string | null;
+  contractHash: string | null;
   pendingEdit: DealEdit | null;
+  availableActions: string[];
+  timeline: DealTimelineItem[];
+  imageUrl: string | null;
+  shippingCompanyNameAr: string | null;
+  shippingCompanyNameEn: string | null;
+  shippingAddressText: string | null;
+  badge: DealBadge | null;
 }
 
 export interface Counterparty {

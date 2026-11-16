@@ -553,7 +553,7 @@ export interface DealItem {
                     @if (deal.imageUrl) {
                       <img class="deal-image" [src]="deal.imageUrl" [alt]="deal.title" />
                     }
-                    <p class="deal-title">{{ deal.title }}</p>
+                    <a class="deal-title" [routerLink]="['/deals', deal.id]">{{ deal.title }}</a>
                     @if (deal.description) {
                       <p class="deal-desc">{{ deal.description }}</p>
                     }
@@ -1611,6 +1611,8 @@ export interface DealItem {
         color: #111827;
         font-weight: 700;
         line-height: 1.4;
+        text-decoration: none;
+        display: block;
       }
 
       .deal-desc {
