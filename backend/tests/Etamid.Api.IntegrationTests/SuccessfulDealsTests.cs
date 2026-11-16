@@ -61,9 +61,9 @@ public class SuccessfulDealsTests(EtamidFactory factory) : IClassFixture<EtamidF
 
     private static async Task<long> CreateDeal(Party buyer, Party seller)
     {
-        var r = await Post(buyer.Client, "/api/v1/deals", new
+        var r = await Post(seller.Client, "/api/v1/deals", new
         {
-            title = "Used phone", sellerPhoneOrCode = seller.Phone, description = "iPhone in good condition",
+            title = "Used phone", buyerPhoneOrCode = buyer.Phone, description = "iPhone in good condition",
             amount = 1000m, durationValue = 24, durationUnit = "hour", needShipping = false, acceptTerms = true
         });
         r.StatusCode.Should().Be(HttpStatusCode.Created, await r.Content.ReadAsStringAsync());
@@ -73,7 +73,7 @@ public class SuccessfulDealsTests(EtamidFactory factory) : IClassFixture<EtamidF
     private async Task<long> FundedDeal(Party buyer, Party seller)
     {
         var id = await CreateDeal(buyer, seller);
-        (await Post(seller.Client, $"/api/v1/deals/{id}/accept", new { acceptTerms = true })).StatusCode.Should().Be(HttpStatusCode.OK);
+        (await Post(buyer.Client, $"/api/v1/deals/{id}/accept", new { acceptTerms = true })).StatusCode.Should().Be(HttpStatusCode.OK);
         var fund = await Post(buyer.Client, $"/api/v1/deals/{id}/fund", null, Key());
         fund.StatusCode.Should().Be(HttpStatusCode.OK, await fund.Content.ReadAsStringAsync());
         var providerPaymentId = (await Json(fund)).GetProperty("data").GetProperty("providerPaymentId").GetString()!;

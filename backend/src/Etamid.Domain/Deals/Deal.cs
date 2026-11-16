@@ -107,7 +107,7 @@ public sealed class Deal : AuditableEntity<long>
         {
             BuyerId = buyerId,
             SellerId = sellerId,
-            CreatedById = buyerId,
+            CreatedById = sellerId,
             Title = title.Trim(),
             Description = description.Trim(),
             Amount = amount,
@@ -118,8 +118,9 @@ public sealed class Deal : AuditableEntity<long>
             NeedShipping = needShipping,
             ShippingCompanyId = needShipping ? shippingCompanyId : null,
             ShippingAddressId = needShipping ? shippingAddressId : null,
-            // Frozen at creation: later edits or deletion of the address must not
-            // change the delivery address the two parties agreed on.
+            // Frozen at acceptance (the buyer supplies the address when accepting):
+            // later edits or deletion of the address must not change the delivery
+            // address the two parties agreed on.
             ShippingAddressSnapshot = needShipping ? shippingAddressSnapshot : null,
             ImageFileId = imageFileId,
             Status = DealStatus.PendingAcceptance,
@@ -130,38 +131,44 @@ public sealed class Deal : AuditableEntity<long>
         {
             FromStatus = null,
             ToStatus = DealStatus.PendingAcceptance.ToString(),
-            ActorUserId = buyerId,
-            ActorType = ActorType.Buyer
+            ActorUserId = sellerId,
+            ActorType = ActorType.Seller
         });
         return deal;
     }
 
-    // ---------------------------------------------------------------- seller answers
-    public Result Accept(long actorId, decimal feeAmount, DateTime now, TimeSpan fundingWindow)
+    // ---------------------------------------------------------------- buyer answers
+    public Result Accept(long actorId, decimal feeAmount, DateTime now, TimeSpan fundingWindow, long? shippingAddressId = null, string? shippingAddressSnapshot = null)
     {
-        if (actorId != SellerId) return DealErrors.NotAllowed;
+        if (actorId != BuyerId) return DealErrors.NotAllowed;
         if (Status != DealStatus.PendingAcceptance) return DealErrors.InvalidState;
         if (now > RespondDeadlineAt) return DealErrors.ResponseExpired;
         if (feeAmount < 0 || feeAmount >= Amount) return DealErrors.AmountTooLow;
+        if (NeedShipping && shippingAddressId is null) return DealErrors.InvalidState;
 
         FeeAmount = feeAmount;
         SellerNetAmount = Amount - feeAmount;
         AcceptedAt = now;
         ExpiresAt = now + fundingWindow;
+        if (NeedShipping)
+        {
+            ShippingAddressId = shippingAddressId;
+            ShippingAddressSnapshot = shippingAddressSnapshot;
+        }
         SealContract(now);
-        Move(DealStatus.AwaitingFunding, actorId, ActorType.Seller, null);
+        Move(DealStatus.AwaitingFunding, actorId, ActorType.Buyer, null);
         return Result.Success();
     }
 
     public Result Reject(long actorId, long? reasonId, string? note, DateTime now)
     {
-        if (actorId != SellerId) return DealErrors.NotAllowed;
+        if (actorId != BuyerId) return DealErrors.NotAllowed;
         if (Status != DealStatus.PendingAcceptance) return DealErrors.InvalidState;
 
         RejectReasonId = reasonId;
         RejectNote = string.IsNullOrWhiteSpace(note) ? null : note.Trim();
         ExpiresAt = null;
-        Move(DealStatus.Rejected, actorId, ActorType.Seller, RejectNote);
+        Move(DealStatus.Rejected, actorId, ActorType.Buyer, RejectNote);
         return Result.Success();
     }
 

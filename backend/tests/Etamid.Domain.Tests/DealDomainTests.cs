@@ -15,7 +15,7 @@ public class DealDomainTests
     private static Deal Inspecting()
     {
         var deal = NewDeal();
-        deal.Accept(Seller, 50m, T0, TimeSpan.FromHours(48)).IsSuccess.Should().BeTrue();
+        deal.Accept(Buyer, 50m, T0, TimeSpan.FromHours(48)).IsSuccess.Should().BeTrue();
         deal.MarkFunded(T0).IsSuccess.Should().BeTrue();
         deal.Deliver(Seller, T0).IsSuccess.Should().BeTrue();
         return deal;
@@ -27,7 +27,7 @@ public class DealDomainTests
     {
         var deal = NewDeal();
         deal.Status.Should().Be(DealStatus.PendingAcceptance);
-        deal.ContractSnapshot.Should().BeNull("terms are only frozen once the seller accepts");
+        deal.ContractSnapshot.Should().BeNull("terms are only frozen once the buyer accepts");
     }
 
     [Theory]
@@ -48,7 +48,7 @@ public class DealDomainTests
     public void Accept_freezes_contract_and_moves_to_awaiting_funding()
     {
         var deal = NewDeal();
-        deal.Accept(Seller, 50m, T0, TimeSpan.FromHours(48)).IsSuccess.Should().BeTrue();
+        deal.Accept(Buyer, 50m, T0, TimeSpan.FromHours(48)).IsSuccess.Should().BeTrue();
 
         deal.Status.Should().Be(DealStatus.AwaitingFunding);
         deal.FeeAmount.Should().Be(50m);
@@ -58,28 +58,28 @@ public class DealDomainTests
     }
 
     [Fact]
-    public void Only_the_seller_can_accept_or_reject()
+    public void Only_the_buyer_can_accept_or_reject()
     {
-        NewDeal().Accept(Buyer, 50m, T0, TimeSpan.FromHours(1)).Error.Code.Should().Be("DEAL_ACTION_NOT_ALLOWED");
+        NewDeal().Accept(Seller, 50m, T0, TimeSpan.FromHours(1)).Error.Code.Should().Be("DEAL_ACTION_NOT_ALLOWED");
         NewDeal().Accept(Stranger, 50m, T0, TimeSpan.FromHours(1)).Error.Code.Should().Be("DEAL_ACTION_NOT_ALLOWED");
-        NewDeal().Reject(Buyer, 1, null, T0).Error.Code.Should().Be("DEAL_ACTION_NOT_ALLOWED");
+        NewDeal().Reject(Seller, 1, null, T0).Error.Code.Should().Be("DEAL_ACTION_NOT_ALLOWED");
     }
 
     [Fact]
     public void Accept_after_response_deadline_fails()
-        => NewDeal().Accept(Seller, 50m, T0.AddHours(49), TimeSpan.FromHours(1)).Error.Code.Should().Be("DEAL_RESPONSE_EXPIRED");
+        => NewDeal().Accept(Buyer, 50m, T0.AddHours(49), TimeSpan.FromHours(1)).Error.Code.Should().Be("DEAL_RESPONSE_EXPIRED");
 
     [Fact]
     public void Fee_must_be_lower_than_amount()
-        => NewDeal(40m).Accept(Seller, 50m, T0, TimeSpan.FromHours(1)).Error.Code.Should().Be("DEAL_AMOUNT_TOO_LOW");
+        => NewDeal(40m).Accept(Buyer, 50m, T0, TimeSpan.FromHours(1)).Error.Code.Should().Be("DEAL_AMOUNT_TOO_LOW");
 
     [Fact]
     public void Reject_is_terminal()
     {
         var deal = NewDeal();
-        deal.Reject(Seller, 1, "no", T0).IsSuccess.Should().BeTrue();
+        deal.Reject(Buyer, 1, "no", T0).IsSuccess.Should().BeTrue();
         deal.Status.Should().Be(DealStatus.Rejected);
-        deal.Accept(Seller, 50m, T0, TimeSpan.FromHours(1)).IsFailure.Should().BeTrue();
+        deal.Accept(Buyer, 50m, T0, TimeSpan.FromHours(1)).IsFailure.Should().BeTrue();
     }
 
     // ---------------------------------------------------------------- cancel / expire only before funding
@@ -91,7 +91,7 @@ public class DealDomainTests
         early.Status.Should().Be(DealStatus.Cancelled);
 
         var funded = NewDeal();
-        funded.Accept(Seller, 50m, T0, TimeSpan.FromHours(48));
+        funded.Accept(Buyer, 50m, T0, TimeSpan.FromHours(48));
         funded.MarkFunded(T0);
         funded.Cancel(Buyer, T0).Error.Code.Should().Be("DEAL_INVALID_STATE");
     }
@@ -105,7 +105,7 @@ public class DealDomainTests
         deal.Status.Should().Be(DealStatus.Expired);
 
         var funded = NewDeal();
-        funded.Accept(Seller, 50m, T0, TimeSpan.FromHours(48));
+        funded.Accept(Buyer, 50m, T0, TimeSpan.FromHours(48));
         funded.MarkFunded(T0);
         funded.Expire(T0.AddDays(30)).IsFailure.Should().BeTrue();
     }
@@ -125,11 +125,11 @@ public class DealDomainTests
     public void Deliver_requires_funding_and_the_seller()
     {
         var unfunded = NewDeal();
-        unfunded.Accept(Seller, 50m, T0, TimeSpan.FromHours(48));
+        unfunded.Accept(Buyer, 50m, T0, TimeSpan.FromHours(48));
         unfunded.Deliver(Seller, T0).Error.Code.Should().Be("DEAL_INVALID_STATE");
 
         var funded = NewDeal();
-        funded.Accept(Seller, 50m, T0, TimeSpan.FromHours(48));
+        funded.Accept(Buyer, 50m, T0, TimeSpan.FromHours(48));
         funded.MarkFunded(T0);
         funded.Deliver(Buyer, T0).Error.Code.Should().Be("DEAL_ACTION_NOT_ALLOWED");
     }
@@ -175,7 +175,7 @@ public class DealDomainTests
         Inspecting().OpenDispute(Buyer, T0.AddHours(25)).Error.Code.Should().Be("DEAL_INSPECTION_ENDED");
 
         var funded = NewDeal();
-        funded.Accept(Seller, 50m, T0, TimeSpan.FromHours(48));
+        funded.Accept(Buyer, 50m, T0, TimeSpan.FromHours(48));
         funded.MarkFunded(T0);
         funded.OpenDispute(Buyer, T0).Error.Code.Should().Be("DEAL_INVALID_STATE");
     }

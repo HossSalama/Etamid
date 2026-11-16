@@ -63,9 +63,9 @@ public class DealImageTests(EtamidFactory factory) : IClassFixture<EtamidFactory
 
     private static async Task<JsonElement> CreateDeal(Party buyer, Party seller, string? imagePublicId = null)
     {
-        var r = await Post(buyer.Client, "/api/v1/deals", new
+        var r = await Post(seller.Client, "/api/v1/deals", new
         {
-            title = "Used phone", sellerPhoneOrCode = seller.Phone, description = "iPhone in good condition",
+            title = "Used phone", buyerPhoneOrCode = buyer.Phone, description = "iPhone in good condition",
             amount = 1000m, durationValue = 24, durationUnit = "hour", needShipping = false, acceptTerms = true,
             imagePublicId
         });
@@ -78,7 +78,7 @@ public class DealImageTests(EtamidFactory factory) : IClassFixture<EtamidFactory
     {
         var buyer = await NewUser();
         var seller = await NewUser();
-        var fileId = await UploadImage(buyer);
+        var fileId = await UploadImage(seller);
 
         var created = await CreateDeal(buyer, seller, fileId);
         var id = created.GetProperty("id").GetInt64();
@@ -103,15 +103,15 @@ public class DealImageTests(EtamidFactory factory) : IClassFixture<EtamidFactory
     }
 
     [Fact]
-    public async Task Buyer_cannot_attach_another_users_image()
+    public async Task Seller_cannot_attach_another_users_image()
     {
         var buyer = await NewUser();
         var seller = await NewUser();
-        var foreignFileId = await UploadImage(seller);
+        var foreignFileId = await UploadImage(buyer);
 
-        var r = await Post(buyer.Client, "/api/v1/deals", new
+        var r = await Post(seller.Client, "/api/v1/deals", new
         {
-            title = "Used phone", sellerPhoneOrCode = seller.Phone, description = "iPhone in good condition",
+            title = "Used phone", buyerPhoneOrCode = buyer.Phone, description = "iPhone in good condition",
             amount = 1000m, durationValue = 24, durationUnit = "hour", needShipping = false, acceptTerms = true,
             imagePublicId = foreignFileId
         });

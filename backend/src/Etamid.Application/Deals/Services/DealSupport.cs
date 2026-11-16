@@ -53,7 +53,7 @@ public static class DealActions
             case DealStatus.PendingAcceptance:
                 if (pendingEdit is null)
                 {
-                    if (isSeller)
+                    if (isBuyer)
                     {
                         actions.Add("accept");
                         actions.Add("reject");

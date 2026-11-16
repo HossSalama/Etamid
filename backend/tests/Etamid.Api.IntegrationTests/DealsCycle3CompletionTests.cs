@@ -52,9 +52,9 @@ public class DealsCycle3CompletionTests(EtamidFactory factory) : IClassFixture<E
 
     private static async Task<long> CreateDeal(Party buyer, Party seller, decimal amount = 1000m)
     {
-        var r = await Post(buyer.Client, "/api/v1/deals", new
+        var r = await Post(seller.Client, "/api/v1/deals", new
         {
-            title = "Used phone", sellerPhoneOrCode = seller.Phone, description = "iPhone in good condition",
+            title = "Used phone", buyerPhoneOrCode = buyer.Phone, description = "iPhone in good condition",
             amount, durationValue = 24, durationUnit = "hour", needShipping = false, acceptTerms = true
         });
         r.StatusCode.Should().Be(HttpStatusCode.Created, await r.Content.ReadAsStringAsync());
@@ -85,7 +85,7 @@ public class DealsCycle3CompletionTests(EtamidFactory factory) : IClassFixture<E
         var buyer = await NewUser();
         var seller = await NewUser();
         var id = await CreateDeal(buyer, seller);
-        (await Post(seller.Client, $"/api/v1/deals/{id}/accept", new { acceptTerms = true }))
+        (await Post(buyer.Client, $"/api/v1/deals/{id}/accept", new { acceptTerms = true }))
             .StatusCode.Should().Be(HttpStatusCode.OK);
 
         var r = await Post(seller.Client, $"/api/v1/deals/{id}/cancel");
@@ -203,7 +203,7 @@ public class DealsCycle3CompletionTests(EtamidFactory factory) : IClassFixture<E
         (await Post(seller.Client, $"/api/v1/deals/{id}/edits", new { amount = 900m }))
             .StatusCode.Should().Be(HttpStatusCode.Created);
 
-        var accept = await Post(seller.Client, $"/api/v1/deals/{id}/accept", new { acceptTerms = true });
+        var accept = await Post(buyer.Client, $"/api/v1/deals/{id}/accept", new { acceptTerms = true });
         accept.StatusCode.Should().Be(HttpStatusCode.OK);
 
         var detail = await Detail(buyer, id);
@@ -211,7 +211,7 @@ public class DealsCycle3CompletionTests(EtamidFactory factory) : IClassFixture<E
         (await Post(buyer.Client, $"/api/v1/deals/{id}/edits/{editId}/reject"))
             .StatusCode.Should().Be(HttpStatusCode.OK);
 
-        (await Post(seller.Client, $"/api/v1/deals/{id}/accept", new { acceptTerms = true }))
+        (await Post(buyer.Client, $"/api/v1/deals/{id}/accept", new { acceptTerms = true }))
             .StatusCode.Should().Be(HttpStatusCode.OK);
 
         var lateEdit = await Post(seller.Client, $"/api/v1/deals/{id}/edits", new { amount = 900m });

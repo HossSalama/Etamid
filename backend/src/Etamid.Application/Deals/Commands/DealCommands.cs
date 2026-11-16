@@ -16,10 +16,14 @@ using Microsoft.EntityFrameworkCore;
 namespace Etamid.Application.Deals.Commands;
 
 // ======================================================================= Create
+// Only the seller creates a deal: the seller names the buyer, picks shipping
+// (and the carrier) when needed, and the buyer supplies the delivery address
+// when accepting. No tracking number in v1 — delivery ends with the buyer's
+// receipt confirmation.
 public sealed record CreateDealCommand(
-    string Title, string SellerPhoneOrCode, string Description, decimal Amount,
+    string Title, string BuyerPhoneOrCode, string Description, decimal Amount,
     int DurationValue, string DurationUnit, bool NeedShipping,
-    long? ShippingCompanyId, long? ShippingAddressId, bool AcceptTerms,
+    long? ShippingCompanyId, bool AcceptTerms,
     string? ImagePublicId = null) : IRequest<Result<DealDetailDto>>;
 
 public sealed class CreateDealValidator : AbstractValidator<CreateDealCommand>
@@ -27,7 +31,7 @@ public sealed class CreateDealValidator : AbstractValidator<CreateDealCommand>
     public CreateDealValidator()
     {
         RuleFor(x => x.Title).MustBeRequired(150);
-        RuleFor(x => x.SellerPhoneOrCode).MustBeRequired(50);
+        RuleFor(x => x.BuyerPhoneOrCode).MustBeRequired(50);
         RuleFor(x => x.Description).MustBeRequired(200);
         RuleFor(x => x.Amount)
             .GreaterThan(0m).WithErrorCode("DEAL_AMOUNT_INVALID")
@@ -51,13 +55,13 @@ public sealed class CreateDealHandler(IApplicationDbContext db, ICurrentUser cur
 {
     public async Task<Result<DealDetailDto>> Handle(CreateDealCommand r, CancellationToken ct)
     {
-        if (currentUser.UserId is not { } buyerId) return CommonErrors.Unauthorized;
+        if (currentUser.UserId is not { } sellerId) return CommonErrors.Unauthorized;
 
-        var seller = await UserLookup.FindByPhoneOrCodeAsync(db, r.SellerPhoneOrCode, ct);
-        if (seller is null) return DealErrors.SellerNotFound;
-        if (seller.Id == buyerId) return DealErrors.SameParties;
+        var buyer = await UserLookup.FindByPhoneOrCodeAsync(db, r.BuyerPhoneOrCode, ct);
+        if (buyer is null) return DealErrors.BuyerNotFound;
+        if (buyer.Id == sellerId) return DealErrors.SameParties;
 
-        // An image is optional, but when supplied it must be an image the buyer
+        // An image is optional, but when supplied it must be an image the seller
         // uploaded for this purpose — never another user's file, a non-image,
         // or a deleted/quarantined one. The same generic error covers all cases
         // so file ids cannot be probed.
@@ -65,29 +69,20 @@ public sealed class CreateDealHandler(IApplicationDbContext db, ICurrentUser cur
         if (!string.IsNullOrWhiteSpace(r.ImagePublicId) && Guid.TryParse(r.ImagePublicId.Trim(), out var publicId))
         {
             var image = await db.Files.FirstOrDefaultAsync(f => f.PublicId == publicId, ct);
-            if (image is null || image.OwnerUserId != buyerId || image.Purpose != FilePurpose.DealImage
+            if (image is null || image.OwnerUserId != sellerId || image.Purpose != FilePurpose.DealImage
                 || image.Status != FileStatus.Uploaded || !image.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
                 return Error.Validation("INVALID_VALUE", "imagePublicId");
             image.Status = FileStatus.Attached;
             imageFileId = image.Id;
         }
 
-        // Freeze the delivery address into the deal at creation: the snapshot is
-        // what the seller ships to, even if the buyer later edits or deletes it.
-        string? addressSnapshot = null;
+        // The seller picks the carrier when shipping; the delivery address comes
+        // from the buyer at acceptance and is frozen into the deal then.
         if (r.NeedShipping)
         {
             var companyId = r.ShippingCompanyId!.Value;
             if (!await db.ShippingCompanies.AnyAsync(c => c.Id == companyId && c.IsActive, ct))
                 return Error.Validation("INVALID_VALUE", "shippingCompanyId");
-
-            if (r.ShippingAddressId is { } addressId)
-            {
-                var address = await db.Addresses.FirstOrDefaultAsync(a => a.Id == addressId && a.UserId == buyerId, ct);
-                if (address is null)
-                    return Error.Validation("INVALID_VALUE", "shippingAddressId");
-                addressSnapshot = DealMapper.ShippingSnapshotText(address);
-            }
         }
 
         var settings = await DealSettings.LoadAsync(db, ct);
@@ -95,27 +90,28 @@ public sealed class CreateDealHandler(IApplicationDbContext db, ICurrentUser cur
         var now = clock.UtcNow;
 
         var created = Deal.Create(
-            buyerId, seller.Id, r.Title, r.Description, r.Amount, r.DurationValue, unit,
-            r.NeedShipping, r.ShippingCompanyId, r.ShippingAddressId, imageFileId,
-            settings.Currency, now, settings.RespondWindow,
-            shippingAddressSnapshot: addressSnapshot);
+            buyer.Id, sellerId, r.Title, r.Description, r.Amount, r.DurationValue, unit,
+            r.NeedShipping, r.ShippingCompanyId, null, imageFileId,
+            settings.Currency, now, settings.RespondWindow);
         if (created.IsFailure) return created.Error;
 
         db.Deals.Add(created.Value);
         // The new deal's id is a temporary EF value until the save below;
         // the notification's DealId is fixed up to the real id with it.
-        notifications.Create(created.Value.SellerId, NotificationType.DealRequest,
+        notifications.Create(created.Value.BuyerId, NotificationType.DealRequest,
             "NOTIF_DEAL_REQUEST_TITLE", "NOTIF_DEAL_REQUEST_BODY", created.Value.Title, dealId: created.Value.Id);
 
         var saved = await db.SaveGuardedAsync(ct);
         if (saved.IsFailure) return saved.Error;
 
-        return await DealMapper.DetailAsync(db, created.Value, buyerId, now, ct, files);
+        return await DealMapper.DetailAsync(db, created.Value, sellerId, now, ct, files);
     }
 }
 
 // ======================================================================= Accept
-public sealed record AcceptDealCommand(long DealId, bool AcceptTerms) : IRequest<Result<DealDetailDto>>;
+// The buyer accepts — and supplies the delivery address for a shipping deal,
+// which is frozen into the deal here (see Deal.Accept).
+public sealed record AcceptDealCommand(long DealId, bool AcceptTerms, long? ShippingAddressId = null) : IRequest<Result<DealDetailDto>>;
 
 public sealed class AcceptDealValidator : AbstractValidator<AcceptDealCommand>
 {
@@ -136,14 +132,30 @@ public sealed class AcceptDealHandler(IApplicationDbContext db, ICurrentUser cur
         if (await db.DealEditRequests.AnyAsync(e => e.DealId == deal.Id && e.Status == EditStatus.Pending, ct))
             return DealErrors.InvalidState;
 
+        // The buyer supplies the delivery address here and it is frozen into the
+        // deal: the snapshot is what the seller ships to, even if the buyer later
+        // edits or deletes the saved address.
+        long? shippingAddressId = null;
+        string? shippingAddressSnapshot = null;
+        if (deal.NeedShipping)
+        {
+            if (r.ShippingAddressId is not { } addressId)
+                return Error.Validation("REQUIRED", "shippingAddressId");
+            var address = await db.Addresses.FirstOrDefaultAsync(a => a.Id == addressId && a.UserId == userId, ct);
+            if (address is null)
+                return Error.Validation("INVALID_VALUE", "shippingAddressId");
+            shippingAddressId = addressId;
+            shippingAddressSnapshot = DealMapper.ShippingSnapshotText(address);
+        }
+
         var settings = await DealSettings.LoadAsync(db, ct);
         var now = clock.UtcNow;
 
         // Accept freezes price, duration and terms into the digital contract (snapshot + hash).
-        var accepted = deal.Accept(userId, settings.PlatformFee, now, settings.FundingWindow);
+        var accepted = deal.Accept(userId, settings.PlatformFee, now, settings.FundingWindow, shippingAddressId, shippingAddressSnapshot);
         if (accepted.IsFailure) return accepted.Error;
 
-        notifications.Create(deal.BuyerId, NotificationType.DealAccepted,
+        notifications.Create(deal.SellerId, NotificationType.DealAccepted,
             "NOTIF_DEAL_ACCEPTED_TITLE", "NOTIF_DEAL_ACCEPTED_BODY", deal.Title, dealId: deal.Id);
 
         var saved = await db.SaveGuardedAsync(ct);
@@ -193,7 +205,7 @@ public sealed class RejectDealHandler(IApplicationDbContext db, ICurrentUser cur
             edit.RespondedById = userId;
         }
 
-        notifications.Create(deal.BuyerId, NotificationType.DealRejected,
+        notifications.Create(deal.SellerId, NotificationType.DealRejected,
             "NOTIF_DEAL_REJECTED_TITLE", "NOTIF_DEAL_REJECTED_BODY", deal.Title, dealId: deal.Id);
 
         var saved = await db.SaveGuardedAsync(ct);
@@ -204,18 +216,8 @@ public sealed class RejectDealHandler(IApplicationDbContext db, ICurrentUser cur
 }
 
 // ======================================================================= Deliver
-/// <summary>Seller hands over. For a shipping deal this also opens the manual shipment: an optional
-/// carrier tracking number the buyer can then see. No carrier integration in v1 (Aramex deferred).</summary>
-public sealed record DeliverDealCommand(long DealId, string? TrackingNumber = null) : IRequest<Result<DealDetailDto>>;
-
-public sealed class DeliverDealValidator : AbstractValidator<DeliverDealCommand>
-{
-    public DeliverDealValidator()
-    {
-        // Matches the Shipment.TrackingNumber column (60).
-        RuleFor(x => x.TrackingNumber!).MaximumLength(60).WithErrorCode("TOO_LONG").When(x => x.TrackingNumber is not null);
-    }
-}
+/// <summary>Seller hands over: no tracking number in v1 — delivery ends with the buyer's receipt confirmation.</summary>
+public sealed record DeliverDealCommand(long DealId) : IRequest<Result<DealDetailDto>>;
 
 public sealed class DeliverDealHandler(IApplicationDbContext db, ICurrentUser currentUser, IClock clock, IFileUrlResolver files, NotificationService notifications)
     : IRequestHandler<DeliverDealCommand, Result<DealDetailDto>>
@@ -227,10 +229,6 @@ public sealed class DeliverDealHandler(IApplicationDbContext db, ICurrentUser cu
         var deal = await db.Deals.FirstOrDefaultAsync(d => d.Id == r.DealId, ct);
         if (deal is null || !deal.IsParticipant(userId)) return DealErrors.NotFound;
 
-        var tracking = string.IsNullOrWhiteSpace(r.TrackingNumber) ? null : r.TrackingNumber.Trim();
-        if (tracking is not null && !deal.NeedShipping)
-            return Error.Validation("INVALID_VALUE", "trackingNumber");
-
         var hold = await db.EscrowHolds.AsNoTracking().FirstOrDefaultAsync(h => h.DealId == deal.Id, ct);
         var now = clock.UtcNow;
 
@@ -238,19 +236,6 @@ public sealed class DeliverDealHandler(IApplicationDbContext db, ICurrentUser cu
         var delivered = deal.Deliver(userId, now);
         if (delivered.IsFailure) return delivered.Error;
         if (hold is null || hold.Status != EscrowStatus.Held) return DealErrors.EscrowNotHeld;
-
-        // One shipment per deal (unique index on DealId): created here, at delivery,
-        // for shipping deals only — never for a deal without shipping.
-        if (deal.NeedShipping && !await db.Shipments.AnyAsync(s => s.DealId == deal.Id, ct))
-        {
-            db.Shipments.Add(new Shipment
-            {
-                DealId = deal.Id,
-                ShippingCompanyId = deal.ShippingCompanyId!.Value,
-                TrackingNumber = tracking,
-                Status = tracking is null ? ShipmentStatus.Created : ShipmentStatus.InTransit
-            });
-        }
 
         if (deal.NeedShipping)
             notifications.Create(deal.BuyerId, NotificationType.DealShipped,

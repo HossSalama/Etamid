@@ -87,9 +87,9 @@ public class AdminUsersTests(EtamidFactory factory) : IClassFixture<EtamidFactor
 
     private static async Task<long> CreateDeal(Party buyer, Party seller)
     {
-        var r = await buyer.Client!.PostAsJsonAsync("/api/v1/deals", new
+        var r = await seller.Client!.PostAsJsonAsync("/api/v1/deals", new
         {
-            title = "Admin users test deal", sellerPhoneOrCode = seller.Phone, description = "Test",
+            title = "Admin users test deal", buyerPhoneOrCode = buyer.Phone, description = "Test",
             amount = 500m, durationValue = 24, durationUnit = "hour", needShipping = false, acceptTerms = true
         });
         (await Succeeded(r)).Should().BeTrue(await r.Content.ReadAsStringAsync());
@@ -285,8 +285,8 @@ public class AdminUsersTests(EtamidFactory factory) : IClassFixture<EtamidFactor
         (await Db(db => db.Users.AsNoTracking().Where(u => u.Id == buyer.Id).Select(u => u.Status).FirstAsync())).Should().Be(AccountStatus.Active);
         (await Db(db => db.AuditLogs.AsNoTracking().CountAsync(a => a.Action == "admin.user.delete" && a.EntityId == buyer.Id))).Should().Be(0);
 
-        // the seller rejects: Rejected is a finished status
-        var reject = await seller.Client!.PostAsJsonAsync($"/api/v1/deals/{dealId}/reject", new { reasonId = 1, note = "no" });
+        // the buyer rejects: Rejected is a finished status
+        var reject = await buyer.Client!.PostAsJsonAsync($"/api/v1/deals/{dealId}/reject", new { reasonId = 1, note = "no" });
         (await Succeeded(reject)).Should().BeTrue(await reject.Content.ReadAsStringAsync());
 
         (await Succeeded(await admin.Client.DeleteAsync($"/admin/api/users/{buyer.Id}"))).Should().BeTrue();

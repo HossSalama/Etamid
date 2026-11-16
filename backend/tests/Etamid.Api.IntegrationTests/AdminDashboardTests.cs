@@ -94,10 +94,10 @@ public class AdminDashboardTests(EtamidFactory factory) : IClassFixture<EtamidFa
 
     private async Task<long> CreateDeal(Party buyer, Party seller, decimal amount = 500m)
     {
-        var create = await Post(buyer.Client, "/api/v1/deals", new
+        var create = await Post(seller.Client, "/api/v1/deals", new
         {
             title = "Test item",
-            sellerPhoneOrCode = seller.Phone,
+            buyerPhoneOrCode = buyer.Phone,
             description = "A test item",
             amount,
             durationValue = 24,
@@ -126,7 +126,7 @@ public class AdminDashboardTests(EtamidFactory factory) : IClassFixture<EtamidFa
         var buyer = await NewUser();
         var seller = await NewUser();
         var id = await CreateDeal(buyer, seller);
-        (await Post(seller.Client, $"/api/v1/deals/{id}/accept", new { acceptTerms = true })).StatusCode.Should().Be(HttpStatusCode.OK);
+        (await Post(buyer.Client, $"/api/v1/deals/{id}/accept", new { acceptTerms = true })).StatusCode.Should().Be(HttpStatusCode.OK);
         var fund = await Post(buyer.Client, $"/api/v1/deals/{id}/fund", null, Key());
         fund.StatusCode.Should().Be(HttpStatusCode.OK, await fund.Content.ReadAsStringAsync());
         await SendWebhook((await Data(fund)).GetProperty("providerPaymentId").GetString()!, 500m);

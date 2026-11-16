@@ -7,6 +7,7 @@ public static class DealErrors
 {
     public static readonly Error NotFound = Error.NotFound("DEAL_NOT_FOUND");
     public static readonly Error SellerNotFound = Error.NotFound("SELLER_NOT_FOUND", "sellerPhoneOrCode");
+    public static readonly Error BuyerNotFound = Error.NotFound("BUYER_NOT_FOUND", "buyerPhoneOrCode");
     public static readonly Error PaymentNotFound = Error.NotFound("PAYMENT_NOT_FOUND");
 
     public static readonly Error InvalidState = Error.Conflict("DEAL_INVALID_STATE");
@@ -22,7 +23,7 @@ public static class DealErrors
     public static readonly Error ContractTampered = Error.Failure("DEAL_CONTRACT_TAMPERED");
     public static readonly Error EscrowNotHeld = Error.Conflict("ESCROW_NOT_HELD");
 
-    public static readonly Error SameParties = Error.Validation("DEAL_SAME_PARTIES", "sellerPhoneOrCode");
+    public static readonly Error SameParties = Error.Validation("DEAL_SAME_PARTIES", "buyerPhoneOrCode");
     public static readonly Error AmountInvalid = Error.Validation("DEAL_AMOUNT_INVALID", "amount");
     public static readonly Error AmountTooLow = Error.Validation("DEAL_AMOUNT_TOO_LOW", "amount");
     public static readonly Error DurationInvalid = Error.Validation("INVALID_VALUE", "durationValue");

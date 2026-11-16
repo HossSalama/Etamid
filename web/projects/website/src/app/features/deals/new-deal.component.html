@@ -42,37 +42,32 @@
           </div>
           <div class="field-grid">
             <div class="field full-width">
-              <label for="sellerPhoneOrCode">{{ lang.t('deal_counterparty') }} <span class="required">*</span></label>
+              <label for="buyerPhoneOrCode">{{ lang.t('deal_counterparty') }} <span class="required">*</span></label>
               <input
-                id="sellerPhoneOrCode"
+                id="buyerPhoneOrCode"
                 type="text"
-                formControlName="sellerPhoneOrCode"
+                formControlName="buyerPhoneOrCode"
                 [placeholder]="lang.t('deal_counterparty_placeholder')"
                 autocomplete="off"
                 maxlength="50"
-                (input)="sellerPreview.set(null); sellerLookupError.set(false)"
+                (input)="buyerPreview.set(null); buyerLookupError.set(false)"
               />
-              <button type="button" class="choice-button" [disabled]="isLookingUpSeller() || !dealForm.controls.sellerPhoneOrCode.value?.trim()" (click)="lookupSeller()">
-                {{ lang.t(isLookingUpSeller() ? 'deal_lookup_checking' : 'deal_lookup_seller') }}
+              <button type="button" class="choice-button" [disabled]="isLookingUpBuyer() || !dealForm.controls.buyerPhoneOrCode.value?.trim()" (click)="lookupBuyer()">
+                {{ lang.t(isLookingUpBuyer() ? 'deal_lookup_checking' : 'deal_lookup_buyer') }}
               </button>
-              @if (sellerPreview(); as seller) {
+              @if (buyerPreview(); as buyer) {
                 <div class="seller-preview" role="status">
-                  <strong>{{ seller.name }}</strong>
-                  <span dir="ltr">{{ seller.code }}</span>
-                  @if (seller.storeName) {
-                    <span>{{ seller.storeName }}</span>
-                  }
-                  <span>{{ lang.t('deal_lookup_rating') }}: {{ seller.rating }} · {{ seller.successfulDeals }} {{ lang.t('deal_lookup_deals') }}</span>
-                  <a [routerLink]="['/store', seller.sellerId]">{{ lang.t('store_view_store') }}</a>
-                  @if (seller.emailVerified || seller.nafathVerified) {
-                    <span>{{ seller.emailVerified ? '✓ ' + lang.t('deal_lookup_email_verified') : '' }} {{ seller.nafathVerified ? '✓ ' + lang.t('deal_lookup_nafath_verified') : '' }}</span>
+                  <strong>{{ buyer.name }}</strong>
+                  <span dir="ltr">{{ buyer.code }}</span>
+                  @if (buyer.emailVerified || buyer.nafathVerified) {
+                    <span>{{ buyer.emailVerified ? '✓ ' + lang.t('deal_lookup_email_verified') : '' }} {{ buyer.nafathVerified ? '✓ ' + lang.t('deal_lookup_nafath_verified') : '' }}</span>
                   }
                 </div>
               }
-              @if (sellerLookupError()) {
-                <small class="field-error" role="alert">{{ lang.t('deal_error_seller_not_found') }}</small>
+              @if (buyerLookupError()) {
+                <small class="field-error" role="alert">{{ lang.t('deal_error_buyer_not_found') }}</small>
               }
-              @if (dealForm.controls.sellerPhoneOrCode.touched && dealForm.controls.sellerPhoneOrCode.invalid) {
+              @if (dealForm.controls.buyerPhoneOrCode.touched && dealForm.controls.buyerPhoneOrCode.invalid) {
                 <small class="field-error">{{ lang.t('deal_counterparty_error') }}</small>
               }
             </div>
@@ -186,7 +181,7 @@
           </div>
 
           @if (dealForm.controls.needShipping.value) {
-            <div class="field-grid two-columns shipping-fields">
+            <div class="field-grid shipping-fields">
               <div class="field">
                 <label for="shippingCompanyId">{{ lang.t('deal_shipping_company') }} <span class="required">*</span></label>
                 <select id="shippingCompanyId" formControlName="shippingCompanyId">
@@ -203,18 +198,6 @@
                   <small class="field-error">{{ lang.t('deal_shipping_unavailable') }}</small>
                 } @else if (dealForm.controls.shippingCompanyId.touched && dealForm.controls.shippingCompanyId.invalid) {
                   <small class="field-error">{{ lang.t('deal_shipping_company_error') }}</small>
-                }
-              </div>
-              <div class="field">
-                <label for="shippingAddressId">{{ lang.t('deal_shipping_address') }}</label>
-                <select id="shippingAddressId" formControlName="shippingAddressId">
-                  <option [ngValue]="null">{{ lang.t('deal_shipping_address_optional') }}</option>
-                  @for (address of addresses(); track address.id) {
-                    <option [ngValue]="address.id">{{ addressLabel(address) }}</option>
-                  }
-                </select>
-                @if (!isLoadingAddresses() && !addresses().length) {
-                  <small>{{ lang.t('deal_no_saved_addresses') }} <a routerLink="/addresses">{{ lang.t('deal_manage_addresses') }}</a></small>
                 }
               </div>
             </div>

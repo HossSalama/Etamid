@@ -7,7 +7,7 @@ public sealed record DealSummaryDto(
     string Role, string CounterpartyName, string CounterpartyCode, DateTime CreatedAt,
     IReadOnlyList<string> AvailableActions, string? ImageUrl = null,
     bool NeedShipping = false, string? ShippingCompanyNameAr = null, string? ShippingCompanyNameEn = null,
-    string? ShippingAddressText = null, string? TrackingNumber = null, string? ShipmentStatus = null,
+    string? ShippingAddressText = null,
     long? CounterpartyId = null, DealBadgeDto? Badge = null);
 
 public sealed record DealTimelineItemDto(string? From, string To, string ActorType, DateTime At, string? Note);
@@ -43,16 +43,8 @@ public sealed record DealDetailDto(
     IReadOnlyList<string> AvailableActions, IReadOnlyList<DealTimelineItemDto> Timeline,
     string? ImageUrl = null,
     string? ShippingCompanyNameAr = null, string? ShippingCompanyNameEn = null,
-    string? ShippingAddressText = null, string? TrackingNumber = null, string? ShipmentStatus = null,
+    string? ShippingAddressText = null,
     DealBadgeDto? Badge = null);
-
-/// <summary>Manual shipment tracking (v1): the seller's tracking number, if any, plus carrier events (empty until a carrier sync exists).</summary>
-public sealed record ShipmentEventDto(string Code, string Description, string? Location, DateTime At);
-
-public sealed record ShipmentTrackingDto(
-    long DealId, string? TrackingNumber, string? ShipmentStatus,
-    string? ShippingCompanyNameAr, string? ShippingCompanyNameEn,
-    IReadOnlyList<ShipmentEventDto> Events);
 
 public sealed record FundSessionDto(
     Guid PaymentId, long DealId, string Status, decimal Amount, string Currency,

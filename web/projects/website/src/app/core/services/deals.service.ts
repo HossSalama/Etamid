@@ -5,14 +5,13 @@ import { ApiResponse } from '../models/api-response.model';
 
 export interface CreateDealRequest {
   title: string;
-  sellerPhoneOrCode: string;
+  buyerPhoneOrCode: string;
   description: string;
   amount: number;
   durationValue: number;
   durationUnit: 'hour' | 'day';
   needShipping: boolean;
   shippingCompanyId: number | null;
-  shippingAddressId: number | null;
   acceptTerms: boolean;
   imagePublicId: string | null;
 }
@@ -56,8 +55,6 @@ export interface DealSummary {
   shippingCompanyNameAr: string | null;
   shippingCompanyNameEn: string | null;
   shippingAddressText: string | null;
-  trackingNumber: string | null;
-  shipmentStatus: string | null;
 }
 
 export interface FundSession {
@@ -452,8 +449,11 @@ export class DealsService {
     });
   }
 
-  acceptDeal(id: number): Observable<ApiResponse<unknown>> {
-    return this.http.post<ApiResponse<unknown>>(`${this.baseUrl}/deals/${id}/accept`, { acceptTerms: true });
+  acceptDeal(id: number, shippingAddressId?: number | null): Observable<ApiResponse<unknown>> {
+    return this.http.post<ApiResponse<unknown>>(`${this.baseUrl}/deals/${id}/accept`, {
+      acceptTerms: true,
+      ...(shippingAddressId ? { shippingAddressId } : {}),
+    });
   }
 
   rejectDeal(id: number, reasonId: number, note?: string): Observable<ApiResponse<unknown>> {
@@ -550,8 +550,14 @@ export class DealsService {
     return this.http.get<ApiResponse<DealDetail>>(`${this.baseUrl}/deals/${id}`);
   }
 
-  lookupSeller(q: string): Observable<ApiResponse<Counterparty>> {
+  lookupBuyer(q: string): Observable<ApiResponse<Counterparty>> {
     return this.http.get<ApiResponse<Counterparty>>(`${this.baseUrl}/users/lookup`, { params: { q } });
+  }
+
+  // Company deals still look the counterparty up by phone or code — same
+  // endpoint, kept under its old name so the company-deal wizard is untouched.
+  lookupSeller(q: string): Observable<ApiResponse<Counterparty>> {
+    return this.lookupBuyer(q);
   }
 
   getLookups(type: string): Observable<ApiResponse<LookupItem[]>> {
@@ -568,11 +574,8 @@ export class DealsService {
     return this.http.post<ApiResponse<unknown>>(`${this.baseUrl}/payments/dev/deals/${id}/complete`, null);
   }
 
-  deliverDeal(id: number, trackingNumber?: string): Observable<ApiResponse<unknown>> {
-    const tracking = (trackingNumber ?? '').trim();
-    return this.http.post<ApiResponse<unknown>>(`${this.baseUrl}/deals/${id}/deliver`, {
-      trackingNumber: tracking ? tracking : null,
-    });
+  deliverDeal(id: number): Observable<ApiResponse<unknown>> {
+    return this.http.post<ApiResponse<unknown>>(`${this.baseUrl}/deals/${id}/deliver`, null);
   }
 
   releaseEscrow(id: number): Observable<ApiResponse<unknown>> {

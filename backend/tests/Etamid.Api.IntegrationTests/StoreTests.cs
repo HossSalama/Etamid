@@ -76,15 +76,15 @@ public class StoreTests(EtamidFactory factory) : IClassFixture<EtamidFactory>
 
     private async Task<long> ReleasedDeal(Party buyer, Party seller)
     {
-        var r = await Post(buyer.Client, "/api/v1/deals", new
+        var r = await Post(seller.Client, "/api/v1/deals", new
         {
-            title = "Rated item", sellerPhoneOrCode = seller.Phone, description = "Item for rating",
+            title = "Rated item", buyerPhoneOrCode = buyer.Phone, description = "Item for rating",
             amount = 500m, durationValue = 1, durationUnit = "day", needShipping = false, acceptTerms = true
         });
         r.StatusCode.Should().Be(HttpStatusCode.Created, await r.Content.ReadAsStringAsync());
         var id = (await Json(r)).GetProperty("data").GetProperty("id").GetInt64();
 
-        (await Post(seller.Client, $"/api/v1/deals/{id}/accept", new { acceptTerms = true })).StatusCode.Should().Be(HttpStatusCode.OK);
+        (await Post(buyer.Client, $"/api/v1/deals/{id}/accept", new { acceptTerms = true })).StatusCode.Should().Be(HttpStatusCode.OK);
         var fund = await Post(buyer.Client, $"/api/v1/deals/{id}/fund", null, Key());
         fund.StatusCode.Should().Be(HttpStatusCode.OK, await fund.Content.ReadAsStringAsync());
         var providerPaymentId = (await Json(fund)).GetProperty("data").GetProperty("providerPaymentId").GetString()!;

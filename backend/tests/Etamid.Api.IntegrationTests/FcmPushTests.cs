@@ -51,9 +51,9 @@ public class FcmPushDisabledTests(EtamidFactory factory) : IClassFixture<EtamidF
 
     private static async Task<long> CreateDeal(Party buyer, Party seller)
     {
-        var r = await buyer.Client.PostAsJsonAsync("/api/v1/deals", new
+        var r = await seller.Client.PostAsJsonAsync("/api/v1/deals", new
         {
-            title = "Used phone", sellerPhoneOrCode = seller.Phone, description = "iPhone in good condition",
+            title = "Used phone", buyerPhoneOrCode = buyer.Phone, description = "iPhone in good condition",
             amount = 1000m, durationValue = 24, durationUnit = "hour", needShipping = false, acceptTerms = true
         });
         r.StatusCode.Should().Be(HttpStatusCode.Created, await r.Content.ReadAsStringAsync());
@@ -87,7 +87,7 @@ public class FcmPushDisabledTests(EtamidFactory factory) : IClassFixture<EtamidF
         // The in-app notification still exists; no push was attempted, so
         // PushSentAt stays null.
         var db = Db();
-        var notification = db.Notifications.Single(n => n.UserId == seller.UserId);
+        var notification = db.Notifications.Single(n => n.UserId == buyer.UserId);
         notification.Type.ToString().Should().Be("DealRequest");
         notification.PushSentAt.Should().BeNull();
     }
@@ -150,9 +150,9 @@ public class FcmPushTests : IClassFixture<EtamidFactory>, IDisposable
 
     private static async Task<long> CreateDeal(Party buyer, Party seller)
     {
-        var r = await buyer.Client.PostAsJsonAsync("/api/v1/deals", new
+        var r = await seller.Client.PostAsJsonAsync("/api/v1/deals", new
         {
-            title = "Used phone", sellerPhoneOrCode = seller.Phone, description = "iPhone in good condition",
+            title = "Used phone", buyerPhoneOrCode = buyer.Phone, description = "iPhone in good condition",
             amount = 1000m, durationValue = 24, durationUnit = "hour", needShipping = false, acceptTerms = true
         });
         r.StatusCode.Should().Be(HttpStatusCode.Created, await r.Content.ReadAsStringAsync());
@@ -187,7 +187,7 @@ public class FcmPushTests : IClassFixture<EtamidFactory>, IDisposable
 
         var buyer = await NewUser();
         var seller = await NewUser();
-        await RegisterDevice(seller, "fcm-valid-token");
+        await RegisterDevice(buyer, "fcm-valid-token");
         var dealId = await CreateDeal(buyer, seller);
 
         _fake.Sent.Should().ContainSingle();
@@ -199,7 +199,7 @@ public class FcmPushTests : IClassFixture<EtamidFactory>, IDisposable
         sent.Data["titleEn"].Should().NotBeNullOrWhiteSpace();
 
         var db = Db();
-        var notification = db.Notifications.Single(n => n.UserId == seller.UserId);
+        var notification = db.Notifications.Single(n => n.UserId == buyer.UserId);
         notification.PushSentAt.Should().NotBeNull();
     }
 
@@ -211,13 +211,13 @@ public class FcmPushTests : IClassFixture<EtamidFactory>, IDisposable
 
         var buyer = await NewUser();
         var seller = await NewUser();
-        await RegisterDevice(seller, "fcm-dead-token");
+        await RegisterDevice(buyer, "fcm-dead-token");
         await CreateDeal(buyer, seller);
 
         var db = Db();
         db.Devices.Single(d => d.DeviceToken == "fcm-dead-token").IsActive.Should().BeFalse();
         // The in-app notification itself is untouched by the dead token.
-        db.Notifications.Single(n => n.UserId == seller.UserId).Should().NotBeNull();
+        db.Notifications.Single(n => n.UserId == buyer.UserId).Should().NotBeNull();
     }
 
     [Fact]
@@ -228,14 +228,14 @@ public class FcmPushTests : IClassFixture<EtamidFactory>, IDisposable
 
         var buyer = await NewUser();
         var seller = await NewUser();
-        await RegisterDevice(seller, "fcm-any-token");
+        await RegisterDevice(buyer, "fcm-any-token");
         var dealId = await CreateDeal(buyer, seller);
 
         // The deal was created and the notification exists, even though
         // every push attempt threw.
         var db = Db();
         db.Deals.Single(d => d.Id == dealId).Should().NotBeNull();
-        var notification = db.Notifications.Single(n => n.UserId == seller.UserId);
+        var notification = db.Notifications.Single(n => n.UserId == buyer.UserId);
         notification.PushSentAt.Should().BeNull();
     }
 

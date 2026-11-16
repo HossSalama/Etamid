@@ -62,9 +62,9 @@ public class DealsCycle3Tests(EtamidFactory factory) : IClassFixture<EtamidFacto
 
     private static async Task<long> CreateDeal(Party buyer, Party seller, decimal amount = 1000m, int hours = 24)
     {
-        var r = await Post(buyer.Client, "/api/v1/deals", new
+        var r = await Post(seller.Client, "/api/v1/deals", new
         {
-            title = "Used phone", sellerPhoneOrCode = seller.Phone, description = "iPhone in good condition",
+            title = "Used phone", buyerPhoneOrCode = buyer.Phone, description = "iPhone in good condition",
             amount, durationValue = hours, durationUnit = "hour", needShipping = false, acceptTerms = true
         });
         r.StatusCode.Should().Be(HttpStatusCode.Created, await r.Content.ReadAsStringAsync());
@@ -74,8 +74,8 @@ public class DealsCycle3Tests(EtamidFactory factory) : IClassFixture<EtamidFacto
     private static async Task<string> StatusOf(Party who, long dealId)
         => (await Json(await who.Client.GetAsync($"/api/v1/deals/{dealId}"))).GetProperty("data").GetProperty("status").GetString()!;
 
-    private static async Task Accept(Party seller, long dealId)
-        => (await Post(seller.Client, $"/api/v1/deals/{dealId}/accept", new { acceptTerms = true })).StatusCode.Should().Be(HttpStatusCode.OK);
+    private static async Task Accept(Party buyer, long dealId)
+        => (await Post(buyer.Client, $"/api/v1/deals/{dealId}/accept", new { acceptTerms = true })).StatusCode.Should().Be(HttpStatusCode.OK);
 
     private static async Task<string> StartFunding(Party buyer, long dealId, string? key = null)
     {
@@ -98,7 +98,7 @@ public class DealsCycle3Tests(EtamidFactory factory) : IClassFixture<EtamidFacto
     private async Task<long> FundedDeal(Party buyer, Party seller, decimal amount = 1000m, int hours = 24)
     {
         var id = await CreateDeal(buyer, seller, amount, hours);
-        await Accept(seller, id);
+        await Accept(buyer, id);
         var providerPaymentId = await StartFunding(buyer, id);
         (await SendWebhook("evt_" + Key(), "payment.succeeded", providerPaymentId, amount)).StatusCode.Should().Be(HttpStatusCode.OK);
         return id;
@@ -161,7 +161,7 @@ public class DealsCycle3Tests(EtamidFactory factory) : IClassFixture<EtamidFacto
         var id = await CreateDeal(buyer, seller);
         (await StatusOf(buyer, id)).Should().Be("pending_acceptance");
 
-        await Accept(seller, id);
+        await Accept(buyer, id);
         var accepted = (await Json(await buyer.Client.GetAsync($"/api/v1/deals/{id}"))).GetProperty("data");
         accepted.GetProperty("status").GetString().Should().Be("awaiting_funding");
         accepted.GetProperty("feeAmount").GetDecimal().Should().Be(50m);
@@ -209,7 +209,7 @@ public class DealsCycle3Tests(EtamidFactory factory) : IClassFixture<EtamidFacto
         var buyer = await NewUser();
         var seller = await NewUser();
         var id = await CreateDeal(buyer, seller);
-        await Accept(seller, id);
+        await Accept(buyer, id);
 
         var key = Key();
         var first = await StartFunding(buyer, id, key);
@@ -228,8 +228,8 @@ public class DealsCycle3Tests(EtamidFactory factory) : IClassFixture<EtamidFacto
         var seller = await NewUser();
         var a = await CreateDeal(buyer, seller);
         var b = await CreateDeal(buyer, seller);
-        await Accept(seller, a);
-        await Accept(seller, b);
+        await Accept(buyer, a);
+        await Accept(buyer, b);
 
         var missing = await Post(buyer.Client, $"/api/v1/deals/{a}/fund");
         missing.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -248,7 +248,7 @@ public class DealsCycle3Tests(EtamidFactory factory) : IClassFixture<EtamidFacto
         var buyer = await NewUser();
         var seller = await NewUser();
         var id = await CreateDeal(buyer, seller);
-        await Accept(seller, id);
+        await Accept(buyer, id);
         var providerPaymentId = await StartFunding(buyer, id);
 
         var eventId = "evt_" + Key();
@@ -272,7 +272,7 @@ public class DealsCycle3Tests(EtamidFactory factory) : IClassFixture<EtamidFacto
         var buyer = await NewUser();
         var seller = await NewUser();
         var id = await CreateDeal(buyer, seller);
-        await Accept(seller, id);
+        await Accept(buyer, id);
         var providerPaymentId = await StartFunding(buyer, id);
 
         await SendWebhook("evt_" + Key(), "payment.succeeded", providerPaymentId, 1000m);
@@ -310,7 +310,7 @@ public class DealsCycle3Tests(EtamidFactory factory) : IClassFixture<EtamidFacto
         var buyer = await NewUser();
         var seller = await NewUser();
         var id = await CreateDeal(buyer, seller);
-        await Accept(seller, id);
+        await Accept(buyer, id);
         var providerPaymentId = await StartFunding(buyer, id);
 
         var forged = await SendWebhook("evt_" + Key(), "payment.succeeded", providerPaymentId, 1000m, signatureOverride: new string('a', 64));
@@ -332,7 +332,7 @@ public class DealsCycle3Tests(EtamidFactory factory) : IClassFixture<EtamidFacto
         var buyer = await NewUser();
         var seller = await NewUser();
         var id = await CreateDeal(buyer, seller);
-        await Accept(seller, id);
+        await Accept(buyer, id);
         var providerPaymentId = await StartFunding(buyer, id);
 
         var hook = await SendWebhook("evt_" + Key(), "payment.succeeded", providerPaymentId, 999m);
@@ -358,10 +358,11 @@ public class DealsCycle3Tests(EtamidFactory factory) : IClassFixture<EtamidFacto
         var stranger = await NewUser();
         var id = await CreateDeal(buyer, seller);
 
-        var buyerAccepts = await Post(buyer.Client, $"/api/v1/deals/{id}/accept", new { acceptTerms = true });
-        buyerAccepts.StatusCode.Should().Be(HttpStatusCode.OK);
+        var sellerAccepts = await Post(seller.Client, $"/api/v1/deals/{id}/accept", new { acceptTerms = true });
+        sellerAccepts.StatusCode.Should().Be(HttpStatusCode.OK, "the seller can never accept their own request");
+        (await ErrorCode(sellerAccepts)).Should().Be("DEAL_ACTION_NOT_ALLOWED");
 
-        await Accept(seller, id);
+        await Accept(buyer, id);
 
         (await Post(seller.Client, $"/api/v1/deals/{id}/fund", null, Key())).StatusCode.Should().Be(HttpStatusCode.OK);
         var providerPaymentId = await StartFunding(buyer, id);
@@ -412,7 +413,7 @@ public class DealsCycle3Tests(EtamidFactory factory) : IClassFixture<EtamidFacto
         var buyer = await NewUser();
         var seller = await NewUser();
         var id = await CreateDeal(buyer, seller);
-        await Accept(seller, id);
+        await Accept(buyer, id);
 
         (await Post(seller.Client, $"/api/v1/deals/{id}/deliver")).StatusCode.Should().Be(HttpStatusCode.OK);
     }
@@ -425,7 +426,7 @@ public class DealsCycle3Tests(EtamidFactory factory) : IClassFixture<EtamidFacto
         var seller = await NewUser();
         var id = await CreateDeal(buyer, seller);
 
-        var reject = await Post(seller.Client, $"/api/v1/deals/{id}/reject", new { reasonId = RejectReason, note = "not available" });
+        var reject = await Post(buyer.Client, $"/api/v1/deals/{id}/reject", new { reasonId = RejectReason, note = "not available" });
         reject.StatusCode.Should().Be(HttpStatusCode.OK, await reject.Content.ReadAsStringAsync());
         (await StatusOf(buyer, id)).Should().Be("rejected");
 
@@ -438,34 +439,35 @@ public class DealsCycle3Tests(EtamidFactory factory) : IClassFixture<EtamidFacto
         var buyer = await NewUser();
         var seller = await NewUser();
 
-        var self = await Post(buyer.Client, "/api/v1/deals", new
+        var self = await Post(seller.Client, "/api/v1/deals", new
         {
-            title = "t", sellerPhoneOrCode = buyer.Phone, description = "d", amount = 100m,
+            title = "t", buyerPhoneOrCode = seller.Phone, description = "d", amount = 100m,
             durationValue = 1, durationUnit = "day", needShipping = false, acceptTerms = true
         });
         self.StatusCode.Should().Be(HttpStatusCode.OK);
         (await ErrorCode(self)).Should().Be("DEAL_SAME_PARTIES");
 
-        var badAmount = await Post(buyer.Client, "/api/v1/deals", new
+        var badAmount = await Post(seller.Client, "/api/v1/deals", new
         {
-            title = "t", sellerPhoneOrCode = seller.Phone, description = "d", amount = 10.555m,
+            title = "t", buyerPhoneOrCode = buyer.Phone, description = "d", amount = 10.555m,
             durationValue = 1, durationUnit = "day", needShipping = false, acceptTerms = true
         });
         badAmount.StatusCode.Should().Be(HttpStatusCode.OK);
 
-        var noTerms = await Post(buyer.Client, "/api/v1/deals", new
+        var noTerms = await Post(seller.Client, "/api/v1/deals", new
         {
-            title = "t", sellerPhoneOrCode = seller.Phone, description = "d", amount = 100m,
+            title = "t", buyerPhoneOrCode = buyer.Phone, description = "d", amount = 100m,
             durationValue = 1, durationUnit = "day", needShipping = false, acceptTerms = false
         });
         noTerms.StatusCode.Should().Be(HttpStatusCode.OK);
 
-        var unknownSeller = await Post(buyer.Client, "/api/v1/deals", new
+        var unknownBuyer = await Post(seller.Client, "/api/v1/deals", new
         {
-            title = "t", sellerPhoneOrCode = "0599999999", description = "d", amount = 100m,
+            title = "t", buyerPhoneOrCode = "0599999999", description = "d", amount = 100m,
             durationValue = 1, durationUnit = "day", needShipping = false, acceptTerms = true
         });
-        unknownSeller.StatusCode.Should().Be(HttpStatusCode.OK);
+        unknownBuyer.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await ErrorCode(unknownBuyer)).Should().Be("BUYER_NOT_FOUND");
     }
 
     [Fact]
@@ -479,9 +481,9 @@ public class DealsCycle3Tests(EtamidFactory factory) : IClassFixture<EtamidFacto
         companies.GetArrayLength().Should().BeGreaterThan(0);
         var shippingCompanyId = companies[0].GetProperty("id").GetInt64();
 
-        var response = await Post(buyer.Client, "/api/v1/deals", new
+        var response = await Post(seller.Client, "/api/v1/deals", new
         {
-            title = "Shipped item", sellerPhoneOrCode = seller.Phone, description = "Delivery to buyer address",
+            title = "Shipped item", buyerPhoneOrCode = buyer.Phone, description = "Delivery to buyer address",
             amount = 250m, durationValue = 3, durationUnit = "day", needShipping = true,
             shippingCompanyId, acceptTerms = true
         });
@@ -514,7 +516,7 @@ public class DealsCycle3Tests(EtamidFactory factory) : IClassFixture<EtamidFacto
         var buyer = await NewUser();
         var seller = await NewUser();
         var dealId = await CreateDeal(buyer, seller);
-        await Accept(seller, dealId);
+        await Accept(buyer, dealId);
         await StartFunding(buyer, dealId);
 
         var completed = await Post(buyer.Client, $"/api/v1/payments/dev/deals/{dealId}/complete");

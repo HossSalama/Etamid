@@ -1310,26 +1310,25 @@ paths:
   /deals:
     post:
       tags: [Deals]
-      summary: إنشاء معاملة جديدة (المشتري)
+      summary: إنشاء معاملة جديدة (البائع فقط)
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [title, sellerPhoneOrCode, description, amount, durationValue, durationUnit, needShipping, acceptTerms]
+              required: [title, buyerPhoneOrCode, description, amount, durationValue, durationUnit, needShipping, acceptTerms]
               properties:
                 title: { type: string, example: "iPhone 18 Pro Max 1T" }
-                sellerPhoneOrCode: { type: string }
+                buyerPhoneOrCode: { type: string }
                 description: { type: string, maxLength: 200 }
                 amount: { type: number, example: 6200 }
                 durationValue: { type: integer, example: 5 }
                 durationUnit: { type: string, enum: [hour, day] }
                 needShipping: { type: boolean }
                 shippingCompanyId: { type: integer, nullable: true, description: مطلوب إذا needShipping=true }
-                shippingAddressId: { type: integer, nullable: true }
                 acceptTerms: { type: boolean }
-                imagePublicId: { type: string, format: uuid, nullable: true, description: 'المعرّف العام للصورة المرفوعة عبر POST /uploads بقيمة deal_image (اختياري). يجب أن تكون الصورة ملك المشتري ونوعها deal_image، وإلا فشل الإنشاء بـ INVALID_VALUE.' }
+                imagePublicId: { type: string, format: uuid, nullable: true, description: 'المعرّف العام للصورة المرفوعة عبر POST /uploads بقيمة deal_image (اختياري). يجب أن تكون الصورة ملك البائع ونوعها deal_image، وإلا فشل الإنشاء بـ INVALID_VALUE.' }
       responses:
         "201":
           description: تم الإرسال (شاشة deal sent)
@@ -1386,7 +1385,11 @@ paths:
   /deals/{id}/accept:
     post:
       tags: [Deals]
-      summary: قبول المعاملة (البائع فقط) مع الموافقة على الشروط
+      summary: قبول المعاملة (المشتري فقط) مع الموافقة على الشروط
+      description: |
+        المشتري يقبل طلب الصفقة. لصفقة شحن، يرسل المشتري shippingAddressId
+        (مطلوب — من عناوينه المحفوظة)، ويُجمَّد نص العنوان في الصفقة عند
+        القبول؛ تعديل العنوان المحفوظ أو حذفه بعدها لا يغيّر عنوان التوصيل.
       parameters:
         - $ref: '#/components/parameters/DealId'
       requestBody:
@@ -1398,6 +1401,7 @@ paths:
               required: [acceptTerms]
               properties:
                 acceptTerms: { type: boolean }
+                shippingAddressId: { type: integer, nullable: true, description: 'مطلوب إذا كانت الصفقة شحن — id عنوان من عناوين المشتري المحفوظة' }
       responses:
         "200": { $ref: '#/components/responses/DealResult' }
         default:
@@ -1537,62 +1541,12 @@ paths:
       summary: تسليم المعاملة (البائع فقط، من funded فقط)
       description: |
         ينقل الصفقة فورا إلى inspection ويبدأ نافذة الفحص (نافذة الفحص = مدة
-        الصفقة نفسها، وليست إعدادا مستقلا). لصفقة شحن، ينشئ سجل Shipment:
-        رقم تتبع يدوي اختياري (trackingNumber، حتى 60 حرفا) يجعل حالة
-        الشحنة in_transit، وبدونه تكون created. رقم تتبع على صفقة بلا شحن
-        مرفوض بـ INVALID_VALUE. الـ body اختياري — عملاء قدامى يرسلون body
-        فارغا ما زالوا يعملون.
+        الصفقة نفسها، وليست إعدادا مستقلا). لا يوجد رقم تتبع في v1 —
+        التسليم ينتهي بتأكيد استلام المشتري (POST /deals/{id}/release).
       parameters:
         - $ref: '#/components/parameters/DealId'
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                trackingNumber: { type: string, nullable: true, description: رقم تتبع شركة الشحن، لصفقات الشحن فقط }
       responses:
         "200": { $ref: '#/components/responses/DealResult' }
-  /deals/{id}/tracking:
-    get:
-      tags: [Deals]
-      summary: تتبع الشحنة (طرفا الصفقة فقط)
-      description: |
-        يعيد شحنة الصفقة إن وجدت: رقم التتبع اليدوي وحالة الشحنة
-        (created بدون رقم تتبع، in_transit برقم تتبع) وأحداث الشحنة
-        (فارغة في التتبع اليدوي v1 — الأحداث تأتي مع تكامل شركة شحن
-        مستقبلي). صفقة بلا شحن أو بلا شحنة تعيد حقولا null وقائمة
-        أحداث فارغة، لا خطأ NOT_FOUND. غير الطرفين يأخذ خطأ NOT_FOUND.
-      parameters:
-        - $ref: '#/components/parameters/DealId'
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: '#/components/schemas/Envelope'
-                  - type: object
-                    properties:
-                      data:
-                        type: object
-                        properties:
-                          dealId: { type: integer }
-                          trackingNumber: { type: string, nullable: true }
-                          shipmentStatus: { type: string, nullable: true, enum: [created, picked_up, in_transit, out_for_delivery, delivered, failed, returned] }
-                          shippingCompanyNameAr: { type: string, nullable: true }
-                          shippingCompanyNameEn: { type: string, nullable: true }
-                          events:
-                            type: array
-                            items:
-                              type: object
-                              properties:
-                                code: { type: string }
-                                description: { type: string }
-                                location: { type: string, nullable: true }
-                                at: { type: string, format: date-time }
   /deals/{id}/release:
     post:
       tags: [Deals]
@@ -2931,9 +2885,7 @@ components:
         needShipping: { type: boolean }
         shippingCompanyNameAr: { type: string, nullable: true }
         shippingCompanyNameEn: { type: string, nullable: true }
-        shippingAddressText: { type: string, nullable: true, description: نص عنوان التوصيل المجمّد وقت إنشاء الصفقة }
-        trackingNumber: { type: string, nullable: true }
-        shipmentStatus: { type: string, nullable: true }
+        shippingAddressText: { type: string, nullable: true, description: نص عنوان التوصيل المجمّد وقت قبول الصفقة }
         counterpartyId: { type: integer, nullable: true, description: id الطرف الآخر، لربط كارت الصفقة بصفحة متجره }
         badge: { $ref: '#/components/schemas/Badge', nullable: true, description: الشارة الزمنية للمتبقي على المهلة النشطة، أو null عند عدم وجود مهلة نشطة }
     Deal:
@@ -2988,9 +2940,7 @@ components:
         imageUrl: { type: string, nullable: true, description: رابط صورة المنتج، أو null }
         shippingCompanyNameAr: { type: string, nullable: true }
         shippingCompanyNameEn: { type: string, nullable: true }
-        shippingAddressText: { type: string, nullable: true, description: نص عنوان التوصيل المجمّد وقت إنشاء الصفقة }
-        trackingNumber: { type: string, nullable: true }
-        shipmentStatus: { type: string, nullable: true }
+        shippingAddressText: { type: string, nullable: true, description: نص عنوان التوصيل المجمّد وقت قبول الصفقة }
         badge: { $ref: '#/components/schemas/Badge', nullable: true, description: الشارة الزمنية للمتبقي على المهلة النشطة، أو null عند عدم وجود مهلة نشطة }
     FundSession:
       type: object

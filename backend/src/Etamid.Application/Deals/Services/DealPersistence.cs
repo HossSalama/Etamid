@@ -59,7 +59,7 @@ internal static class DealMapper
         var alreadyRated = d.Status == DealStatus.Released
             && await db.Ratings.AsNoTracking().AnyAsync(x => x.DealId == d.Id, ct);
 
-        var (companyAr, companyEn, addressText, tracking, shipmentStatus) =
+        var (companyAr, companyEn, addressText) =
             await ShippingInfoAsync(db, d, ct);
 
         return new DealDetailDto(
@@ -71,7 +71,7 @@ internal static class DealMapper
             d.InspectionEndsAt, d.CompletedAt, d.ExpiresAt,
             d.ContractHash, pendingEdit is null ? null : MapEdit(pendingEdit, d),
             DealActions.For(d, viewerId, now, pendingEdit, alreadyRated), timeline, imageUrl,
-            companyAr, companyEn, addressText, tracking, shipmentStatus,
+            companyAr, companyEn, addressText,
             DealBadge.For(d.Status, d.RespondDeadlineAt, d.ExpiresAt, d.InspectionEndsAt, now));
     }
 
@@ -80,7 +80,7 @@ internal static class DealMapper
     /// existed, fall back to the address as it is now (soft-deleted addresses are
     /// already filtered out of queries, so a deleted address yields no text).
     /// </summary>
-    public static async Task<(string? CompanyAr, string? CompanyEn, string? AddressText, string? Tracking, string? ShipmentStatus)>
+    public static async Task<(string? CompanyAr, string? CompanyEn, string? AddressText)>
         ShippingInfoAsync(IApplicationDbContext db, Deal d, CancellationToken ct)
     {
         string? companyAr = null, companyEn = null;
@@ -99,9 +99,7 @@ internal static class DealMapper
             if (address is not null) addressText = ShippingSnapshotText(address);
         }
 
-        var shipment = await db.Shipments.AsNoTracking().FirstOrDefaultAsync(s => s.DealId == d.Id, ct);
-        return (companyAr, companyEn, addressText, shipment?.TrackingNumber,
-            shipment is null ? null : ApiNames.Of(shipment.Status));
+        return (companyAr, companyEn, addressText);
     }
 
     /// <summary>Recipient + phone + full address, capped at the 400-char snapshot column.</summary>

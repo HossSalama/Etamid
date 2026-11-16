@@ -1,11 +1,11 @@
 import { DecimalPipe } from '@angular/common';
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { AbstractControl, FormBuilder, ReactiveFormsModule, ValidationErrors, ValidatorFn, Validators } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { Router } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
 import { AppHeaderComponent } from '../../core/components/app-header/app-header.component';
 import { BottomNavComponent } from '../../core/components/bottom-nav/bottom-nav.component';
-import { DealsService, Counterparty, CreateDealRequest, CreatedDeal, LookupItem, UserAddress } from '../../core/services/deals.service';
+import { DealsService, Counterparty, CreateDealRequest, CreatedDeal, LookupItem } from '../../core/services/deals.service';
 import { LanguageService } from '../../core/services/language.service';
 
 const twoDecimalPlaces: ValidatorFn = (control: AbstractControl): ValidationErrors | null => {
@@ -18,7 +18,7 @@ const twoDecimalPlaces: ValidatorFn = (control: AbstractControl): ValidationErro
 @Component({
   selector: 'app-new-deal',
   standalone: true,
-  imports: [DecimalPipe, ReactiveFormsModule, RouterLink, AppHeaderComponent, BottomNavComponent],
+  imports: [DecimalPipe, ReactiveFormsModule, AppHeaderComponent, BottomNavComponent],
   templateUrl: './new-deal.component.html',
   styleUrl: './new-deal.component.scss',
 })
@@ -32,42 +32,40 @@ export class NewDealComponent implements OnInit {
   readonly isSubmitting = signal(false);
   readonly isLoadingCompanies = signal(false);
   readonly companiesError = signal(false);
-  readonly isLoadingAddresses = signal(false);
   readonly submitError = signal<string | null>(null);
   readonly createdDeal = signal<CreatedDeal | null>(null);
   readonly shippingCompanies = signal<LookupItem[]>([]);
-  readonly addresses = signal<UserAddress[]>([]);
-  readonly sellerPreview = signal<Counterparty | null>(null);
-  readonly isLookingUpSeller = signal(false);
-  readonly sellerLookupError = signal(false);
+  readonly buyerPreview = signal<Counterparty | null>(null);
+  readonly isLookingUpBuyer = signal(false);
+  readonly buyerLookupError = signal(false);
   readonly selectedImage = signal<File | null>(null);
   readonly imagePreviewUrl = signal<string | null>(null);
   readonly imageUploadError = signal(false);
 
-  lookupSeller(): void {
-    const q = (this.dealForm.controls.sellerPhoneOrCode.value ?? '').trim();
-    if (!q || this.isLookingUpSeller()) return;
-    this.isLookingUpSeller.set(true);
-    this.sellerLookupError.set(false);
-    this.sellerPreview.set(null);
-    this.dealsApi.lookupSeller(q).subscribe({
+  lookupBuyer(): void {
+    const q = (this.dealForm.controls.buyerPhoneOrCode.value ?? '').trim();
+    if (!q || this.isLookingUpBuyer()) return;
+    this.isLookingUpBuyer.set(true);
+    this.buyerLookupError.set(false);
+    this.buyerPreview.set(null);
+    this.dealsApi.lookupBuyer(q).subscribe({
       next: (response) => {
-        this.isLookingUpSeller.set(false);
+        this.isLookingUpBuyer.set(false);
         if (!response.success || !response.data) {
-          this.sellerLookupError.set(true);
+          this.buyerLookupError.set(true);
           return;
         }
-        this.sellerPreview.set(response.data);
+        this.buyerPreview.set(response.data);
       },
       error: () => {
-        this.isLookingUpSeller.set(false);
-        this.sellerLookupError.set(true);
+        this.isLookingUpBuyer.set(false);
+        this.buyerLookupError.set(true);
       },
     });
   }
 
   readonly dealForm = this.fb.group({
-    sellerPhoneOrCode: ['', [Validators.required, Validators.maxLength(50)]],
+    buyerPhoneOrCode: ['', [Validators.required, Validators.maxLength(50)]],
     title: ['', [Validators.required, Validators.maxLength(150)]],
     description: ['', [Validators.required, Validators.maxLength(200)]],
     amount: [null as number | null, [Validators.required, Validators.min(0.01), Validators.max(10_000_000), twoDecimalPlaces]],
@@ -75,7 +73,6 @@ export class NewDealComponent implements OnInit {
     durationUnit: ['day' as 'hour' | 'day', Validators.required],
     needShipping: [false],
     shippingCompanyId: [null as number | null],
-    shippingAddressId: [null as number | null],
     acceptTerms: [false, Validators.requiredTrue],
   });
 
@@ -85,26 +82,6 @@ export class NewDealComponent implements OnInit {
       return;
     }
     this.loadShippingCompanies();
-    this.loadAddresses();
-    this.prefillFromProduct();
-  }
-
-  /**
-   * Prefill from a shop product ("order this item"): the seller is verified
-   * from their code and the item name, description and price are filled in.
-   * A deal description caps at 200 chars while a product description may be
-   * longer, so an over-long description is trimmed to what the deal accepts.
-   */
-  private prefillFromProduct(): void {
-    const fromProduct = (history.state as {
-      fromProduct?: { sellerCode: string; name: string; description: string | null; price: number };
-    }).fromProduct;
-    if (!fromProduct) return;
-    this.dealForm.controls.sellerPhoneOrCode.setValue(fromProduct.sellerCode);
-    this.dealForm.controls.title.setValue(fromProduct.name);
-    this.dealForm.controls.description.setValue((fromProduct.description ?? '').slice(0, 200));
-    this.dealForm.controls.amount.setValue(fromProduct.price);
-    this.lookupSeller();
   }
 
   setShipping(needed: boolean): void {
@@ -112,20 +89,11 @@ export class NewDealComponent implements OnInit {
     this.dealForm.controls.needShipping.setValue(needed);
     if (needed) {
       company.addValidators(Validators.required);
-      this.selectDefaultAddress();
     } else {
       company.clearValidators();
       company.setValue(null);
-      this.dealForm.controls.shippingAddressId.setValue(null);
     }
     company.updateValueAndValidity();
-  }
-
-  /** The default saved address is pre-selected for shipping, when one exists. */
-  private selectDefaultAddress(): void {
-    if (this.dealForm.controls.shippingAddressId.value) return;
-    const fallback = this.addresses().find((a) => a.isDefault);
-    if (fallback) this.dealForm.controls.shippingAddressId.setValue(fallback.id);
   }
 
   onImageSelected(event: Event): void {
@@ -165,14 +133,13 @@ export class NewDealComponent implements OnInit {
 
     const request: CreateDealRequest = {
       title: (value.title ?? '').trim(),
-      sellerPhoneOrCode: (value.sellerPhoneOrCode ?? '').trim(),
+      buyerPhoneOrCode: (value.buyerPhoneOrCode ?? '').trim(),
       description: (value.description ?? '').trim(),
       amount: Number(value.amount),
       durationValue: Number(value.durationValue ?? 1),
       durationUnit: value.durationUnit === 'hour' ? 'hour' : 'day',
       needShipping: value.needShipping === true,
       shippingCompanyId: value.needShipping === true && value.shippingCompanyId ? Number(value.shippingCompanyId) : null,
-      shippingAddressId: value.needShipping === true && value.shippingAddressId ? Number(value.shippingAddressId) : null,
       acceptTerms: value.acceptTerms === true,
       imagePublicId: null as string | null,
     };
@@ -226,12 +193,6 @@ export class NewDealComponent implements OnInit {
     void this.router.navigate(['/home']);
   }
 
-  addressLabel(address: UserAddress): string {
-    const tag = address.label?.trim();
-    const location = [address.city, address.district].filter(Boolean).join('، ');
-    return [tag, location || address.fullText].filter(Boolean).join(' — ');
-  }
-
   private loadShippingCompanies(): void {
     this.isLoadingCompanies.set(true);
     this.dealsApi.getShippingCompanies().subscribe({
@@ -246,25 +207,13 @@ export class NewDealComponent implements OnInit {
     });
   }
 
-  private loadAddresses(): void {
-    this.isLoadingAddresses.set(true);
-    this.dealsApi.getMyAddresses().subscribe({
-      next: (response) => {
-        this.isLoadingAddresses.set(false);
-        this.addresses.set(response.success ? response.data ?? [] : []);
-        if (this.dealForm.controls.needShipping.value) this.selectDefaultAddress();
-      },
-      error: () => this.isLoadingAddresses.set(false),
-    });
-  }
-
   private errorMessage(error: unknown): string {
     const envelope = error as {
       error?: { errors?: Array<{ code?: string; field?: string }> };
       errors?: Array<{ code?: string; field?: string }>;
     };
     const issue = envelope?.error?.errors?.[0] ?? envelope?.errors?.[0];
-    if (issue?.field === 'shippingCompanyId' || issue?.field === 'shippingAddressId') {
+    if (issue?.field === 'shippingCompanyId') {
       return this.lang.t('deal_error_shipping');
     }
     if (issue?.field === 'durationValue' || issue?.field === 'durationUnit') {
@@ -272,8 +221,8 @@ export class NewDealComponent implements OnInit {
     }
 
     switch (issue?.code) {
-      case 'SELLER_NOT_FOUND':
-        return this.lang.t('deal_error_seller_not_found');
+      case 'BUYER_NOT_FOUND':
+        return this.lang.t('deal_error_buyer_not_found');
       case 'DEAL_SAME_PARTIES':
         return this.lang.t('deal_error_same_party');
       case 'DEAL_AMOUNT_INVALID':

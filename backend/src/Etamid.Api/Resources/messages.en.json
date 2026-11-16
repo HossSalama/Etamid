@@ -145,6 +145,7 @@
   "WEBHOOK_OK": "Webhook received.",
   "DEAL_NOT_FOUND": "The deal was not found.",
   "SELLER_NOT_FOUND": "No active seller was found with this phone number or code.",
+  "BUYER_NOT_FOUND": "No active buyer was found with this phone number or code.",
   "PAYMENT_NOT_FOUND": "The payment was not found.",
   "DEAL_INVALID_STATE": "This action is not available in the deal's current state.",
   "DEAL_ACTION_NOT_ALLOWED": "You are not allowed to perform this action on this deal.",

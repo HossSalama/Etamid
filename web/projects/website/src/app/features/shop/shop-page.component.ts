@@ -51,9 +51,11 @@ import { BottomNavComponent } from '../../core/components/bottom-nav/bottom-nav.
                   <a class="shop-seller" [routerLink]="['/store', product.sellerId]">
                     🏪 {{ product.storeName ?? product.sellerName }}
                   </a>
-                  <button type="button" class="btn btn-black shop-order-btn" (click)="order(product)">
-                    {{ lang.t('shop_order') }}
-                  </button>
+                  @if (product.isCompany) {
+                    <button type="button" class="btn btn-black shop-order-btn" (click)="order(product)">
+                      {{ lang.t('shop_order') }}
+                    </button>
+                  }
                 </div>
               </article>
             }
@@ -182,9 +184,11 @@ export class ShopPageComponent implements OnInit {
     this.load();
   }
 
+  // Individual products have no order button: only the seller can create a
+  // deal, so a buyer cannot start one from the shop (a "request from seller"
+  // flow is still missing). Company products still open the wizard.
   order(product: ShopProduct): void {
-    const target = product.isCompany ? '/company-deals/new' : '/deals/new';
-    void this.router.navigate([target], {
+    void this.router.navigate(['/company-deals/new'], {
       state: {
         fromProduct: {
           sellerCode: product.sellerCode,

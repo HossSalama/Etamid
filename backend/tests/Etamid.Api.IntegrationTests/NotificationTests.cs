@@ -67,17 +67,17 @@ public class NotificationTests(EtamidFactory factory) : IClassFixture<EtamidFact
 
     private static async Task<long> CreateDeal(Party buyer, Party seller, decimal amount = 1000m, int hours = 24)
     {
-        var r = await Post(buyer.Client, "/api/v1/deals", new
+        var r = await Post(seller.Client, "/api/v1/deals", new
         {
-            title = "Used phone", sellerPhoneOrCode = seller.Phone, description = "iPhone in good condition",
+            title = "Used phone", buyerPhoneOrCode = buyer.Phone, description = "iPhone in good condition",
             amount, durationValue = hours, durationUnit = "hour", needShipping = false, acceptTerms = true
         });
         r.StatusCode.Should().Be(HttpStatusCode.Created, await r.Content.ReadAsStringAsync());
         return (await Json(r)).GetProperty("data").GetProperty("id").GetInt64();
     }
 
-    private static async Task Accept(Party seller, long dealId)
-        => (await Post(seller.Client, $"/api/v1/deals/{dealId}/accept", new { acceptTerms = true })).StatusCode.Should().Be(HttpStatusCode.OK);
+    private static async Task Accept(Party buyer, long dealId)
+        => (await Post(buyer.Client, $"/api/v1/deals/{dealId}/accept", new { acceptTerms = true })).StatusCode.Should().Be(HttpStatusCode.OK);
 
     private async Task<string> StartFunding(Party buyer, long dealId, string? key = null)
     {
@@ -100,7 +100,7 @@ public class NotificationTests(EtamidFactory factory) : IClassFixture<EtamidFact
     private async Task<long> FundedDeal(Party buyer, Party seller, decimal amount = 1000m, int hours = 24)
     {
         var id = await CreateDeal(buyer, seller, amount, hours);
-        await Accept(seller, id);
+        await Accept(buyer, id);
         var providerPaymentId = await StartFunding(buyer, id);
         await SendWebhook("evt_" + Key(), "payment.succeeded", providerPaymentId, amount);
         return id;
@@ -157,29 +157,29 @@ public class NotificationTests(EtamidFactory factory) : IClassFixture<EtamidFact
 
     // ------------------------------------------------------------------ tests
     [Fact]
-    public async Task Deal_created_notifies_seller_only()
+    public async Task Deal_created_notifies_buyer_only()
     {
         var buyer = await NewUser();
         var seller = await NewUser();
 
         var dealId = await CreateDeal(buyer, seller);
 
-        var sellerItems = await List(seller.Client);
-        sellerItems.GetArrayLength().Should().Be(1);
-        var item = sellerItems[0];
+        var buyerItems = await List(buyer.Client);
+        buyerItems.GetArrayLength().Should().Be(1);
+        var item = buyerItems[0];
         item.GetProperty("type").GetString().Should().Be("deal_request");
         item.GetProperty("dealId").GetInt64().Should().Be(dealId);
         item.GetProperty("isRead").GetBoolean().Should().BeFalse();
         item.GetProperty("title").GetString().Should().NotBeNullOrEmpty();
         item.GetProperty("body").GetString().Should().NotBeNullOrEmpty();
 
-        (await List(buyer.Client)).GetArrayLength().Should().Be(0);
-        (await UnreadCount(seller.Client)).Should().Be(1);
-        (await UnreadCount(buyer.Client)).Should().Be(0);
+        (await List(seller.Client)).GetArrayLength().Should().Be(0);
+        (await UnreadCount(buyer.Client)).Should().Be(1);
+        (await UnreadCount(seller.Client)).Should().Be(0);
     }
 
     [Fact]
-    public async Task Accept_notifies_buyer_and_funding_notifies_seller_newest_first()
+    public async Task Accept_notifies_seller_and_funding_notifies_seller_newest_first()
     {
         var buyer = await NewUser();
         var seller = await NewUser();
@@ -188,13 +188,13 @@ public class NotificationTests(EtamidFactory factory) : IClassFixture<EtamidFact
 
         var buyerItems = await List(buyer.Client);
         buyerItems.GetArrayLength().Should().Be(1);
-        buyerItems[0].GetProperty("type").GetString().Should().Be("deal_accepted");
+        buyerItems[0].GetProperty("type").GetString().Should().Be("deal_request");
         buyerItems[0].GetProperty("dealId").GetInt64().Should().Be(dealId);
 
         var sellerItems = await List(seller.Client);
         sellerItems.GetArrayLength().Should().Be(2);
         sellerItems[0].GetProperty("type").GetString().Should().Be("deal_funded");
-        sellerItems[1].GetProperty("type").GetString().Should().Be("deal_request");
+        sellerItems[1].GetProperty("type").GetString().Should().Be("deal_accepted");
         (await UnreadCount(seller.Client)).Should().Be(2);
     }
 

@@ -46,9 +46,9 @@ public class DealBadgeTests(EtamidFactory factory) : IClassFixture<EtamidFactory
 
     private static async Task<long> CreateDeal(Party buyer, Party seller)
     {
-        var r = await buyer.Client.PostAsJsonAsync("/api/v1/deals", new
+        var r = await seller.Client.PostAsJsonAsync("/api/v1/deals", new
         {
-            title = "Used phone", sellerPhoneOrCode = seller.Phone, description = "iPhone in good condition",
+            title = "Used phone", buyerPhoneOrCode = buyer.Phone, description = "iPhone in good condition",
             amount = 1000m, durationValue = 24, durationUnit = "hour", needShipping = false, acceptTerms = true
         });
         r.StatusCode.Should().Be(HttpStatusCode.Created, await r.Content.ReadAsStringAsync());

@@ -5040,7 +5040,7 @@
                 "description": "## Create a New Deal\n\n**Requires authentication. Individual accounts.**\n\nThe buyer creates a deal for a seller. **No money is taken yet**; funds are held after the seller accepts.\n\n### Request Fields\n| Field | Type | Required | Rules |\n|---|---|---|---|\n| title | string | ✅ | Max 150 chars |\n| sellerPhoneOrCode | string | ✅ | Seller phone or code |\n| description | string | ✅ | Agreement details, max 200 chars |\n| amount | number | ✅ | SAR, > 0 |\n| durationValue | integer | ✅ | ≥ 1 |\n| durationUnit | string | ✅ | `hour` or `day` |\n| needShipping | boolean | ✅ | If true, `shippingCompanyId` is required |\n| shippingCompanyId | integer | No | From `/lookups/shipping-companies` |\n| shippingAddressId | integer | No | Buyer address id |\n| acceptTerms | boolean | ✅ | Must be `true` |\n\n### Business Rules\n- The seller cannot be the buyer.\n- The deal is created as `pending_seller` and the seller is notified.\n\n### Next Step\nShow the 'Deal sent' screen. The seller accepts, rejects or proposes an edit.\n\n### Frontend Notes\n- Load terms from `GET /terms/deal` before the confirmation step.",
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"title\": \"iPhone 18 Pro Max 1T\",\n  \"sellerPhoneOrCode\": \"0559876543\",\n  \"description\": \"Brand new original device, sealed box, delivered in the agreed condition.\",\n  \"amount\": 6200,\n  \"durationValue\": 5,\n  \"durationUnit\": \"day\",\n  \"needShipping\": true,\n  \"shippingCompanyId\": 1,\n  \"shippingAddressId\": 1,\n  \"acceptTerms\": true,\n  \"imagePublicId\": null\n}",
+                  "raw": "{\n  \"title\": \"iPhone 18 Pro Max 1T\",\n  \"buyerPhoneOrCode\": \"0559876543\",\n  \"description\": \"Brand new original device, sealed box, delivered in the agreed condition.\",\n  \"amount\": 6200,\n  \"durationValue\": 5,\n  \"durationUnit\": \"day\",\n  \"needShipping\": true,\n  \"shippingCompanyId\": 1,\n  \"acceptTerms\": true,\n  \"imagePublicId\": null\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -5849,10 +5849,10 @@
                     "accept"
                   ]
                 },
-                "description": "## Accept a Deal\n\n**Requires authentication.**\n\nThe seller accepts a new request, or the buyer accepts after reviewing a seller's edit.\n\n### Path Parameters\n| Param | Type | Description |\n|---|---|---|\n| id | integer | Deal id |\n\n### Request Fields\n| Field | Type | Required | Rules |\n|---|---|---|---|\n| acceptTerms | boolean | ✅ | Must be `true` |\n\n### Business Rules\n- Allowed only in `pending_seller` (seller) or `edit_proposed`/`pending_buyer_approval` (buyer).\n\n### Next Step\nThe buyer is asked to pay (`POST /deals/{id}/pay`).",
+                "description": "## Accept a Deal\n\n**Requires authentication.**\n\nThe seller accepts a new request, or the buyer accepts after reviewing a seller's edit.\n\n### Path Parameters\n| Param | Type | Description |\n|---|---|---|\n| id | integer | Deal id |\n\n### Request Fields\n| Field | Type | Required | Rules |\n|---|---|---|---|\n| acceptTerms | boolean | ✅ | Must be `true` |\n\n### Business Rules\n- Allowed only in `pending_seller` (seller) or `edit_proposed`/`pending_buyer_approval` (buyer).\n\n### Next Step\nThe buyer is asked to pay (`POST /deals/{id}/pay`).\n\nshippingAddressId: required when the deal needs shipping (the buyer picks one of their saved addresses; it is frozen into the deal on accept). Omit it for deals without shipping.",
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"acceptTerms\": true\n}",
+                  "raw": "{\n  \"acceptTerms\": true,\n  \"shippingAddressId\": 1\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -7185,7 +7185,7 @@
                   }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/api/v1/deals/{{dealId}}/ship",
+                  "raw": "{{baseUrl}}/api/v1/deals/{{dealId}}/deliver",
                   "host": [
                     "{{baseUrl}}"
                   ],

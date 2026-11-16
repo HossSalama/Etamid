@@ -8,12 +8,14 @@ using Etamid.Infrastructure.Payments;
 namespace Etamid.Api.IntegrationTests;
 
 /// <summary>
-/// Shipping address freeze + manual tracking (v1):
-/// - the delivery address is frozen into the deal at creation and survives later
-///   edits and deletion of the saved address;
-/// - delivering a shipping deal creates the shipment row, with the seller's
-///   tracking number when one is given, visible on the tracking endpoint and
-///   on the deal itself; a tracking number on a non-shipping deal is rejected.
+/// Shipping, seller-first (no tracking in v1):
+/// - only the seller creates the deal and picks the carrier; the buyer
+///   supplies the delivery address when accepting, and it is frozen into
+///   the deal then — later edits and deletion of the saved address do not
+///   change it;
+/// - accepting a shipping deal without an address is rejected;
+/// - delivering needs no tracking number, and the tracking endpoint is gone:
+///   delivery ends with the buyer's receipt confirmation.
 /// </summary>
 public class DealShippingTests(EtamidFactory factory) : IClassFixture<EtamidFactory>
 {
@@ -26,6 +28,9 @@ public class DealShippingTests(EtamidFactory factory) : IClassFixture<EtamidFact
 
     private static async Task<JsonElement> Json(HttpResponseMessage r)
         => JsonDocument.Parse(await r.Content.ReadAsStringAsync()).RootElement;
+
+    private static async Task<string> ErrorCode(HttpResponseMessage r)
+        => (await Json(r)).GetProperty("errors")[0].GetProperty("code").GetString()!;
 
     private async Task<Party> NewUser()
     {
@@ -74,22 +79,29 @@ public class DealShippingTests(EtamidFactory factory) : IClassFixture<EtamidFact
         return (await Json(r)).GetProperty("data").GetProperty("id").GetInt64();
     }
 
-    private static async Task<long> CreateShippingDeal(Party buyer, Party seller, long companyId, long? addressId)
+    private static async Task<long> CreateShippingDeal(Party seller, Party buyer, long companyId)
     {
-        var r = await Post(buyer.Client, "/api/v1/deals", new
+        var r = await Post(seller.Client, "/api/v1/deals", new
         {
-            title = "Shipped item", sellerPhoneOrCode = seller.Phone, description = "Delivery to buyer address",
+            title = "Shipped item", buyerPhoneOrCode = buyer.Phone, description = "Delivery to buyer address",
             amount = 250m, durationValue = 3, durationUnit = "day", needShipping = true,
-            shippingCompanyId = companyId, shippingAddressId = addressId, acceptTerms = true
+            shippingCompanyId = companyId, acceptTerms = true
         });
         r.StatusCode.Should().Be(HttpStatusCode.Created, await r.Content.ReadAsStringAsync());
         return (await Json(r)).GetProperty("data").GetProperty("id").GetInt64();
     }
 
-    private async Task<long> FundedShippingDeal(Party buyer, Party seller, long companyId, long? addressId)
+    private static async Task AcceptWithAddress(Party buyer, long dealId, long addressId)
     {
-        var id = await CreateShippingDeal(buyer, seller, companyId, addressId);
-        (await Post(seller.Client, $"/api/v1/deals/{id}/accept", new { acceptTerms = true })).StatusCode.Should().Be(HttpStatusCode.OK);
+        var r = await Post(buyer.Client, $"/api/v1/deals/{dealId}/accept",
+            new { acceptTerms = true, shippingAddressId = addressId });
+        r.StatusCode.Should().Be(HttpStatusCode.OK, await r.Content.ReadAsStringAsync());
+    }
+
+    private async Task<long> FundedShippingDeal(Party buyer, Party seller, long companyId, long addressId)
+    {
+        var id = await CreateShippingDeal(seller, buyer, companyId);
+        await AcceptWithAddress(buyer, id, addressId);
         var fund = await Post(buyer.Client, $"/api/v1/deals/{id}/fund", null, Key());
         fund.StatusCode.Should().Be(HttpStatusCode.OK, await fund.Content.ReadAsStringAsync());
         var providerPaymentId = (await Json(fund)).GetProperty("data").GetProperty("providerPaymentId").GetString()!;
@@ -111,14 +123,19 @@ public class DealShippingTests(EtamidFactory factory) : IClassFixture<EtamidFact
     }
 
     [Fact]
-    public async Task Shipping_address_is_frozen_at_creation_and_survives_edit_and_delete()
+    public async Task Shipping_address_is_frozen_at_acceptance_and_survives_edit_and_delete()
     {
         var buyer = await NewUser();
         var seller = await NewUser();
         var companyId = await ShippingCompanyId(buyer);
         var addressId = await NewAddress(buyer, "Riyadh");
 
-        var id = await CreateShippingDeal(buyer, seller, companyId, addressId);
+        var id = await CreateShippingDeal(seller, buyer, companyId);
+
+        // No address on the deal before the buyer accepts.
+        (await DealDetail(buyer, id)).GetProperty("shippingAddressId").ValueKind.Should().Be(JsonValueKind.Null);
+
+        await AcceptWithAddress(buyer, id, addressId);
 
         var created = await DealDetail(buyer, id);
         created.GetProperty("shippingAddressText").GetString().Should().Contain("Riyadh");
@@ -141,7 +158,26 @@ public class DealShippingTests(EtamidFactory factory) : IClassFixture<EtamidFact
     }
 
     [Fact]
-    public async Task Deliver_with_tracking_creates_shipment_visible_on_tracking_and_deal()
+    public async Task Accepting_a_shipping_deal_without_an_address_is_rejected()
+    {
+        var buyer = await NewUser();
+        var seller = await NewUser();
+        var companyId = await ShippingCompanyId(buyer);
+        var addressId = await NewAddress(buyer);
+        var id = await CreateShippingDeal(seller, buyer, companyId);
+
+        var noAddress = await Post(buyer.Client, $"/api/v1/deals/{id}/accept", new { acceptTerms = true });
+        noAddress.StatusCode.Should().Be(HttpStatusCode.OK, await noAddress.Content.ReadAsStringAsync());
+        (await ErrorCode(noAddress)).Should().Be("REQUIRED");
+        (await Json(noAddress)).GetProperty("errors")[0].GetProperty("field").GetString().Should().Be("shippingAddressId");
+
+        // The deal is still pending: accepting with the address works.
+        await AcceptWithAddress(buyer, id, addressId);
+        (await DealDetail(buyer, id)).GetProperty("status").GetString().Should().Be("awaiting_funding");
+    }
+
+    [Fact]
+    public async Task Deliver_needs_no_tracking_and_the_tracking_endpoint_is_gone()
     {
         var buyer = await NewUser();
         var seller = await NewUser();
@@ -149,49 +185,30 @@ public class DealShippingTests(EtamidFactory factory) : IClassFixture<EtamidFact
         var addressId = await NewAddress(buyer);
         var id = await FundedShippingDeal(buyer, seller, companyId, addressId);
 
-        var deliver = await Post(seller.Client, $"/api/v1/deals/{id}/deliver", new { trackingNumber = "ARAMEX123" });
-        deliver.StatusCode.Should().Be(HttpStatusCode.OK, await deliver.Content.ReadAsStringAsync());
-
-        var tracking = await Json(await buyer.Client.GetAsync($"/api/v1/deals/{id}/tracking"));
-        var data = tracking.GetProperty("data");
-        data.GetProperty("trackingNumber").GetString().Should().Be("ARAMEX123");
-        data.GetProperty("shipmentStatus").GetString().Should().Be("in_transit");
-        data.GetProperty("events").GetArrayLength().Should().Be(0);
-
-        (await DealDetail(buyer, id)).GetProperty("trackingNumber").GetString().Should().Be("ARAMEX123");
-
-        // A stranger gets the same NOT_FOUND as a missing deal.
-        var stranger = await NewUser();
-        (await stranger.Client.GetAsync($"/api/v1/deals/{id}/tracking")).StatusCode.Should().Be(HttpStatusCode.OK);
-    }
-
-    [Fact]
-    public async Task Deliver_without_tracking_on_shipping_deal_creates_shipment_without_number()
-    {
-        var buyer = await NewUser();
-        var seller = await NewUser();
-        var companyId = await ShippingCompanyId(buyer);
-        var id = await FundedShippingDeal(buyer, seller, companyId, null);
-
         (await Post(seller.Client, $"/api/v1/deals/{id}/deliver")).StatusCode.Should().Be(HttpStatusCode.OK);
 
-        var data = (await Json(await buyer.Client.GetAsync($"/api/v1/deals/{id}/tracking"))).GetProperty("data");
-        data.GetProperty("trackingNumber").ValueKind.Should().Be(JsonValueKind.Null);
-        data.GetProperty("shipmentStatus").GetString().Should().Be("created");
+        var detail = await DealDetail(buyer, id);
+        detail.GetProperty("status").GetString().Should().Be("inspection");
+        detail.GetProperty("deliveredAt").ValueKind.Should().NotBe(JsonValueKind.Null);
+
+        // The tracking route no longer exists.
+        var tracking = await buyer.Client.GetAsync($"/api/v1/deals/{id}/tracking");
+        tracking.StatusCode.Should().Be(HttpStatusCode.OK, await tracking.Content.ReadAsStringAsync());
+        (await ErrorCode(tracking)).Should().Be("NOT_FOUND");
     }
 
     [Fact]
-    public async Task Tracking_number_rejected_on_deal_without_shipping()
+    public async Task Deliver_works_on_a_deal_without_shipping()
     {
         var buyer = await NewUser();
         var seller = await NewUser();
-        var r = await Post(buyer.Client, "/api/v1/deals", new
+        var r = await Post(seller.Client, "/api/v1/deals", new
         {
-            title = "Pickup item", sellerPhoneOrCode = seller.Phone, description = "No shipping",
+            title = "Pickup item", buyerPhoneOrCode = buyer.Phone, description = "No shipping",
             amount = 100m, durationValue = 1, durationUnit = "day", needShipping = false, acceptTerms = true
         });
         var id = (await Json(r)).GetProperty("data").GetProperty("id").GetInt64();
-        (await Post(seller.Client, $"/api/v1/deals/{id}/accept", new { acceptTerms = true })).StatusCode.Should().Be(HttpStatusCode.OK);
+        (await Post(buyer.Client, $"/api/v1/deals/{id}/accept", new { acceptTerms = true })).StatusCode.Should().Be(HttpStatusCode.OK);
         var fund = await Post(buyer.Client, $"/api/v1/deals/{id}/fund", null, Key());
         fund.StatusCode.Should().Be(HttpStatusCode.OK, await fund.Content.ReadAsStringAsync());
         var providerPaymentId = (await Json(fund)).GetProperty("data").GetProperty("providerPaymentId").GetString()!;
@@ -203,8 +220,7 @@ public class DealShippingTests(EtamidFactory factory) : IClassFixture<EtamidFact
         webhook.Headers.Add("X-Signature", HmacWebhookSignatureVerifier.Sign(EtamidFactory.WebhookSecret, body));
         (await _anon.SendAsync(webhook)).StatusCode.Should().Be(HttpStatusCode.OK);
 
-        var deliver = await Post(seller.Client, $"/api/v1/deals/{id}/deliver", new { trackingNumber = "X123" });
-        deliver.StatusCode.Should().Be(HttpStatusCode.OK);
-        (await deliver.Content.ReadAsStringAsync()).Should().Contain("trackingNumber");
+        (await Post(seller.Client, $"/api/v1/deals/{id}/deliver")).StatusCode.Should().Be(HttpStatusCode.OK);
+        (await DealDetail(buyer, id)).GetProperty("status").GetString().Should().Be("inspection");
     }
 }

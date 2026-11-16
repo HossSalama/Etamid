@@ -66,17 +66,17 @@ public class DisputeTests(EtamidFactory factory) : IClassFixture<EtamidFactory>
 
     private static async Task<long> CreateDeal(Party buyer, Party seller, decimal amount = 1000m, int hours = 24)
     {
-        var r = await Post(buyer.Client, "/api/v1/deals", new
+        var r = await Post(seller.Client, "/api/v1/deals", new
         {
-            title = "Used phone", sellerPhoneOrCode = seller.Phone, description = "iPhone in good condition",
+            title = "Used phone", buyerPhoneOrCode = buyer.Phone, description = "iPhone in good condition",
             amount, durationValue = hours, durationUnit = "hour", needShipping = false, acceptTerms = true
         });
         r.StatusCode.Should().Be(HttpStatusCode.Created, await r.Content.ReadAsStringAsync());
         return (await Json(r)).GetProperty("data").GetProperty("id").GetInt64();
     }
 
-    private static async Task Accept(Party seller, long dealId)
-        => (await Post(seller.Client, $"/api/v1/deals/{dealId}/accept", new { acceptTerms = true })).StatusCode.Should().Be(HttpStatusCode.OK);
+    private static async Task Accept(Party buyer, long dealId)
+        => (await Post(buyer.Client, $"/api/v1/deals/{dealId}/accept", new { acceptTerms = true })).StatusCode.Should().Be(HttpStatusCode.OK);
 
     private static async Task<string> StartFunding(Party buyer, long dealId, string? key = null)
     {
@@ -99,7 +99,7 @@ public class DisputeTests(EtamidFactory factory) : IClassFixture<EtamidFactory>
     private async Task<long> FundedDeal(Party buyer, Party seller, decimal amount = 1000m, int hours = 24)
     {
         var id = await CreateDeal(buyer, seller, amount, hours);
-        await Accept(seller, id);
+        await Accept(buyer, id);
         var providerPaymentId = await StartFunding(buyer, id);
         (await SendWebhook("evt_" + Key(), "payment.succeeded", providerPaymentId, amount)).StatusCode.Should().Be(HttpStatusCode.OK);
         return id;
