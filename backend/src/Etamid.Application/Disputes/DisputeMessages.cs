@@ -41,6 +41,9 @@ public sealed class PostDisputeMessageHandler(
         var (deal, dispute, senderType, isOperator) = await LoadOpenDisputeAsync(db, r.DealId, userId, ct);
         if (deal is null || dispute is null) return DealErrors.NotFound;
         if (senderType is null) return DealErrors.NotFound;
+        // The thread is buyer ↔ admin only (Shahd, 16 Nov 2026): the seller
+        // sees only that a dispute exists and cannot post in the thread.
+        if (senderType == DisputeSenderType.Seller) return DealErrors.NotAllowed;
         if (!DisputeMapper.IsOpen(dispute.Status)) return DisputeErrors.InvalidState;
         if (r.IsInternalNote && !isOperator) return DisputeErrors.NotAllowed;
 

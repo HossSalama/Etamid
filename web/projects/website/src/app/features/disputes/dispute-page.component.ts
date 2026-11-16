@@ -37,6 +37,23 @@ import { BottomNavComponent } from '../../core/components/bottom-nav/bottom-nav.
             <p>{{ lang.t('dispute_not_found') }}</p>
             <a routerLink="/home" class="btn btn-outline-coral" style="margin-top: 1rem;">{{ lang.t('back') }}</a>
           </div>
+        } @else if (dispute()!.role === 'seller') {
+          <!-- Seller: the notice + what the dispute is about (reason + details).
+               No thread, no composer, no attachments, no actions. -->
+          <section class="app-card dispute-card">
+            <h2 class="card-title">💬 {{ lang.t('dispute_title') }}</h2>
+            <p class="dispute-text">{{ lang.t('dispute_seller_notice') }}</p>
+            <div class="dispute-meta-grid">
+              <div class="meta-item">
+                <span class="meta-label">{{ lang.t('dispute_reason') }}</span>
+                <strong class="meta-value">{{ lang.isAr() ? dispute()!.reasonNameAr : dispute()!.reasonNameEn }}</strong>
+              </div>
+            </div>
+            <div class="dispute-details-box">
+              <span class="meta-label">{{ lang.t('dispute_details') }}:</span>
+              <p class="dispute-text">{{ dispute()!.details }}</p>
+            </div>
+          </section>
         } @else {
           <!-- Dispute Overview Card -->
           <section class="app-card dispute-card">
@@ -140,32 +157,6 @@ import { BottomNavComponent } from '../../core/components/bottom-nav/bottom-nav.
               </div>
             }
           </section>
-
-          <!-- Attachments -->
-          <section class="app-card dispute-card">
-            <h2 class="card-title">📁 {{ lang.t('dispute_attachments') }}</h2>
-            @if (!dispute()!.attachments.length) {
-              <p style="color: #6b7280; font-size: 0.9rem;">{{ lang.t('dispute_no_attachments') }}</p>
-            }
-            <div class="attachments-list">
-              @for (attachment of dispute()!.attachments; track attachment.id) {
-                <div class="attachment-item">
-                  <span>📄</span>
-                  <a [href]="attachment.fileUrl ?? undefined" target="_blank" rel="noopener" class="attachment-link">
-                    {{ attachment.fileName }} ↗
-                  </a>
-                  <small class="attachment-uploader">({{ attachment.uploadedByName ?? '' }})</small>
-                </div>
-              }
-            </div>
-            @if (dispute()!.availableActions.includes('send_message')) {
-              <label class="btn btn-sm btn-outline-coral file-attach-label" style="margin-top: 0.75rem; width: fit-content;">
-                + {{ lang.t('dispute_upload') }}
-                <input type="file" class="visually-hidden" (change)="onStandaloneFile($event)" />
-              </label>
-            }
-          </section>
-
 
           @if (error()) {
             <div class="badge badge-danger" style="width: 100%; padding: 0.6rem 0.8rem;">
@@ -321,26 +312,6 @@ import { BottomNavComponent } from '../../core/components/bottom-nav/bottom-nav.
       clip: rect(0, 0, 0, 0);
       border: 0;
     }
-    .attachments-list {
-      display: flex;
-      flex-direction: column;
-      gap: 0.5rem;
-    }
-    .attachment-item {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      font-size: 0.9rem;
-    }
-    .attachment-link {
-      color: #eb5757;
-      font-weight: 700;
-      &:hover { text-decoration: underline; }
-    }
-    .attachment-uploader {
-      color: #9ca3af;
-      font-size: 0.8rem;
-    }
     .dispute-actions-row {
       display: flex;
       gap: 0.65rem;
@@ -410,23 +381,6 @@ export class DisputePageComponent implements OnInit {
     const file = target.files?.[0] ?? null;
     this.messageFile = file;
     this.messageFileName.set(file?.name ?? null);
-  }
-
-  onStandaloneFile(event: Event): void {
-    const target = event.target as HTMLInputElement;
-    const file = target.files?.[0] ?? null;
-    if (!file) return;
-    this.dealsApi.uploadDisputeFile(file).subscribe({
-      next: (uploadRes) => {
-        const fileId = uploadRes.data?.fileId;
-        if (!fileId) return;
-        this.dealsApi.addDisputeAttachment(this.dealId, fileId).subscribe({
-          next: () => this.load(),
-          error: (err: unknown) => this.error.set(this.errorKey(err)),
-        });
-      },
-      error: (err: unknown) => this.error.set(this.errorKey(err)),
-    });
   }
 
   sendMessage(): void {

@@ -96,7 +96,7 @@ import { BottomNavComponent } from '../../core/components/bottom-nav/bottom-nav.
             }
           </section>
 
-          <h2 class="form-question">{{ lang.t('open_dispute_details') }}</h2>
+          <h2 class="form-question">{{ lang.t('open_dispute_details') }} <span class="required-star" aria-hidden="true">*</span></h2>
           <section class="app-card">
             <textarea
               [(ngModel)]="details"
@@ -139,7 +139,7 @@ import { BottomNavComponent } from '../../core/components/bottom-nav/bottom-nav.
             type="button"
             class="btn btn-black btn-block"
             (click)="openConfirm()"
-            [disabled]="isSubmitting() || isUploading()"
+            [disabled]="isSubmitting() || isUploading() || selectedReasonId === null || !details.trim()"
           >
             {{ lang.t('open_dispute_submit') }}
           </button>
@@ -179,11 +179,21 @@ import { BottomNavComponent } from '../../core/components/bottom-nav/bottom-nav.
     }
   `,
   styles: [`
+    /* The fixed bottom nav (72px + offset) covers the end of the page, so the
+       error badge below the submit button ends up hidden behind it — same
+       class of bug as the confirm sheet. The home screen already uses 110px. */
+    .open-dispute-page {
+      padding-bottom: 110px;
+    }
     .form-question {
       font-size: 1.1rem;
       font-weight: 850;
       color: #111827;
       margin: 1.25rem 0 0.6rem;
+    }
+    .required-star {
+      color: #eb5757;
+      font-weight: 850;
     }
     .card-title {
       font-size: 1.15rem;
@@ -473,8 +483,15 @@ export class OpenDisputePageComponent implements OnInit {
   }
 
   openConfirm(): void {
-    if (this.selectedReasonId === null || !this.details.trim()) {
-      this.error.set('open_dispute_error');
+    // Details are required by the backend (MustBeRequired, max 200): the
+    // button is already disabled until they are filled, but this is the
+    // backstop with a message that names the missing field.
+    if (this.selectedReasonId === null) {
+      this.error.set('open_dispute_reason_required');
+      return;
+    }
+    if (!this.details.trim()) {
+      this.error.set('open_dispute_details_required');
       return;
     }
     this.error.set(null);
@@ -487,7 +504,17 @@ export class OpenDisputePageComponent implements OnInit {
   }
 
   submit(): void {
-    if (this.selectedReasonId === null || !this.confirmed || this.isSubmitting()) return;
+    if (this.selectedReasonId === null) {
+      this.error.set('open_dispute_reason_required');
+      this.showConfirm.set(false);
+      return;
+    }
+    if (!this.details.trim()) {
+      this.error.set('open_dispute_details_required');
+      this.showConfirm.set(false);
+      return;
+    }
+    if (!this.confirmed || this.isSubmitting()) return;
     this.isSubmitting.set(true);
     this.error.set(null);
     this.dealsApi

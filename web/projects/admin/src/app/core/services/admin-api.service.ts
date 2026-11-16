@@ -213,23 +213,19 @@ export class AdminApiService {
     );
   }
 
-  executeAgreement(
-    disputeId: number,
-    body: {
-      resolution: 'ReleaseSeller' | 'RefundBuyer' | 'Partial';
-      sellerPercent?: number;
-      note: string;
-    },
-  ): Observable<ApiResponse<unknown>> {
-    return this.http.post<ApiResponse<unknown>>(
-      `/api/v1/admin/disputes/${disputeId}/execute-agreement`,
-      body,
+  /** Upload one dispute file. Purpose is fixed to `dispute` server-side. */
+  uploadDisputeFile(file: File): Observable<ApiResponse<{ fileId: string; fileUrl: string }>> {
+    const formData = new FormData();
+    formData.append('file', file, file.name);
+    return this.http.post<ApiResponse<{ fileId: string; fileUrl: string }>>(
+      '/api/v1/admin/uploads',
+      formData,
     );
   }
 
   sendDisputeDocuments(
     disputeId: number,
-    body: { note?: string },
+    body: { filePublicIds: string[] },
   ): Observable<ApiResponse<Dispute>> {
     return this.http.post<ApiResponse<Dispute>>(
       `/api/v1/admin/disputes/${disputeId}/send-documents`,

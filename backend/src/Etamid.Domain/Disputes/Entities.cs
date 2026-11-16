@@ -25,6 +25,8 @@ public sealed class Dispute : AuditableEntity<long>
     /// <summary>Deadline the operator set when requesting more information; null unless info was requested.</summary>
     public DateTime? InfoDeadlineAt { get; set; }
     public byte[] RowVersion { get; set; } = [];
+    /// <summary>Files attached at opening (standalone, no message). The navigation lets EF set DisputeId from the tracked dispute instead of a temporary key value.</summary>
+    public List<DisputeAttachment> Attachments { get; } = [];
 }
 
 public sealed class DisputeMessage : CreatedEntity<long>
@@ -35,6 +37,8 @@ public sealed class DisputeMessage : CreatedEntity<long>
     public long? SenderAdminId { get; set; }
     public string? Message { get; set; }
     public bool IsInternalNote { get; set; }
+    /// <summary>Files attached to this message. The navigation lets EF set MessageId from the tracked message instead of a temporary key value.</summary>
+    public List<DisputeAttachment> Attachments { get; } = [];
 }
 
 public sealed class DisputeAttachment : CreatedEntity<long>

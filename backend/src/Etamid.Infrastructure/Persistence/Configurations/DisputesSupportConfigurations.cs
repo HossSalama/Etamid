@@ -29,6 +29,9 @@ public sealed class DisputeConfiguration : IEntityTypeConfiguration<Dispute>
         b.ForeignKey<Dispute, Lookup>(x => x.ReasonId);
         b.ForeignKey<Dispute, AdminUser>(x => x.ResolvedByAdminId);
         b.ForeignKey<Dispute, AdminUser>(x => x.AssignedAdminId);
+        // Attachments are added through the navigation (see OpenDisputeHandler):
+        // EF sets DisputeId from the tracked dispute instead of a temporary key.
+        b.HasMany(d => d.Attachments).WithOne().HasForeignKey(a => a.DisputeId).OnDelete(DeleteBehavior.Restrict);
     }
 }
 
@@ -41,6 +44,9 @@ public sealed class DisputeMessageConfiguration : IEntityTypeConfiguration<Dispu
         b.ForeignKey<DisputeMessage, Dispute>(x => x.DisputeId);
         b.ForeignKey<DisputeMessage, User>(x => x.SenderUserId);
         b.ForeignKey<DisputeMessage, AdminUser>(x => x.SenderAdminId);
+        // Attachments are added through the navigation (see SendDisputeDocumentsHandler):
+        // EF sets MessageId from the tracked message instead of a temporary key.
+        b.HasMany(m => m.Attachments).WithOne().HasForeignKey(a => a.MessageId).OnDelete(DeleteBehavior.Restrict);
     }
 }
 
@@ -49,8 +55,9 @@ public sealed class DisputeAttachmentConfiguration : IEntityTypeConfiguration<Di
     public void Configure(EntityTypeBuilder<DisputeAttachment> b)
     {
         b.HasIndex(x => x.DisputeId);
-        b.ForeignKey<DisputeAttachment, Dispute>(x => x.DisputeId);
-        b.ForeignKey<DisputeAttachment, DisputeMessage>(x => x.MessageId);
+        // The Dispute / DisputeMessage links live on the principal side
+        // (DisputeConfiguration / DisputeMessageConfiguration, via the
+        // Attachments navigations); only the file and uploader links stay here.
         b.ForeignKey<DisputeAttachment, StoredFile>(x => x.FileId);
         b.ForeignKey<DisputeAttachment, User>(x => x.UploadedByUserId);
     }

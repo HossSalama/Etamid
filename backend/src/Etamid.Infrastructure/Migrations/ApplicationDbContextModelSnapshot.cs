@@ -4175,7 +4175,7 @@ namespace Etamid.Infrastructure.Migrations
             modelBuilder.Entity("Etamid.Domain.Disputes.DisputeAttachment", b =>
                 {
                     b.HasOne("Etamid.Domain.Disputes.Dispute", null)
-                        .WithMany()
+                        .WithMany("Attachments")
                         .HasForeignKey("DisputeId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
@@ -4187,7 +4187,7 @@ namespace Etamid.Infrastructure.Migrations
                         .IsRequired();
 
                     b.HasOne("Etamid.Domain.Disputes.DisputeMessage", null)
-                        .WithMany()
+                        .WithMany("Attachments")
                         .HasForeignKey("MessageId")
                         .OnDelete(DeleteBehavior.Restrict);
 
@@ -4624,6 +4624,15 @@ namespace Etamid.Infrastructure.Migrations
             modelBuilder.Entity("Etamid.Domain.Money.LedgerTransaction", b =>
                 {
                     b.Navigation("Entries");
+                });
+            modelBuilder.Entity("Etamid.Domain.Disputes.Dispute", b =>
+                {
+                    b.Navigation("Attachments");
+                });
+
+            modelBuilder.Entity("Etamid.Domain.Disputes.DisputeMessage", b =>
+                {
+                    b.Navigation("Attachments");
                 });
 #pragma warning restore 612, 618
         }

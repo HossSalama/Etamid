@@ -537,13 +537,6 @@ export class DealsService {
     });
   }
 
-  addDisputeAttachment(dealId: number, filePublicId: string): Observable<ApiResponse<DisputeAttachment>> {
-    return this.http.post<ApiResponse<DisputeAttachment>>(
-      `${this.baseUrl}/deals/${dealId}/dispute/attachments`,
-      { filePublicId },
-    );
-  }
-
   rateDeal(id: number, stars: number, comment?: string): Observable<ApiResponse<unknown>> {
     return this.http.post<ApiResponse<unknown>>(`${this.baseUrl}/deals/${id}/rating`, {
       stars,

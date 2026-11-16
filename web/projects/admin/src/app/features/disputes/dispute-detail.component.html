@@ -99,11 +99,7 @@
       <div class="admin-card-header"><h3 class="admin-card-title">{{ lang.t('actions') }}</h3></div>
       <div class="admin-card-body" style="display:flex;gap:0.75rem;flex-wrap:wrap">
         <button class="btn btn-secondary" (click)="openReqInfo()">{{ lang.t('dis_request_info') }}</button>
-        <button class="btn btn-primary" (click)="openExecute()">{{ lang.t('dis_execute_agreement') }}</button>
         <button class="btn btn-secondary" (click)="openSendDocs()">{{ lang.t('dis_send_documents') }}</button>
-      </div>
-      <div class="admin-card-body" style="padding-top:0;color:#6b7280;font-size:0.85rem">
-        {{ lang.t('dis_execute_hint') }}
       </div>
     </div>
   }
@@ -137,62 +133,29 @@
   </div>
 }
 
-@if (showExecute()) {
-  <div class="modal-backdrop" (click)="closeExecute()">
-    <div class="modal-box" (click)="$event.stopPropagation()">
-      <div class="modal-header"><h3 class="modal-title">{{ lang.t('dis_execute_agreement') }}</h3><button class="btn btn-ghost btn-sm btn-icon" (click)="closeExecute()">✕</button></div>
-      <div class="modal-body">
-        <div style="display:flex;flex-direction:column;gap:1rem">
-          <p style="color:#6b7280;font-size:0.9rem;margin:0">{{ lang.t('dis_execute_hint') }}</p>
-          <div class="form-group">
-            <label class="form-label required">{{ lang.t('dis_resolution') }}</label>
-            <select class="form-control" [(ngModel)]="executeRes">
-              <option value="ReleaseSeller">{{ lang.t('dis_res_release') }}</option>
-              <option value="RefundBuyer">{{ lang.t('dis_res_refund') }}</option>
-              <option value="Partial">{{ lang.t('dis_res_partial') }}</option>
-            </select>
-          </div>
-          @if (executeRes() === 'Partial') {
-            <div class="form-group">
-              <label class="form-label required">{{ lang.t('dis_seller_percent') }}</label>
-              <input class="form-control" type="number" [(ngModel)]="executePercent" min="1" max="99" />
-            </div>
-          }
-          <div class="form-group">
-            <label class="form-label required">{{ lang.t('note') }}</label>
-            <textarea class="form-control" [(ngModel)]="executeNote" rows="3"></textarea>
-          </div>
-          @if (executeError()) { <div class="auth-error">{{ executeError() }}</div> }
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button class="btn btn-secondary" (click)="closeExecute()" [disabled]="executeLoading()">{{ lang.t('cancel') }}</button>
-        <button class="btn btn-primary" (click)="submitExecute()" [disabled]="executeLoading()">
-          @if (executeLoading()) { <span class="spinner spinner-sm"></span> }
-          {{ lang.t('confirm') }}
-        </button>
-      </div>
-    </div>
-  </div>
-}
-
 @if (showSendDocs()) {
   <div class="modal-backdrop" (click)="closeSendDocs()">
     <div class="modal-box" (click)="$event.stopPropagation()">
       <div class="modal-header"><h3 class="modal-title">{{ lang.t('dis_send_documents') }}</h3><button class="btn btn-ghost btn-sm btn-icon" (click)="closeSendDocs()">✕</button></div>
       <div class="modal-body">
         <div style="display:flex;flex-direction:column;gap:1rem">
-          <p style="color:#6b7280;font-size:0.9rem;margin:0">{{ lang.t('dis_send_docs_hint') }}</p>
           <div class="form-group">
-            <label class="form-label">{{ lang.t('note') }}</label>
-            <textarea class="form-control" [(ngModel)]="sendDocsNote" rows="3"></textarea>
+            <label class="form-label required">{{ lang.t('dis_send_docs_files') }}</label>
+            <input class="form-control" type="file" accept="image/*,.pdf" multiple (change)="onSendDocsFiles($event)" />
+            @if (sendDocsFiles().length) {
+              <ul style="margin:0.5rem 0 0;padding-inline-start:1.25rem;font-size:0.9rem">
+                @for (file of sendDocsFiles(); track file.name) {
+                  <li>{{ file.name }}</li>
+                }
+              </ul>
+            }
           </div>
           @if (sendDocsError()) { <div class="auth-error">{{ sendDocsError() }}</div> }
         </div>
       </div>
       <div class="modal-footer">
         <button class="btn btn-secondary" (click)="closeSendDocs()" [disabled]="sendDocsLoading()">{{ lang.t('cancel') }}</button>
-        <button class="btn btn-primary" (click)="submitSendDocs()" [disabled]="sendDocsLoading()">
+        <button class="btn btn-primary" (click)="submitSendDocs()" [disabled]="sendDocsLoading() || !sendDocsFiles().length">
           @if (sendDocsLoading()) { <span class="spinner spinner-sm"></span> }
           {{ lang.t('confirm') }}
         </button>

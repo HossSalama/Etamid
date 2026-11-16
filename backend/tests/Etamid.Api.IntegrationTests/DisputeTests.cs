@@ -148,6 +148,16 @@ public class DisputeTests(EtamidFactory factory) : IClassFixture<EtamidFactory>
         return (await Json(r)).GetProperty("data").GetProperty("fileId").GetString()!;
     }
 
+    // The admin uploads a dispute document (no app-user owner; purpose fixed to dispute).
+    private static async Task<string> UploadAdminFile(AdminClient admin)
+    {
+        using var content = new MultipartFormDataContent();
+        content.Add(new ByteArrayContent(PngBytes), "file", "court-documents.png");
+        var r = await admin.Client.PostAsync("/api/v1/admin/uploads", content);
+        r.StatusCode.Should().Be(HttpStatusCode.Created, await r.Content.ReadAsStringAsync());
+        return (await Json(r)).GetProperty("data").GetProperty("fileId").GetString()!;
+    }
+
     private Task<decimal?> WalletBalanceOf(long userId) => Db(db =>
         db.Wallets.AsNoTracking().Where(w => w.UserId == userId).Select(w => (decimal?)w.AvailableBalance).FirstOrDefaultAsync());
 
@@ -226,11 +236,16 @@ public class DisputeTests(EtamidFactory factory) : IClassFixture<EtamidFactory>
         var dealId = await InspectionDeal(buyer, seller);
 
         var fileId = await UploadDisputeFile(buyer);
-        await OpenDispute(buyer, dealId, new[] { fileId });
+        var disputeId = await OpenDispute(buyer, dealId, new[] { fileId });
 
         var detail = await Data(await buyer.Client.GetAsync($"/api/v1/deals/{dealId}/dispute"));
         detail.GetProperty("attachments").GetArrayLength().Should().Be(1);
         detail.GetProperty("attachments")[0].GetProperty("fileName").GetString().Should().Be("damage.png");
+
+        // The attachment is linked to the real dispute id (not a temporary EF key).
+        var linked = await Db(db => db.DisputeAttachments.AsNoTracking()
+            .CountAsync(a => a.DisputeId == disputeId));
+        linked.Should().Be(1);
     }
 
     [Fact]
@@ -253,27 +268,27 @@ public class DisputeTests(EtamidFactory factory) : IClassFixture<EtamidFactory>
     }
 
     [Fact]
-    public async Task Messages_are_visible_only_to_the_admin_and_their_own_author()
+    public async Task Messages_are_visible_only_to_the_buyer_and_the_admin_the_seller_sees_the_reason_and_details()
     {
         var buyer = await NewUser();
         var seller = await NewUser();
         var dealId = await InspectionDeal(buyer, seller);
-        await OpenDispute(buyer, dealId);
+        var disputeId = await OpenDispute(buyer, dealId);
 
         var buyerMessage = await Post(buyer.Client, $"/api/v1/deals/{dealId}/dispute/messages",
             new { message = "The screen is cracked." });
         buyerMessage.StatusCode.Should().Be(HttpStatusCode.Created, await buyerMessage.Content.ReadAsStringAsync());
         (await Data(buyerMessage)).GetProperty("senderType").GetString().Should().Be("buyer");
 
+        // The thread is buyer ↔ admin only: the seller cannot post in it.
         var sellerMessage = await Post(seller.Client, $"/api/v1/deals/{dealId}/dispute/messages",
             new { message = "It was fine when I shipped it." });
-        sellerMessage.StatusCode.Should().Be(HttpStatusCode.Created, await sellerMessage.Content.ReadAsStringAsync());
-        (await Data(sellerMessage)).GetProperty("senderType").GetString().Should().Be("seller");
+        sellerMessage.StatusCode.Should().Be(HttpStatusCode.OK);
+        ErrorCode(await Json(sellerMessage)).Should().Be("DEAL_ACTION_NOT_ALLOWED");
 
-        // The admin mediates in the thread: a visible message reaches both parties,
+        // The admin mediates in the thread: a visible message reaches the buyer,
         // an internal note reaches nobody but the admins.
         var admin = await AdminOperator();
-        var disputeId = await DisputeIdOf(buyer, dealId);
 
         var adminMessage = await Post(admin.Client, $"/api/v1/admin/disputes/{disputeId}/messages",
             new { message = "Please send photos of the damage.", isInternalNote = false });
@@ -285,23 +300,33 @@ public class DisputeTests(EtamidFactory factory) : IClassFixture<EtamidFactory>
         internalNote.StatusCode.Should().Be(HttpStatusCode.Created, await internalNote.Content.ReadAsStringAsync());
         (await Data(internalNote)).GetProperty("isInternalNote").GetBoolean().Should().BeTrue();
 
-        // Each party sees only its own message plus the admin's visible one —
-        // never the other party's message, never the internal note.
+        // The buyer sees only its own message plus the admin's visible one —
+        // never the internal note.
         var buyerView = await Data(await buyer.Client.GetAsync($"/api/v1/deals/{dealId}/dispute"));
         buyerView.GetProperty("messages").GetArrayLength().Should().Be(2);
         buyerView.GetProperty("messages")[0].GetProperty("senderType").GetString().Should().Be("buyer");
         buyerView.GetProperty("messages")[1].GetProperty("senderType").GetString().Should().Be("admin");
 
+        // The seller sees no thread — no messages, no attachments, no
+        // actions — but he does see what the dispute is about: the reason
+        // and the details (Shahd, 16 Nov 2026).
         var sellerView = await Data(await seller.Client.GetAsync($"/api/v1/deals/{dealId}/dispute"));
-        sellerView.GetProperty("messages").GetArrayLength().Should().Be(2);
-        sellerView.GetProperty("messages")[0].GetProperty("senderType").GetString().Should().Be("seller");
-        sellerView.GetProperty("messages")[1].GetProperty("senderType").GetString().Should().Be("admin");
+        sellerView.GetProperty("role").GetString().Should().Be("seller");
+        sellerView.GetProperty("messages").GetArrayLength().Should().Be(0);
+        sellerView.GetProperty("attachments").GetArrayLength().Should().Be(0);
+        sellerView.GetProperty("availableActions").GetArrayLength().Should().Be(0);
+        sellerView.GetProperty("details").GetString().Should().Be("The item arrived damaged.");
+        sellerView.GetProperty("reasonId").GetInt64().Should().Be(DisputeReason);
+        sellerView.GetProperty("reasonNameAr").GetString().Should().Be("لم أستلم المنتج");
+        sellerView.GetProperty("reasonNameEn").GetString().Should().Be("I did not receive the product");
+        sellerView.GetProperty("number").GetString().Should().Be($"DSP-{dealId:D6}");
+        sellerView.GetProperty("status").GetString().Should().Be("under_review");
 
         // The admin sees everything, including the internal note, attributed to no app user.
         var adminView = await AdminDisputeDetail(admin, disputeId);
-        adminView.GetProperty("messages").GetArrayLength().Should().Be(4);
-        adminView.GetProperty("messages")[3].GetProperty("isInternalNote").GetBoolean().Should().BeTrue();
-        adminView.GetProperty("messages")[3].GetProperty("senderName").ValueKind.Should().Be(JsonValueKind.Null);
+        adminView.GetProperty("messages").GetArrayLength().Should().Be(3);
+        adminView.GetProperty("messages")[2].GetProperty("isInternalNote").GetBoolean().Should().BeTrue();
+        adminView.GetProperty("messages")[2].GetProperty("senderName").ValueKind.Should().Be(JsonValueKind.Null);
     }
 
     [Fact]
@@ -416,20 +441,23 @@ public class DisputeTests(EtamidFactory factory) : IClassFixture<EtamidFactory>
         var admin = await AdminOperator();
         var disputeId = await DisputeIdOf(buyer, dealId);
 
-        // The parties could not agree: the admin sends the documents to the buyer
-        // so the buyer can take the case to court. Nothing moves, nothing closes.
+        // The admin uploads the court documents, then sends them: the files are
+        // attached to an admin message with no text — no sentence, no note.
+        var fileId = await UploadAdminFile(admin);
         var sent = await Post(admin.Client, $"/api/v1/admin/disputes/{disputeId}/send-documents",
-            new { note = "The parties could not agree." });
+            new { filePublicIds = new[] { fileId } });
         sent.StatusCode.Should().Be(HttpStatusCode.OK, await sent.Content.ReadAsStringAsync());
         (await Data(sent)).GetProperty("status").GetString().Should().Be("under_review");
 
-        // The message is an admin message, so both parties see it in the thread.
+        // The buyer sees an admin message with the file and no text; the seller sees nothing.
         var buyerView = await Data(await buyer.Client.GetAsync($"/api/v1/deals/{dealId}/dispute"));
         buyerView.GetProperty("messages").GetArrayLength().Should().Be(1);
-        buyerView.GetProperty("messages")[0].GetProperty("message").GetString().Should().Contain("sent to the buyer");
+        buyerView.GetProperty("messages")[0].GetProperty("message").ValueKind.Should().Be(JsonValueKind.Null);
+        buyerView.GetProperty("messages")[0].GetProperty("attachments").GetArrayLength().Should().Be(1);
+        buyerView.GetProperty("messages")[0].GetProperty("attachments")[0].GetProperty("fileName").GetString().Should().Be("court-documents.png");
 
         var sellerView = await Data(await seller.Client.GetAsync($"/api/v1/deals/{dealId}/dispute"));
-        sellerView.GetProperty("messages").GetArrayLength().Should().Be(1);
+        sellerView.GetProperty("messages").GetArrayLength().Should().Be(0);
 
         (await DisputeTransactionCount(dealId)).Should().Be(0);
         (await DealStatusOf(buyer, dealId)).Should().Be("disputed");
@@ -440,7 +468,7 @@ public class DisputeTests(EtamidFactory factory) : IClassFixture<EtamidFactory>
         executed.StatusCode.Should().Be(HttpStatusCode.OK, await executed.Content.ReadAsStringAsync());
 
         var again = await Post(admin.Client, $"/api/v1/admin/disputes/{disputeId}/send-documents",
-            new { note = "Too late." });
+            new { filePublicIds = new[] { fileId } });
         again.StatusCode.Should().Be(HttpStatusCode.OK);
         ErrorCode(await Json(again)).Should().Be("DISPUTE_ALREADY_RESOLVED");
     }

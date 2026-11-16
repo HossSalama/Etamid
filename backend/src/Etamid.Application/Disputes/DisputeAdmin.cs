@@ -7,6 +7,7 @@ using Etamid.Application.Identity.Validation;
 using Etamid.Application.Notifications;
 using Etamid.Domain.Deals;
 using Etamid.Domain.Disputes;
+using Etamid.Domain.Files;
 using Etamid.Domain.Money;
 using Etamid.Domain.Notifications;
 using Etamid.SharedKernel;
@@ -269,15 +270,21 @@ public sealed class ExecuteAgreementHandler(
 // (design decision, 16 Nov 2026). This moves no money and closes nothing —
 // the deal stays Disputed and the escrow stays frozen until the case is
 // resolved outside the system.
+// The admin uploads the documents first (POST /admin/api/uploads) and sends
+// their ids here. The files are attached to an admin message with no text —
+// no sentence, no note (Shahd, 16 Nov 2026): the attachment itself is the
+// action, and the buyer sees the files in the thread.
 
-public sealed record SendDisputeDocumentsCommand(long DisputeId, string? Note = null)
+public sealed record SendDisputeDocumentsCommand(long DisputeId, List<string>? FilePublicIds)
     : IRequest<Result<DisputeDetailDto>>;
 
 public sealed class SendDisputeDocumentsValidator : AbstractValidator<SendDisputeDocumentsCommand>
 {
     public SendDisputeDocumentsValidator()
     {
-        RuleFor(x => x.Note!).MaximumLength(500).WithErrorCode("TOO_LONG").When(x => x.Note is not null);
+        RuleFor(x => x.FilePublicIds).NotNull().WithErrorCode("REQUIRED");
+        RuleFor(x => x.FilePublicIds!).NotEmpty().WithErrorCode("REQUIRED");
+        RuleFor(x => x.FilePublicIds!).Must(ids => ids.Count <= 5).WithErrorCode("TOO_MANY_FILES");
     }
 }
 
@@ -296,20 +303,49 @@ public sealed class SendDisputeDocumentsHandler(
         if (dispute is null) return DisputeErrors.NotFound;
         if (!DisputeMapper.IsOpen(dispute.Status)) return DisputeErrors.AlreadyResolved;
 
+        // Every id must parse, exist, and be an unattached dispute file
+        // (uploaded by the admin for this purpose); otherwise nothing is sent.
+        var publicIds = new List<Guid>();
+        foreach (var raw in r.FilePublicIds ?? [])
+        {
+            if (string.IsNullOrWhiteSpace(raw) || !Guid.TryParse(raw.Trim(), out var parsed))
+                return Error.Validation("INVALID_VALUE", "filePublicIds");
+            if (!publicIds.Contains(parsed)) publicIds.Add(parsed);
+        }
+        var stored = publicIds.Count == 0
+            ? new List<StoredFile>()
+            : await db.Files.Where(f => publicIds.Contains(f.PublicId)).ToListAsync(ct);
+        if (stored.Count != publicIds.Count
+            || stored.Any(f => f.Purpose != FilePurpose.Dispute || f.Status != FileStatus.Uploaded))
+            return Error.Validation("INVALID_VALUE", "filePublicIds");
+
         var statusBefore = dispute.Status;
 
-        var text = "The dispute documents were sent to the buyer so they can take the case to court.";
-        if (!string.IsNullOrWhiteSpace(r.Note)) text += " " + r.Note.Trim();
-
         // Attributed to the admin (SenderAdminId), not to an app user: an admin id is not a user id.
-        db.DisputeMessages.Add(new DisputeMessage
+        // No text on the message — the attached files are the documents being sent.
+        var message = new DisputeMessage
         {
             DisputeId = dispute.Id,
             SenderType = DisputeSenderType.Admin,
             SenderAdminId = admin.Id,
-            Message = text,
+            Message = null,
             IsInternalNote = false
-        });
+        };
+        // The message navigation sets MessageId; DisputeId must be set by hand —
+        // DetailAsync loads attachments by DisputeId, and the FK is required,
+        // so a missing DisputeId would leave the file invisible (and break the
+        // insert on SQL Server, which enforces the FK).
+        db.DisputeMessages.Add(message);
+        foreach (var file in stored)
+        {
+            file.Status = FileStatus.Attached;
+            message.Attachments.Add(new DisputeAttachment
+            {
+                DisputeId = dispute.Id,
+                FileId = file.Id,
+                UploadedByUserId = null
+            });
+        }
 
         var deal = await db.Deals.FirstOrDefaultAsync(d => d.Id == dispute.DealId, ct);
         if (deal is not null)
@@ -321,7 +357,7 @@ public sealed class SendDisputeDocumentsHandler(
 
         audit.Record(Etamid.Domain.Admin.AuditActorType.Admin, admin.Id, "admin.dispute.send_documents", "Dispute", dispute.Id,
             new { status = statusBefore.ToString() },
-            new { status = dispute.Status.ToString(), documentsSentToBuyer = true, note = r.Note });
+            new { status = dispute.Status.ToString(), documentsSentToBuyer = true, fileCount = stored.Count });
 
         var saved = await db.SaveGuardedAsync(ct);
         if (saved.IsFailure) return saved.Error;

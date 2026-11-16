@@ -329,13 +329,15 @@ public sealed class OpenDisputeHandler(IApplicationDbContext db, ICurrentUser cu
         db.Disputes.Add(dispute);
 
         // Files attached at opening (standalone attachments, no message).
-        // The dispute's id is a temporary EF value until the save below; EF fixes it up.
+        // Attached through the dispute's navigation, so EF sets DisputeId from the
+        // tracked dispute — never a temporary key value (setting DisputeId to the
+        // temporary id broke the save on real SQL Server: open-with-file returned
+        // INTERNAL_ERROR while open-without-file worked).
         foreach (var file in files)
         {
             file.Status = FileStatus.Attached;
-            db.DisputeAttachments.Add(new DisputeAttachment
+            dispute.Attachments.Add(new DisputeAttachment
             {
-                DisputeId = dispute.Id,
                 MessageId = null,
                 FileId = file.Id,
                 UploadedByUserId = userId
