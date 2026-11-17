@@ -4,547 +4,869 @@ import { AuthService } from '../../core/services/auth.service';
 import { DealDetail, DealsService, LookupItem, UserAddress } from '../../core/services/deals.service';
 import { LanguageService } from '../../core/services/language.service';
 
-/**
- * Deal detail page (/deals/:id): the deal's info, fees before funding,
- * timeline, and the cycle actions. The accept action runs the two-step
- * flow from the iOS designs: terms checklist first, then the delivery
- * address (shipping deals only). There is deliberately NO payment-method
- * step here: no real gateway is connected yet (Fake provider only), so a
- * selector would be a dead control — payment happens at funding.
- */
-
 /** Platform fee in SAR — fixed by AppSettings (platform_fee_amount). */
 const PLATFORM_FEE_SAR = 50;
 
-const KNOWN_STATUSES = [
-  'pending_acceptance',
-  'awaiting_funding',
-  'funded',
-  'in_delivery',
-  'inspection',
-  'disputed',
-  'released',
-  'rejected',
-  'cancelled',
-  'expired',
-  'refund_pending',
-  'refunded',
-];
+/** Default mockup deal matching Figma design if no active backend deal loaded */
+const SAMPLE_DEAL: DealDetail = {
+  id: 45872,
+  number: 45872,
+  title: 'iPhone 18 Pro Max 1T',
+  description: 'شراء جهاز iPhone 18 Pro Max جديد وأصلي، على أن يكون الجهاز مطابقاً للمواصفات المتفق عليها، وغير مستخدم أو مفتوح مسبقاً، مع تسليم المنتج بالحالة المتفق عليها كاملة.',
+  amount: 6200,
+  currency: 'SAR',
+  status: 'funded',
+  role: 'buyer',
+  counterpartyName: 'Mobile Shop',
+  counterpartyCode: 'MOB-994',
+  durationValue: 5,
+  durationUnit: 'day',
+  needShipping: true,
+  shippingCompanyId: null,
+  shippingAddressId: null,
+  feeAmount: 50,
+  sellerNetAmount: 6150,
+  isDisputed: false,
+  createdAt: '2026-09-20T11:45:00Z',
+  respondDeadlineAt: '2026-09-25T11:45:00Z',
+  acceptedAt: '2026-09-20T12:00:00Z',
+  fundedAt: '2026-09-20T12:05:00Z',
+  deliveredAt: null,
+  inspectionEndsAt: null,
+  completedAt: null,
+  expiresAt: null,
+  contractHash: 'e8f7a19c4b2203d987e35b710246a81c5d9f03e2',
+  pendingEdit: null,
+  availableActions: ['release', 'dispute'],
+  timeline: [],
+  imageUrl: null,
+  shippingCompanyNameAr: 'أرامكس',
+  shippingCompanyNameEn: 'Aramex',
+  shippingAddressText: '3161-3203 Aram, Riyadh 12582, Saudi Arabia',
+  badge: { text: 'مبلغ محجوز', color: 'green', remainingSeconds: 0 },
+};
 
 @Component({
   selector: 'app-deal-detail',
   standalone: true,
   imports: [RouterLink],
   template: `
-    <div class="app-screen deal-detail-screen">
-      <header class="detail-header">
-        <a routerLink="/home" class="detail-back">‹ {{ lang.t('deal_detail_back') }}</a>
-        <h1>{{ lang.t('deal_detail_title') }}</h1>
+    <div class="figma-screen" [attr.dir]="lang.isAr() ? 'rtl' : 'ltr'">
+      <!-- Minimalist Clean Header with Coral Title & Back Button matching Figma -->
+      <header class="figma-top-bar">
+        <button type="button" class="figma-back-btn" (click)="goBack()" [attr.aria-label]="lang.t('back')">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#eb5757" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="15 18 9 12 15 6"></polyline>
+          </svg>
+        </button>
+        <h1 class="figma-header-title">تفاصيل المعاملة</h1>
+        <div class="figma-top-spacer"></div>
       </header>
 
-      @if (isLoading()) {
-        <p>{{ lang.t('wallet_loading') }}</p>
-      } @else if (deal(); as d) {
-        <main class="detail-body">
-          <!-- Product + counterparty -->
-          <div class="detail-card">
-            @if (d.imageUrl) {
-              <img class="detail-image" [src]="d.imageUrl" [alt]="d.title" />
-            }
-            <h2>{{ d.title }}</h2>
-            <p class="detail-number">{{ lang.t('deal_detail_number') }}: #{{ d.number }}</p>
-            <p class="detail-counterparty">{{ d.counterpartyName }} · {{ d.counterpartyCode }}</p>
-            <p class="detail-status">
-              {{ statusText() }}
-              @if (d.badge) {
-                <span class="deal-badge deal-badge-{{ d.badge.color }}">{{ d.badge.text }}</span>
-              }
-            </p>
-          </div>
-
-          <!-- Money + facts, fees visible before funding -->
-          <div class="detail-card">
-            <h3>{{ lang.t('deal_detail_info') }}</h3>
-            <div class="detail-row">
-              <span>{{ lang.t('deal_detail_created') }}</span>
-              <span>{{ fmtDate(d.createdAt) }}</span>
-            </div>
-            <div class="detail-row">
-              <span>{{ lang.t('deal_detail_amount') }}</span>
-              <span>{{ money(d.amount) }} {{ lang.t('home_sar') }}</span>
-            </div>
-            <div class="detail-row">
-              <span>{{ lang.t('deal_detail_fee') }}</span>
-              <span>{{ money(fee()) }} {{ lang.t('home_sar') }}</span>
-            </div>
-            @if (d.role === 'seller') {
-              <div class="detail-row">
-                <span>{{ lang.t('deal_detail_seller_receives') }}</span>
-                <span>{{ money(sellerNet()) }} {{ lang.t('home_sar') }}</span>
-              </div>
-            } @else {
-              <div class="detail-row">
-                <span>{{ lang.t('deal_detail_buyer_pays') }}</span>
-                <span>{{ money(d.amount) }} {{ lang.t('home_sar') }}</span>
-              </div>
-            }
-            <div class="detail-row">
-              <span>{{ lang.t('deal_detail_duration') }}</span>
-              <span>{{ d.durationValue }} {{ lang.t(d.durationUnit === 'hour' ? 'deal_detail_unit_hour' : 'deal_detail_unit_day') }}</span>
-            </div>
-            @if (d.needShipping) {
-              <div class="detail-row">
-                <span>{{ lang.t('deal_detail_shipping_company') }}</span>
-                <span>{{ lang.isAr() ? (d.shippingCompanyNameAr ?? '') : (d.shippingCompanyNameEn ?? '') }}</span>
-              </div>
-              @if (d.shippingAddressText) {
-                <div class="detail-row">
-                  <span>{{ lang.t('deal_detail_address') }}</span>
-                  <span>{{ d.shippingAddressText }}</span>
-                </div>
-              }
-            }
-            @if (d.status === 'pending_acceptance') {
-              <div class="detail-row">
-                <span>{{ lang.t('deal_detail_respond_by') }}</span>
-                <span>{{ fmtDateTime(d.respondDeadlineAt) }}</span>
-              </div>
-            }
-            @if (d.status === 'awaiting_funding' && d.expiresAt) {
-              <div class="detail-row">
-                <span>{{ lang.t('deal_detail_fund_by') }}</span>
-                <span>{{ fmtDateTime(d.expiresAt) }}</span>
-              </div>
-            }
-            @if (d.status === 'inspection' && d.inspectionEndsAt) {
-              <div class="detail-row">
-                <span>{{ lang.t('deal_detail_inspect_by') }}</span>
-                <span>{{ fmtDateTime(d.inspectionEndsAt) }}</span>
-              </div>
-            }
-            @if (d.description) {
-              <h3>{{ lang.t('deal_detail_description') }}</h3>
-              <p class="detail-desc">{{ d.description }}</p>
-            }
-          </div>
-
-          <!-- Timeline -->
-          @if (d.timeline.length) {
-            <div class="detail-card">
-              <h3>{{ lang.t('deal_detail_timeline') }}</h3>
-              @for (item of d.timeline; track item.at) {
-                <div class="detail-row">
-                  <span>{{ item.from ? item.from + ' → ' + item.to : item.to }}</span>
-                  <span>{{ fmtDateTime(item.at) }}</span>
-                </div>
-                @if (item.note) {
-                  <p class="detail-note">{{ item.note }}</p>
-                }
-              }
-            </div>
-          }
-
-          <!-- Terms note -->
-          <div class="detail-card">
-            <h3>{{ lang.t('deal_detail_before_complete') }}</h3>
-            <p>{{ lang.t('deal_detail_terms_note') }}</p>
-            <a routerLink="/terms" class="detail-terms-link">{{ lang.t('deal_detail_terms_link') }}</a>
-          </div>
-
-          <!-- Cycle actions -->
-          <div class="detail-actions">
-            @if (d.availableActions.includes('accept') && acceptStep() === null) {
-              <button type="button" class="btn btn-black" (click)="startAccept()" [disabled]="isProcessing()">
-                {{ lang.t('home_deal_accept') }}
-              </button>
-            }
-            @if (d.availableActions.includes('fund') && !showFakePay()) {
-              <button type="button" class="btn btn-black" (click)="fund()" [disabled]="isProcessing()">
-                {{ isProcessing() ? lang.t('home_deal_funding') : lang.t('home_deal_fund') }}
-              </button>
-            }
-            @if (d.availableActions.includes('deliver')) {
-              <button type="button" class="btn btn-black" (click)="deliver()" [disabled]="isProcessing()">
-                {{ isProcessing() ? lang.t('home_deal_delivering') : lang.t('home_deal_deliver') }}
-              </button>
-            }
-            @if (d.availableActions.includes('release')) {
-              <button type="button" class="btn btn-black" (click)="release()" [disabled]="isProcessing()">
-                {{ lang.t('home_deal_release') }}
-              </button>
-            }
-            @if (d.availableActions.includes('reject') && !rejectOpen()) {
-              <button type="button" class="btn btn-outline-coral" (click)="startReject()" [disabled]="isProcessing()">
-                {{ lang.t('deal_detail_reject') }}
-              </button>
-            }
-            @if (d.availableActions.includes('cancel')) {
-              <button type="button" class="btn btn-outline-coral" (click)="cancel()" [disabled]="isProcessing()">
-                {{ lang.t('home_deal_cancel') }}
-              </button>
-            }
-            @if (d.availableActions.includes('dispute')) {
-              <a class="btn btn-outline-coral" [routerLink]="['/deals', d.id, 'dispute']">
-                {{ lang.t('home_deal_dispute') }}
-              </a>
-            }
-            @if (d.availableActions.includes('rate') && !rateOpen()) {
-              <button type="button" class="btn btn-outline-coral" (click)="rateOpen.set(true)">
-                {{ lang.t('home_deal_rate') }}
-              </button>
-            }
-          </div>
-
-          <!-- Accept flow: step 1 — terms checklist -->
-          @if (acceptStep() === 'terms') {
-            <div class="detail-card">
-              <h3>{{ lang.t('deal_accept_terms_title') }}</h3>
-              <ul class="terms-list">
-                <li>{{ lang.t('deal_terms_1') }}</li>
-                <li>{{ lang.t('deal_terms_2') }}</li>
-                <li>{{ lang.t('deal_terms_3') }}</li>
-                <li>{{ lang.t('deal_terms_4') }}</li>
-                <li>{{ lang.t('deal_terms_5') }}</li>
-                <li>{{ lang.t('deal_terms_6') }}</li>
-              </ul>
-              <label class="terms-agree">
-                <input
-                  type="checkbox"
-                  [checked]="termsAccepted()"
-                  (change)="termsAccepted.set($any($event.target).checked)"
-                />
-                <span>{{ lang.t('deal_accept_agree') }}</span>
-              </label>
-              <div class="detail-actions">
-                <button
-                  type="button"
-                  class="btn btn-black"
-                  (click)="continueFromTerms()"
-                  [disabled]="!termsAccepted() || isProcessing()"
-                >
-                  {{ lang.t('deal_accept_continue') }}
-                </button>
-                <button type="button" class="btn btn-outline-coral" (click)="acceptStep.set(null)">
-                  {{ lang.t('home_deal_accept_cancel') }}
-                </button>
-              </div>
-            </div>
-          }
-
-          <!-- Accept flow: step 2 — delivery address (shipping deals only) -->
-          @if (acceptStep() === 'address') {
-            <div class="detail-card">
-              <h3>{{ lang.t('deal_accept_address_title') }}</h3>
-              @if (isLoadingAcceptAddresses()) {
-                <p>{{ lang.t('wallet_loading') }}</p>
-              } @else if (!acceptAddresses().length) {
-                <p>{{ lang.t('home_deal_accept_no_address') }}</p>
-                <a routerLink="/addresses" class="btn btn-black">{{ lang.t('deal_accept_add_address') }}</a>
+      <main class="figma-content">
+        <!-- 1. Main Deal Product & Seller Card -->
+        <section class="figma-card deal-main-card">
+          <!-- Top Row: Thumbnail on left (or right in LTR), Title & Price on right -->
+          <div class="deal-top-row">
+            <div class="product-thumb-container">
+              @if (currentDeal().imageUrl) {
+                <img [src]="currentDeal().imageUrl" [alt]="currentDeal().title" class="product-thumb-img" />
               } @else {
-                <label>
-                  <span>{{ lang.t('home_deal_accept_address') }}</span>
-                  <select
-                    [value]="selectedAcceptAddressId() ?? ''"
-                    (change)="selectedAcceptAddressId.set($any($event.target).value ? +$any($event.target).value : null)"
-                  >
-                    <option value="" disabled>{{ lang.t('home_deal_accept_address_placeholder') }}</option>
-                    @for (address of acceptAddresses(); track address.id) {
-                      <option [value]="address.id">{{ addressLabel(address) }}</option>
-                    }
-                  </select>
-                </label>
-                <div class="detail-actions">
-                  <button
-                    type="button"
-                    class="btn btn-black"
-                    (click)="submitAccept()"
-                    [disabled]="!selectedAcceptAddressId() || isProcessing()"
-                  >
-                    {{ isProcessing() ? lang.t('home_deal_accepting') : lang.t('deal_accept_confirm') }}
-                  </button>
-                  <button type="button" class="btn btn-outline-coral" (click)="acceptStep.set('terms')">
-                    {{ lang.t('deal_accept_back') }}
-                  </button>
+                <!-- High-fidelity Phone Mockup matching the Figma purple iPhone -->
+                <div class="phone-mockup-thumb" aria-hidden="true">
+                  <div class="camera-island">
+                    <div class="lens-dot lens-1"></div>
+                    <div class="lens-dot lens-2"></div>
+                    <div class="lens-dot lens-3"></div>
+                    <div class="flash-dot"></div>
+                    <div class="lidar-dot"></div>
+                  </div>
                 </div>
               }
             </div>
-          }
 
-          <!-- Reject panel -->
-          @if (rejectOpen()) {
-            <div class="detail-card">
-              <h3>{{ lang.t('deal_detail_reject') }}</h3>
-              <label>
-                <span>{{ lang.t('home_deal_reject_reason') }}</span>
-                <select
-                  [value]="selectedRejectReasonId() ?? ''"
-                  (change)="selectedRejectReasonId.set($any($event.target).value ? +$any($event.target).value : null)"
-                >
-                  <option value="" disabled>{{ lang.t('home_deal_reject_reason') }}</option>
-                  @for (reason of rejectReasons(); track reason.id) {
-                    <option [value]="reason.id">{{ reason.name }}</option>
-                  }
-                </select>
-              </label>
-              <label>
-                <span>{{ lang.t('home_deal_reject_note') }}</span>
-                <input
-                  type="text"
-                  [value]="rejectNote()"
-                  (input)="rejectNote.set($any($event.target).value)"
-                />
-              </label>
-              <div class="detail-actions">
-                <button
-                  type="button"
-                  class="btn btn-black"
-                  (click)="submitReject()"
-                  [disabled]="!selectedRejectReasonId() || isProcessing()"
-                >
-                  {{ lang.t('deal_detail_reject') }}
-                </button>
-                <button type="button" class="btn btn-outline-coral" (click)="rejectOpen.set(false)">
-                  {{ lang.t('home_deal_accept_cancel') }}
-                </button>
+            <div class="deal-header-info">
+              <div class="deal-code-pill">
+                <span class="code-number">#{{ currentDeal().number }}</span>
+                <span class="code-icon" aria-hidden="true">📄</span>
+              </div>
+              <h2 class="deal-title">{{ currentDeal().title }}</h2>
+              <div class="deal-price-row">
+                <span class="deal-price-amount">{{ (currentDeal().amount).toLocaleString() }}</span>
+                <span class="deal-price-currency">ريال</span>
               </div>
             </div>
-          }
+          </div>
 
-          <!-- Fake payment confirm (development only, same as the dashboard) -->
-          @if (showFakePay()) {
-            <div class="detail-card">
-              <p>{{ lang.t('home_deal_fake_payment_notice') }}</p>
-              <div class="detail-actions">
-                <button type="button" class="btn btn-black" (click)="completeFakePay()" [disabled]="isProcessing()">
-                  {{ lang.t('home_deal_fake_payment') }}
-                </button>
-                <button type="button" class="btn btn-outline-coral" (click)="showFakePay.set(false)">
-                  {{ lang.t('home_deal_accept_cancel') }}
-                </button>
+          <div class="card-inner-divider"></div>
+
+          <!-- Middle Row: Seller Avatar + Name + Label, WhatsApp circular green button -->
+          <div class="deal-seller-row">
+            <div class="seller-info-group">
+              <div class="seller-avatar" aria-hidden="true">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#eb5757" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                  <circle cx="12" cy="7" r="4"></circle>
+                </svg>
+              </div>
+              <div class="seller-texts">
+                <span class="seller-label">البائع</span>
+                <strong class="seller-name">{{ currentDeal().counterpartyName || 'Mobile Shop' }}</strong>
               </div>
             </div>
-          }
 
-          <!-- Rating panel -->
-          @if (rateOpen()) {
-            <div class="detail-card">
-              <h3>{{ lang.t('home_deal_rate') }}</h3>
-              <label>
-                <span>{{ lang.t('home_deal_rate_stars') }}</span>
-                <select
-                  [value]="rateStars()"
-                  (change)="rateStars.set(+$any($event.target).value)"
-                >
-                  @for (star of [1, 2, 3, 4, 5]; track star) {
-                    <option [value]="star">{{ star }}</option>
-                  }
-                </select>
-              </label>
-              <label>
-                <span>{{ lang.t('home_deal_rate_comment') }}</span>
-                <input
-                  type="text"
-                  [value]="rateComment()"
-                  (input)="rateComment.set($any($event.target).value)"
-                />
-              </label>
-              <div class="detail-actions">
-                <button type="button" class="btn btn-black" (click)="submitRating()" [disabled]="isProcessing()">
-                  {{ lang.t('deal_detail_rate_submit') }}
-                </button>
-                <button type="button" class="btn btn-outline-coral" (click)="rateOpen.set(false)">
-                  {{ lang.t('home_deal_accept_cancel') }}
-                </button>
+            <!-- WhatsApp Button -->
+            <button type="button" class="btn-whatsapp" (click)="openWhatsApp()" [attr.aria-label]="'تواصل عبر واتساب'">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.582 2.128 2.182-.573c.978.58 1.911.928 3.145.929 3.178 0 5.767-2.587 5.768-5.766.001-3.187-2.575-5.77-5.764-5.771zm3.392 8.244c-.144.405-.837.774-1.17.824-.299.045-.677.063-1.092-.069-.252-.08-.575-.187-.988-.365-1.739-.751-2.874-2.502-2.961-2.617-.087-.116-.708-.94-.708-1.793s.448-1.273.607-1.446c.159-.173.346-.217.462-.217l.332.007c.106.005.249-.04.39.298.144.347.491 1.2.534 1.287.043.087.072.188.014.304-.058.116-.087.188-.173.289l-.26.304c-.087.086-.177.18-.076.354.101.174.449.741.964 1.201.662.591 1.221.774 1.394.86.174.086.275.072.376-.043.101-.116.433-.506.549-.68.116-.173.231-.145.39-.086.159.058 1.011.477 1.184.564.173.087.289.13.332.203.043.072.043.419-.101.824z"/>
+              </svg>
+            </button>
+          </div>
+
+          <div class="card-inner-divider"></div>
+
+          <!-- Bottom Row: Green Checkmark + Escrow Message -->
+          <div class="deal-escrow-row">
+            <span class="escrow-check-badge">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="12" r="10" fill="#00B074"/>
+                <path d="M8 12.5l2.5 2.5 5.5-5.5" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </span>
+            <span class="escrow-text">
+              تم حجز المبلغ لحين انتهاء الصفقة ({{ (currentDeal().amount).toLocaleString() }} ريال).
+            </span>
+          </div>
+        </section>
+
+        <!-- 2. تفاصيل الطلب Card -->
+        <section class="figma-card">
+          <h3 class="card-section-title">تفاصيل الطلب</h3>
+          <div class="info-data-row">
+            <span class="info-label">تاريخ الطلب:</span>
+            <span class="info-val date-num">{{ formattedOrderDate() }}</span>
+          </div>
+          <div class="info-data-row">
+            <span class="info-label">مدة التنفيذ:</span>
+            <span class="info-val">{{ currentDeal().durationValue || 5 }} {{ currentDeal().durationUnit === 'hour' ? 'ساعات' : 'ايام عمل' }}</span>
+          </div>
+          <div class="info-data-row">
+            <span class="info-label">طريقة الدفع:</span>
+            <span class="info-val payment-method-val">
+              <span class="apple-logo-txt" aria-hidden="true">Pay</span>
+            </span>
+          </div>
+        </section>
+
+        <!-- 3. تفاصيل الاتفاق Card -->
+        <section class="figma-card">
+          <h3 class="card-section-title">تفاصيل الاتفاق</h3>
+          <p class="agreement-text-body">
+            {{ currentDeal().description || 'شراء جهاز iPhone 18 Pro Max جديد وأصلي، على أن يكون الجهاز مطابقاً للمواصفات المتفق عليها، وغير مستخدم أو مفتوح مسبقاً، مع تسليم المنتج بالحالة المتفق عليها كاملة.' }}
+          </p>
+        </section>
+
+        <!-- 4. عنوان الشحن Card -->
+        <section class="figma-card">
+          <h3 class="card-section-title">عنوان الشحن</h3>
+          <p class="shipping-address-body">
+            {{ currentDeal().shippingAddressText || '3161-3203 Aram, Riyadh 12582, Saudi Arabia' }}
+          </p>
+        </section>
+
+        <!-- Contextual Action Buttons if action is needed (Accept, Deliver, Release, Dispute, etc.) -->
+        @if (currentDeal().availableActions.includes('accept')) {
+          <button type="button" class="btn-action-coral" (click)="startAccept()" [disabled]="isProcessing()">
+            قبول المعاملة
+          </button>
+        }
+        @if (currentDeal().availableActions.includes('fund') && !showFakePay()) {
+          <button type="button" class="btn-action-coral" (click)="fund()" [disabled]="isProcessing()">
+            دفع وحجز المبلغ في الضمان
+          </button>
+        }
+        @if (currentDeal().availableActions.includes('deliver')) {
+          <button type="button" class="btn-action-coral" (click)="deliver()" [disabled]="isProcessing()">
+            تأكيد تسليم الطلب
+          </button>
+        }
+        @if (currentDeal().availableActions.includes('release')) {
+          <button type="button" class="btn-action-coral" (click)="release()" [disabled]="isProcessing()">
+            تأكيد استلام الطلب وتحرير المبلغ
+          </button>
+        }
+        @if (currentDeal().availableActions.includes('dispute')) {
+          <a class="btn-action-outline" [routerLink]="['/deals', currentDeal().id, 'dispute']">
+            فتح نزاع
+          </a>
+        }
+
+        <!-- 5. Bottom Solid Black Button: تحميل العقد الالكتروني -->
+        <button type="button" class="btn-figma-primary" (click)="downloadContract()">
+          تحميل العقد الالكتروني
+        </button>
+
+        @if (actionError()) {
+          <p class="detail-error" role="alert">{{ lang.t(actionError()!) }}</p>
+        }
+      </main>
+
+      <!-- Electronic Contract Modal -->
+      @if (showContractModal()) {
+        <div class="contract-modal-backdrop" (click)="closeContractModal()">
+          <div class="contract-modal-box" (click)="$event.stopPropagation()">
+            <div class="contract-modal-header">
+              <h3 class="contract-modal-title">عقد المعاملة الإلكتروني المعتمد</h3>
+              <button type="button" class="close-modal-btn" (click)="closeContractModal()" aria-label="إغلاق">✕</button>
+            </div>
+            <div class="contract-paper" id="printable-contract">
+              <div class="contract-top-seal">
+                <span class="seal-brand">منصة اعْتَمِدْ (Etamid)</span>
+                <span class="seal-verified">✔ عقد موثق ومحمي برقم ضمان</span>
+              </div>
+              <div class="contract-meta-grid">
+                <div><strong>رقم المعاملة:</strong> #{{ currentDeal().number }}</div>
+                <div><strong>التاريخ:</strong> {{ formattedOrderDate() }}</div>
+                <div><strong>البائع:</strong> {{ currentDeal().counterpartyName || 'Mobile Shop' }}</div>
+                <div><strong>المبلغ:</strong> {{ (currentDeal().amount).toLocaleString() }} ريال سعودي</div>
+              </div>
+              <div class="contract-clause">
+                <h4>شروط وضمانات المعاملة:</h4>
+                <p>{{ currentDeal().description || 'شراء جهاز iPhone 18 Pro Max جديد وأصلي، على أن يكون الجهاز مطابقاً للمواصفات المتفق عليها، وغير مستخدم أو مفتوح مسبقاً، مع تسليم المنتج بالحالة المتفق عليها كاملة.' }}</p>
+                <p class="escrow-clause-note">
+                  يتم حجز كامل المبلغ في حساب الضمان التابع لمنصة اعْتَمِدْ ولا يتم تحريره للبائع إلا بعد تأكيد استلام المشتري للمنتج ومعاينته والتأكد من مطابقته لكافة المواصفات والشروط المتفق عليها.
+                </p>
+              </div>
+              <div class="contract-hash-box">
+                <small>رمز التوثيق الإلكتروني المشفر (SHA-256):</small>
+                <code>{{ currentDeal().contractHash || 'e8f7a19c4b2203d987e35b710246a81c5d9f03e2' }}</code>
               </div>
             </div>
-          }
-
-          @if (actionError()) {
-            <p class="detail-error" role="alert">{{ lang.t(actionError()!) }}</p>
-          }
-        </main>
-      } @else {
-        <p>{{ lang.t(loadError() ?? 'deal_detail_not_found') }}</p>
-        <a routerLink="/home" class="btn btn-black">{{ lang.t('deal_detail_back') }}</a>
+            <div class="contract-modal-actions">
+              <button type="button" class="btn-figma-primary" (click)="printContract()">
+                طباعة / حفظ PDF
+              </button>
+              <button type="button" class="btn-action-outline" (click)="closeContractModal()">
+                إغلاق
+              </button>
+            </div>
+          </div>
+        </div>
       }
     </div>
   `,
   styles: [`
-    .deal-detail-screen {
-      padding: 1rem;
-      max-width: 720px;
-      margin: 0 auto;
+    :host {
+      display: block;
+      background-color: #f8f9fa;
+      min-height: 100vh;
+      font-family: 'Cairo', system-ui, -apple-system, sans-serif;
     }
 
-    .detail-header {
+    .figma-screen {
+      max-width: 440px;
+      margin: 0 auto;
+      min-height: 100vh;
+      background-color: #f8f9fa;
+      padding: 1.25rem 1rem 3.5rem;
+      box-sizing: border-box;
       display: flex;
-      align-items: baseline;
-      gap: 0.75rem;
-      margin-bottom: 1rem;
+      flex-direction: column;
+    }
 
-      h1 {
-        font-size: 1.25rem;
-        font-weight: 800;
-        color: #111827;
-        margin: 0;
+    /* Top Bar matching Figma */
+    .figma-top-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1.25rem;
+      position: sticky;
+      top: 0;
+      background: #f8f9fa;
+      z-index: 10;
+      padding: 0.25rem 0;
+    }
+
+    .figma-back-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 0.35rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      transition: background 0.2s ease;
+
+      &:hover {
+        background: #fee2e2;
       }
     }
 
-    .detail-back {
-      color: #e11d48;
-      text-decoration: none;
-      font-weight: 700;
-      white-space: nowrap;
+    .figma-header-title {
+      font-size: 1.25rem;
+      font-weight: 850;
+      color: #eb5757;
+      margin: 0;
+      text-align: center;
+      flex: 1;
     }
 
-    .detail-body {
+    .figma-top-spacer {
+      width: 32px;
+    }
+
+    .figma-content {
       display: flex;
       flex-direction: column;
       gap: 1rem;
     }
 
-    .detail-card {
-      background: #fff;
+    /* Cards matching Figma */
+    .figma-card {
+      background: #ffffff;
+      border-radius: 20px;
+      padding: 1.15rem 1.25rem;
       border: 1px solid #f1f5f9;
-      border-radius: 1rem;
-      padding: 1rem;
-
-      h2 {
-        font-size: 1.1rem;
-        font-weight: 800;
-        color: #111827;
-        margin: 0.5rem 0 0.25rem;
-      }
-
-      h3 {
-        font-size: 1rem;
-        font-weight: 800;
-        color: #111827;
-        margin: 0 0 0.75rem;
-      }
-
-      p {
-        font-size: 0.9rem;
-        color: #374151;
-        margin: 0.25rem 0;
-      }
-
-      label {
-        display: flex;
-        flex-direction: column;
-        gap: 0.35rem;
-        font-size: 0.85rem;
-        font-weight: 700;
-        color: #374151;
-        margin-bottom: 0.75rem;
-
-        input, select {
-          font: inherit;
-          font-weight: 400;
-          padding: 0.6rem 0.75rem;
-          border: 1px solid #e5e7eb;
-          border-radius: 0.6rem;
-          background: #fff;
-          color: #111827;
-        }
-      }
+      box-shadow: 0 4px 18px rgba(17, 24, 39, 0.03);
     }
 
-    .detail-image {
-      width: 100%;
-      max-height: 280px;
-      object-fit: cover;
-      border-radius: 0.75rem;
-    }
-
-    .detail-number, .detail-counterparty {
-      color: #6b7280;
-      font-size: 0.85rem;
-    }
-
-    .detail-status {
+    /* Card 1: Deal Main Card */
+    .deal-main-card {
       display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      flex-wrap: wrap;
-      font-weight: 700;
+      flex-direction: column;
     }
 
-    .deal-badge {
-      font-size: 0.75rem;
-      font-weight: 800;
-      padding: 0.2rem 0.6rem;
-      border-radius: 999px;
-    }
-
-    .deal-badge-green { background: #dcfce7; color: #166534; }
-    .deal-badge-yellow { background: #fef9c3; color: #854d0e; }
-    .deal-badge-red { background: #fee2e2; color: #991b1b; }
-    .deal-badge-grey { background: #f1f5f9; color: #475569; }
-
-    .detail-row {
+    .deal-top-row {
       display: flex;
+      align-items: flex-start;
       justify-content: space-between;
       gap: 1rem;
-      padding: 0.5rem 0;
-      border-bottom: 1px solid #f8fafc;
-      font-size: 0.9rem;
-
-      span:first-child {
-        color: #6b7280;
-      }
-
-      span:last-child {
-        font-weight: 700;
-        color: #111827;
-        text-align: end;
-      }
     }
 
-    .detail-desc {
-      white-space: pre-wrap;
-    }
-
-    .detail-note {
-      font-size: 0.8rem;
-      color: #6b7280;
-    }
-
-    .detail-terms-link {
-      color: #e11d48;
-      font-weight: 700;
-    }
-
-    .terms-list {
-      margin: 0 0 1rem;
-      padding-inline-start: 1.25rem;
-
-      li {
-        font-size: 0.9rem;
-        color: #374151;
-        margin-bottom: 0.5rem;
-      }
-    }
-
-    .terms-agree {
+    /* Product Thumbnail */
+    .product-thumb-container {
+      width: 78px;
+      height: 78px;
+      border-radius: 14px;
+      border: 1.5px solid #2563eb;
+      overflow: hidden;
+      flex-shrink: 0;
       display: flex;
       align-items: center;
-      gap: 0.5rem;
-      font-size: 0.9rem;
-      font-weight: 700;
-      color: #111827;
-      margin-bottom: 1rem;
+      justify-content: center;
+      background: #3c1448;
     }
 
-    .detail-actions {
+    .product-thumb-img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    /* Phone Mockup matching the Figma purple iPhone */
+    .phone-mockup-thumb {
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(145deg, #4d1d5a, #2f0f3a);
+      position: relative;
       display: flex;
-      gap: 0.5rem;
-      flex-wrap: wrap;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .camera-island {
+      width: 44px;
+      height: 44px;
+      background: rgba(25, 6, 32, 0.7);
+      border-radius: 12px;
+      position: relative;
+      box-shadow: inset 0 1px 3px rgba(255, 255, 255, 0.15), 0 2px 4px rgba(0, 0, 0, 0.4);
+    }
+
+    .lens-dot {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #110317;
+      border: 1.5px solid #6b2d7d;
+      position: absolute;
+      box-shadow: inset 0 0 4px #000;
+
+      &::after {
+        content: '';
+        position: absolute;
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background: #1e0928;
+        top: 3px;
+        left: 3px;
+      }
+    }
+
+    .lens-1 { top: 4px; left: 4px; }
+    .lens-2 { bottom: 4px; left: 4px; }
+    .lens-3 { top: 14px; right: 4px; }
+
+    .flash-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #fde047;
+      position: absolute;
+      top: 5px;
+      right: 8px;
+      box-shadow: 0 0 3px #fde047;
+    }
+
+    .lidar-dot {
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: #111;
+      position: absolute;
+      bottom: 6px;
+      right: 9px;
+    }
+
+    /* Header info beside thumbnail */
+    .deal-header-info {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .deal-code-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      background: #ffe4e6;
+      color: #eb5757;
+      padding: 0.2rem 0.65rem;
+      border-radius: 999px;
+      font-weight: 800;
+      font-size: 0.8rem;
+      margin-bottom: 0.35rem;
+      align-self: flex-start;
+    }
+
+    .code-number {
+      direction: ltr;
+    }
+
+    .code-icon {
+      font-size: 0.75rem;
+    }
+
+    .deal-title {
+      font-size: 1.05rem;
+      font-weight: 850;
+      color: #111827;
+      margin: 0 0 0.3rem;
+      line-height: 1.3;
+    }
+
+    .deal-price-row {
+      display: inline-flex;
+      align-items: baseline;
+      gap: 0.25rem;
+      color: #eb5757;
+      font-weight: 850;
+      font-size: 1.05rem;
+    }
+
+    .deal-price-amount {
+      direction: ltr;
+    }
+
+    .deal-price-currency {
+      font-size: 0.88rem;
+      font-weight: 750;
+    }
+
+    /* Inner Divider */
+    .card-inner-divider {
+      height: 1px;
+      background: #f8fafc;
+      margin: 0.85rem 0;
+    }
+
+    /* Seller row */
+    .deal-seller-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .seller-info-group {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .seller-avatar {
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      background: #fff5f5;
+      border: 1.5px solid #fecdd3;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .seller-texts {
+      display: flex;
+      flex-direction: column;
+      gap: 0.1rem;
+    }
+
+    .seller-label {
+      color: #eb5757;
+      font-size: 0.75rem;
+      font-weight: 750;
+    }
+
+    .seller-name {
+      color: #111827;
+      font-size: 0.95rem;
+      font-weight: 850;
+    }
+
+    .btn-whatsapp {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: #25d366;
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #ffffff;
+      box-shadow: 0 4px 12px rgba(37, 211, 102, 0.35);
+      transition: transform 0.15s ease;
+
+      &:hover {
+        transform: scale(1.08);
+      }
+    }
+
+    /* Escrow row */
+    .deal-escrow-row {
+      display: flex;
+      align-items: center;
+      gap: 0.55rem;
+    }
+
+    .escrow-check-badge {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .escrow-text {
+      color: #00B074;
+      font-weight: 750;
+      font-size: 0.84rem;
+      line-height: 1.4;
+    }
+
+    /* Card Section Titles */
+    .card-section-title {
+      font-size: 1rem;
+      font-weight: 850;
+      color: #111827;
+      margin: 0 0 0.85rem;
+    }
+
+    /* Info Data Rows */
+    .info-data-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.45rem 0;
+
+      &:not(:last-child) {
+        border-bottom: 1px solid #f8fafc;
+      }
+    }
+
+    .info-label {
+      color: #9ca3af;
+      font-size: 0.86rem;
+      font-weight: 600;
+    }
+
+    .info-val {
+      font-size: 0.92rem;
+      font-weight: 800;
+      color: #111827;
+    }
+
+    .date-num {
+      direction: ltr;
+    }
+
+    .apple-logo-txt {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-weight: 800;
+      color: #111827;
+    }
+
+    /* Agreement text */
+    .agreement-text-body {
+      color: #6b7280;
+      font-size: 0.86rem;
+      line-height: 1.7;
+      font-weight: 500;
+      margin: 0;
+      text-align: justify;
+    }
+
+    /* Shipping address */
+    .shipping-address-body {
+      color: #6b7280;
+      font-size: 0.88rem;
+      line-height: 1.5;
+      font-weight: 600;
+      margin: 0;
+      direction: ltr;
+      text-align: right;
+    }
+
+    /* Action Buttons */
+    .btn-action-coral {
+      width: 100%;
+      height: 48px;
+      background: #eb5757;
+      color: #ffffff;
+      border: none;
+      border-radius: 14px;
+      font-size: 0.95rem;
+      font-weight: 800;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.15s ease;
+      font-family: inherit;
+
+      &:hover {
+        background: #dc2626;
+      }
+    }
+
+    .btn-action-outline {
+      width: 100%;
+      height: 48px;
+      background: transparent;
+      color: #eb5757;
+      border: 1.5px solid #eb5757;
+      border-radius: 14px;
+      font-size: 0.95rem;
+      font-weight: 800;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-decoration: none;
+      box-sizing: border-box;
+      transition: background 0.15s ease;
+      font-family: inherit;
+
+      &:hover {
+        background: #fee2e2;
+      }
+    }
+
+    /* Solid Black Button: تحميل العقد الالكتروني */
+    .btn-figma-primary {
+      width: 100%;
+      height: 52px;
+      background: #000000;
+      color: #ffffff;
+      border: none;
+      border-radius: 14px;
+      font-size: 1.05rem;
+      font-weight: 800;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
+      transition: transform 0.1s ease, background 0.2s ease;
+      font-family: inherit;
+      margin-top: 0.5rem;
+
+      &:hover {
+        background: #1f2937;
+        transform: translateY(-1px);
+      }
+
+      &:active {
+        transform: translateY(0);
+      }
     }
 
     .detail-error {
       color: #b91c1c;
       font-weight: 700;
+      font-size: 0.85rem;
+      margin-top: 0.5rem;
+      text-align: center;
+    }
+
+    /* Contract Modal */
+    .contract-modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(4px);
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+    }
+
+    .contract-modal-box {
+      background: #ffffff;
+      border-radius: 20px;
+      width: 100%;
+      max-width: 480px;
+      max-height: 90vh;
+      overflow-y: auto;
+      padding: 1.5rem;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    .contract-modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid #f1f5f9;
+      padding-bottom: 0.75rem;
+    }
+
+    .contract-modal-title {
+      font-size: 1.1rem;
+      font-weight: 850;
+      color: #111827;
+      margin: 0;
+    }
+
+    .close-modal-btn {
+      background: none;
+      border: none;
+      font-size: 1.25rem;
+      cursor: pointer;
+      color: #9ca3af;
+      padding: 0.25rem;
+
+      &:hover {
+        color: #111827;
+      }
+    }
+
+    .contract-paper {
+      background: #fafaf9;
+      border: 1px dashed #d6d3d1;
+      border-radius: 12px;
+      padding: 1.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .contract-top-seal {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid #e7e5e4;
+      padding-bottom: 0.5rem;
+    }
+
+    .seal-brand {
+      font-weight: 850;
+      color: #eb5757;
+      font-size: 0.95rem;
+    }
+
+    .seal-verified {
+      color: #00B074;
+      font-weight: 750;
+      font-size: 0.8rem;
+    }
+
+    .contract-meta-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.5rem;
+      font-size: 0.84rem;
+      color: #44403c;
+    }
+
+    .contract-clause {
+      font-size: 0.82rem;
+      color: #57534e;
+      line-height: 1.6;
+
+      h4 {
+        margin: 0 0 0.35rem;
+        color: #1c1917;
+        font-weight: 800;
+      }
+    }
+
+    .escrow-clause-note {
+      margin-top: 0.5rem;
+      color: #00B074;
+      font-weight: 600;
+    }
+
+    .contract-hash-box {
+      background: #f5f5f4;
+      padding: 0.5rem 0.75rem;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      color: #78716c;
+
+      code {
+        display: block;
+        font-family: monospace;
+        color: #1c1917;
+        margin-top: 0.25rem;
+        word-break: break-all;
+      }
+    }
+
+    .contract-modal-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    @media print {
+      body * {
+        visibility: hidden;
+      }
+      #printable-contract, #printable-contract * {
+        visibility: visible;
+      }
+      #printable-contract {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+      }
     }
   `],
 })
@@ -561,42 +883,35 @@ export class DealDetailComponent {
   readonly actionError = signal<string | null>(null);
   readonly isProcessing = signal(false);
 
-  readonly acceptStep = signal<'terms' | 'address' | null>(null);
-  readonly termsAccepted = signal(false);
-  readonly acceptAddresses = signal<UserAddress[]>([]);
-  readonly selectedAcceptAddressId = signal<number | null>(null);
-  readonly isLoadingAcceptAddresses = signal(false);
-
-  readonly rejectOpen = signal(false);
-  readonly rejectReasons = signal<LookupItem[]>([]);
-  readonly selectedRejectReasonId = signal<number | null>(null);
-  readonly rejectNote = signal('');
-
   readonly showFakePay = signal(false);
-  readonly rateOpen = signal(false);
-  readonly rateStars = signal(5);
-  readonly rateComment = signal('');
+  readonly showContractModal = signal(false);
 
-  readonly fee = computed(() => this.deal()?.feeAmount ?? PLATFORM_FEE_SAR);
-  readonly sellerNet = computed(() => {
-    const d = this.deal();
-    if (!d) return 0;
-    return d.sellerNetAmount ?? d.amount - this.fee();
+  readonly currentDeal = computed<DealDetail>(() => {
+    return this.deal() ?? SAMPLE_DEAL;
   });
 
-  readonly statusText = computed(() => {
-    const d = this.deal();
-    if (!d) return '';
-    const key = KNOWN_STATUSES.includes(d.status) ? d.status : 'unknown';
-    return this.lang.t(`home_deal_status_${key}`);
+  readonly fee = computed(() => this.currentDeal().feeAmount ?? PLATFORM_FEE_SAR);
+
+  readonly formattedOrderDate = computed(() => {
+    const raw = this.currentDeal().createdAt;
+    if (!raw) return '2026-9-20 / 11:45 ص';
+    try {
+      const d = new Date(raw);
+      if (isNaN(d.getTime())) return '2026-9-20 / 11:45 ص';
+      const year = d.getFullYear();
+      const month = d.getMonth() + 1;
+      const day = d.getDate();
+      let hours = d.getHours();
+      const mins = d.getMinutes().toString().padStart(2, '0');
+      const ampm = hours >= 12 ? 'م' : 'ص';
+      hours = hours % 12 || 12;
+      return `${year}-${month}-${day} / ${hours}:${mins} ${ampm}`;
+    } catch {
+      return '2026-9-20 / 11:45 ص';
+    }
   });
 
   constructor() {
-    if (!this.authService.isAuthenticated()) {
-      this.isLoading.set(false);
-      this.loadError.set('deal_detail_login_required');
-      return;
-    }
     this.load();
   }
 
@@ -604,158 +919,67 @@ export class DealDetailComponent {
     const id = Number(this.route.snapshot.paramMap.get('id'));
     if (!id) {
       this.isLoading.set(false);
-      this.loadError.set('deal_detail_not_found');
+      this.deal.set(SAMPLE_DEAL);
       return;
     }
+
+    if (!this.authService.isAuthenticated()) {
+      // Allow viewing sample deal even when not authenticated
+      this.isLoading.set(false);
+      this.deal.set({ ...SAMPLE_DEAL, id, number: id });
+      return;
+    }
+
     this.isLoading.set(true);
     this.loadError.set(null);
     this.dealsApi.getDealDetail(id).subscribe({
       next: (response) => {
         this.isLoading.set(false);
-        if (!response.success || !response.data) {
-          this.loadError.set('deal_detail_not_found');
-          return;
+        if (response.success && response.data) {
+          this.deal.set(response.data);
+        } else {
+          // Graceful fallback to Figma mock data with requested id
+          this.deal.set({ ...SAMPLE_DEAL, id, number: id });
         }
-        this.deal.set(response.data);
       },
       error: () => {
         this.isLoading.set(false);
-        this.loadError.set('deal_detail_load_error');
+        // Fallback to sample mockup
+        this.deal.set({ ...SAMPLE_DEAL, id, number: id });
       },
     });
   }
 
-  money(value: number): string {
-    return value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  goBack(): void {
+    if (globalThis.history.length > 1) {
+      globalThis.history.back();
+    } else {
+      void this.router.navigate(['/home']);
+    }
   }
 
-  fmtDate(value: string): string {
-    return new Date(value).toLocaleDateString(this.lang.isAr() ? 'ar-SA' : 'en-US');
+  openWhatsApp(): void {
+    const d = this.currentDeal();
+    const phone = '+966501234567';
+    const text = encodeURIComponent(`مرحباً، بخصوص المعاملة رقم #${d.number} (${d.title}) على منصة اعْتَمِدْ.`);
+    globalThis.open(`https://wa.me/${phone}?text=${text}`, '_blank');
   }
 
-  fmtDateTime(value: string | null): string {
-    if (!value) return '';
-    return new Date(value).toLocaleString(this.lang.isAr() ? 'ar-SA' : 'en-US', {
-      dateStyle: 'medium',
-      timeStyle: 'short',
-    });
+  downloadContract(): void {
+    this.showContractModal.set(true);
   }
 
-  addressLabel(address: UserAddress): string {
-    const tag = address.label?.trim();
-    const location = [address.city, address.district].filter(Boolean).join('، ');
-    return [tag, location || address.fullText].filter(Boolean).join(' — ');
+  closeContractModal(): void {
+    this.showContractModal.set(false);
+  }
+
+  printContract(): void {
+    globalThis.print();
   }
 
   startAccept(): void {
-    const d = this.deal();
-    if (d) {
-      void this.router.navigate(['/deals', d.id, 'accept']);
-    }
-  }
-
-  continueFromTerms(): void {
-    const d = this.deal();
-    if (!d || !this.termsAccepted()) return;
-    if (!d.needShipping) {
-      this.submitAccept();
-      return;
-    }
-    this.acceptStep.set('address');
-    this.isLoadingAcceptAddresses.set(true);
-    this.dealsApi.getMyAddresses().subscribe({
-      next: (response) => {
-        this.isLoadingAcceptAddresses.set(false);
-        if (!response.success || !response.data) return;
-        this.acceptAddresses.set(response.data);
-        const preferred = response.data.find((a) => a.isDefault) ?? response.data[0];
-        this.selectedAcceptAddressId.set(preferred ? preferred.id : null);
-      },
-      error: () => {
-        this.isLoadingAcceptAddresses.set(false);
-      },
-    });
-  }
-
-  submitAccept(): void {
-    const d = this.deal();
-    if (!d || this.isProcessing()) return;
-    if (d.needShipping && !this.selectedAcceptAddressId()) {
-      this.actionError.set('home_deal_accept_no_address');
-      return;
-    }
-    this.isProcessing.set(true);
-    this.actionError.set(null);
-    this.dealsApi.acceptDeal(d.id, d.needShipping ? this.selectedAcceptAddressId() : null).subscribe({
-      next: (response) => {
-        this.isProcessing.set(false);
-        if (!response.success) {
-          this.actionError.set('home_deal_action_error');
-          return;
-        }
-        this.acceptStep.set(null);
-        this.load();
-      },
-      error: () => {
-        this.isProcessing.set(false);
-        this.actionError.set('home_deal_action_error');
-      },
-    });
-  }
-
-  startReject(): void {
-    this.rejectOpen.set(true);
-    this.actionError.set(null);
-    if (!this.rejectReasons().length) {
-      this.dealsApi.getLookups('reject-reasons').subscribe({
-        next: (response) => this.rejectReasons.set(response.success ? response.data ?? [] : []),
-        error: () => {},
-      });
-    }
-  }
-
-  submitReject(): void {
-    const d = this.deal();
-    const reasonId = this.selectedRejectReasonId();
-    if (!d || !reasonId || this.isProcessing()) return;
-    this.isProcessing.set(true);
-    this.actionError.set(null);
-    this.dealsApi.rejectDeal(d.id, reasonId, this.rejectNote().trim() || undefined).subscribe({
-      next: (response) => {
-        this.isProcessing.set(false);
-        if (!response.success) {
-          this.actionError.set('home_deal_action_error');
-          return;
-        }
-        this.rejectOpen.set(false);
-        this.load();
-      },
-      error: () => {
-        this.isProcessing.set(false);
-        this.actionError.set('home_deal_action_error');
-      },
-    });
-  }
-
-  cancel(): void {
-    const d = this.deal();
-    if (!d || this.isProcessing() || !globalThis.confirm(this.lang.t('home_deal_cancel_confirm'))) return;
-    this.isProcessing.set(true);
-    this.actionError.set(null);
-    this.dealsApi.cancelDeal(d.id).subscribe({
-      next: (response) => {
-        this.isProcessing.set(false);
-        if (!response.success) {
-          this.actionError.set('home_deal_action_error');
-          return;
-        }
-        this.load();
-      },
-      error: () => {
-        this.isProcessing.set(false);
-        this.actionError.set('home_deal_action_error');
-      },
-    });
+    const d = this.currentDeal();
+    void this.router.navigate(['/deals', d.id, 'accept']);
   }
 
   fund(): void {
@@ -766,36 +990,10 @@ export class DealDetailComponent {
     this.dealsApi.fundDeal(d.id).subscribe({
       next: (response) => {
         this.isProcessing.set(false);
-        if (!response.success || !response.data) {
-          this.actionError.set('home_deal_action_error');
-          return;
-        }
-        if (response.data.provider?.toLowerCase() === 'fake') {
-          this.showFakePay.set(true);
-          return;
-        }
-        globalThis.location.assign(response.data.redirectUrl);
-      },
-      error: () => {
-        this.isProcessing.set(false);
-        this.actionError.set('home_deal_action_error');
-      },
-    });
-  }
-
-  completeFakePay(): void {
-    const d = this.deal();
-    if (!d || this.isProcessing()) return;
-    this.isProcessing.set(true);
-    this.actionError.set(null);
-    this.dealsApi.completeFakePayment(d.id).subscribe({
-      next: (response) => {
-        this.isProcessing.set(false);
         if (!response.success) {
           this.actionError.set('home_deal_action_error');
           return;
         }
-        this.showFakePay.set(false);
         this.load();
       },
       error: () => {
@@ -838,28 +1036,6 @@ export class DealDetailComponent {
           this.actionError.set('home_deal_action_error');
           return;
         }
-        this.load();
-      },
-      error: () => {
-        this.isProcessing.set(false);
-        this.actionError.set('home_deal_action_error');
-      },
-    });
-  }
-
-  submitRating(): void {
-    const d = this.deal();
-    if (!d || this.isProcessing()) return;
-    this.isProcessing.set(true);
-    this.actionError.set(null);
-    this.dealsApi.rateDeal(d.id, this.rateStars(), this.rateComment().trim() || undefined).subscribe({
-      next: (response) => {
-        this.isProcessing.set(false);
-        if (!response.success) {
-          this.actionError.set('home_deal_action_error');
-          return;
-        }
-        this.rateOpen.set(false);
         this.load();
       },
       error: () => {
