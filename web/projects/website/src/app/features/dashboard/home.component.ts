@@ -537,13 +537,13 @@ export interface DealItem {
             <div class="deals-list">
               @for (deal of currentTabDeals(); track deal.id) {
                 <div class="deal-card">
-                  <div class="deal-card-header">
+                  <div class="deal-card-header" [routerLink]="['/deals', deal.id]" style="cursor: pointer;">
                     <div class="client-avatar">
                       {{ deal.counterParty.charAt(0) || '👤' }}
                     </div>
                     <div class="client-info">
                       <strong class="client-name">{{ deal.counterParty }}</strong>
-                      <span class="deal-code">{{ lang.t('home_deal_code') }} #{{ deal.code }}</span>
+                      <span class="deal-code" [routerLink]="['/deals', deal.id]" style="cursor: pointer;">{{ lang.t('home_deal_code') }} #{{ deal.code }}</span>
                       @if (deal.role === 'مشتري' && deal.counterpartyId) {
                         <a class="deal-store-link" [routerLink]="['/store', deal.counterpartyId]">{{ lang.t('store_view_store') }}</a>
                       }
@@ -554,7 +554,7 @@ export interface DealItem {
                     </div>
                   </div>
 
-                  <div class="deal-card-body">
+                  <div class="deal-card-body" [routerLink]="['/deals', deal.id]" style="cursor: pointer;">
                     @if (deal.imageUrl) {
                       <img class="deal-image" [src]="deal.imageUrl" [alt]="deal.title" />
                     }
@@ -584,6 +584,13 @@ export interface DealItem {
                         }
                       </div>
                     }
+                  </div>
+
+                  <!-- Direct button to View Deal Details -->
+                  <div class="deal-actions-row">
+                    <a [routerLink]="['/deals', deal.id]" class="btn btn-outline-coral btn-view-deal" style="text-decoration: none; text-align: center; font-weight: 800; width: 100%;">
+                      تفاصيل المعاملة ‹
+                    </a>
                   </div>
 
                   @if (deal.availableActions.includes('accept')) {
@@ -2344,29 +2351,7 @@ export class HomeComponent {
   }
 
   acceptDeal(deal: DealItem): void {
-    if (this.isProcessingDeal()) return;
-    // No shipping: accept straight away. Shipping: the buyer picks the
-    // delivery address first — it is frozen into the deal on accept.
-    if (!deal.needShipping) {
-      this.submitAccept(deal.id, null);
-      return;
-    }
-    this.acceptAddressDealId.set(deal.id);
-    this.selectedAcceptAddressId.set(null);
-    this.dealActionError.set(null);
-    if (this.acceptAddresses().length) {
-      this.preselectAcceptAddress();
-      return;
-    }
-    this.isLoadingAcceptAddresses.set(true);
-    this.dealsApi.getMyAddresses().subscribe({
-      next: (response) => {
-        this.isLoadingAcceptAddresses.set(false);
-        this.acceptAddresses.set(response.success ? response.data ?? [] : []);
-        this.preselectAcceptAddress();
-      },
-      error: () => this.isLoadingAcceptAddresses.set(false),
-    });
+    void this.router.navigate(['/deals', deal.id, 'accept']);
   }
 
   confirmAcceptDeal(id: string): void {
