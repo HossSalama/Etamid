@@ -1,0 +1,4881 @@
+{
+ "info": {
+  "_postman_id": "bd6be217-4c06-4909-b607-da3ede54c5b2",
+  "name": "Etamid Admin API",
+  "description": "# Etamid (اعتمد) Admin API — Cycle 9\n\nAdmin routes only, under `/admin/api` plus the frozen operator points under `/api/v1/admin`.\nSeparate from the app API (`Etamid API` collection) and from `docs/etamid-openapi.yaml`.\n\n## Quick Start\n\n1. Run **Auth & 2FA / Authentication / Login** with the super-admin email and password.\n2. If 2FA is on, run **2FA Verify** with the 6-digit code from Google Authenticator (tokens are saved automatically).\n3. If 2FA is not set up yet, Login returns `twoFactorSetupRequired` plus a `challengeToken` — run **Two-Factor Setup / Setup-Challenge**, add the secret to Google Authenticator, then **Enable-Challenge**.\n\n## Authentication\n\nAll protected endpoints require `Authorization: Bearer {{accessToken}}`. This is pre-configured at the collection level. Public endpoints use **No Auth**.\n\nAdmin tokens use a separate **AdminJwt** scheme (issuer `etamid-admin`, 15 minutes, claims `sub` / `type=admin` / `sid` / `jti`, no permissions inside the token). App-user tokens are rejected with 401 here, and admin tokens are rejected with 401 on `/api/v1`.\n\n## Response Envelope\n\nEvery response follows:\n\n``` json\n{ \"success\": true, \"message\": string, \"data\": object|array|null }\n```\n\n`errors` appears **only** on failed responses, and `meta` **only** on paginated lists. Paginated lists add:\n\n``` json\n\"meta\": { \"page\": 1, \"pageSize\": 20, \"total\": 42, \"totalPages\": 3 }\n```\n\n**Admin responses are always HTTP 200 when the request reached the server** (Cycle 9, `a2eff0a`). Check `body.success` and `errors[0].code`, not the status code. Rate limiting still returns 429 at the middleware level.\n\n## Validation & Business Errors\n\nEvery error has a **stable** **`code`** (used by the app logic) and a localized `message` (shown to the user):\n\n``` json\n{\n  \"success\": false,\n  \"message\": \"Invalid credentials.\",\n  \"data\": null,\n  \"errors\": [ { \"code\": \"ADMIN_INVALID_CREDENTIALS\", \"message\": \"Invalid credentials.\" } ]\n}\n```\n\nCommon codes: `401` unauthenticated, `403` forbidden (`ADMIN_FORBIDDEN`), `404` not found, `409` conflict (for example `USER_HAS_ACTIVE_DEALS`), `422` validation, `429` rate limit (`Retry-After` header) or account locked.\n\n## Conventions\n\n- **Language:** send `Accept-Language: ar | en` (variable `language`).\n- **Dates:** ISO 8601 UTC. **Money:** SAR numbers with two decimals.\n- **Pagination:** `page` (default 1) and `pageSize` (default 20, max 100).\n- **Permissions:** checked per request from the database, never from the token. `GET /admin/api/auth/me` returns the current admin with roles and permissions.\n- **2FA is mandatory** for every admin. Self-disable returns 403; the only recovery is a super-admin reset (`POST /admin/api/admins/{id}/reset-2fa`).\n- **Rate limit:** 10/min per IP on auth endpoints. 5 failed logins lock the account for 15 minutes.\n- **Admin tokens:** access 15 minutes, refresh 30 days (rotating). Reusing a rotated refresh token ends ALL sessions of that admin.\n",
+  "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+ },
+ "variable": [
+  {
+   "key": "baseUrl",
+   "value": "http://localhost:5080"
+  },
+  {
+   "key": "language",
+   "value": "en"
+  },
+  {
+   "key": "accessToken",
+   "value": ""
+  },
+  {
+   "key": "refreshToken",
+   "value": ""
+  },
+  {
+   "key": "challengeToken",
+   "value": ""
+  },
+  {
+   "key": "adminId",
+   "value": "4"
+  },
+  {
+   "key": "roleId",
+   "value": "1"
+  },
+  {
+   "key": "userId",
+   "value": "1"
+  },
+  {
+   "key": "disputeId",
+   "value": "1"
+  },
+  {
+   "key": "withdrawalId",
+   "value": "1"
+  },
+  {
+   "key": "penaltyId",
+   "value": "1"
+  },
+  {
+   "key": "disputeFileId",
+   "value": ""
+  }
+ ],
+ "auth": {
+  "type": "bearer",
+  "bearer": [
+   {
+    "key": "token",
+    "value": "{{accessToken}}",
+    "type": "string"
+   }
+  ]
+ },
+ "event": [
+  {
+   "listen": "prerequest",
+   "script": {
+    "type": "text/javascript",
+    "exec": [
+     ""
+    ]
+   }
+  },
+  {
+   "listen": "test",
+   "script": {
+    "type": "text/javascript",
+    "exec": [
+     ""
+    ]
+   }
+  }
+ ],
+ "item": [
+  {
+   "name": "🔐 Auth & 2FA",
+   "item": [
+    {
+     "name": "🔐 Authentication",
+     "item": [
+      {
+       "name": "Login",
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "const res = pm.response.json();",
+           "pm.test('Status is a documented response (200, 401, 429)', () => pm.expect([200, 401, 429]).to.include(pm.response.code));",
+           "pm.test('Response uses the standard envelope', () => {",
+           "  pm.expect(res).to.have.property('success');",
+           "  pm.expect(res).to.have.property('message');",
+           "});",
+           "if (res.success && res.data && res.data.challenge && res.data.challenge.challengeToken) {",
+           "  pm.collectionVariables.set('challengeToken', res.data.challenge.challengeToken);",
+           "  console.log('2FA challenge saved');",
+           "}",
+           "if (res.success && res.data && res.data.auth && res.data.auth.accessToken) {",
+           "  pm.collectionVariables.set('accessToken', res.data.auth.accessToken);",
+           "  pm.collectionVariables.set('refreshToken', res.data.auth.refreshToken);",
+           "}"
+          ]
+         }
+        }
+       ],
+       "request": {
+        "method": "POST",
+        "header": [
+         {
+          "key": "Content-Type",
+          "value": "application/json"
+         },
+         {
+          "key": "Accept-Language",
+          "value": "{{language}}"
+         }
+        ],
+        "url": {
+         "raw": "{{baseUrl}}/admin/api/auth/login",
+         "host": [
+          "{{baseUrl}}"
+         ],
+         "path": [
+          "admin",
+          "api",
+          "auth",
+          "login"
+         ]
+        },
+        "description": "## Sign In (Password Step)\n\n**Public endpoint — no authentication required.**\n\nFirst step of the admin login. Returns a 5-minute single-use 2FA challenge when 2FA is enabled or not yet set up — tokens are issued only after the 2FA step.\n\n### Request Fields\n| Field | Type | Required | Rules |\n|---|---|---|---|\n| email | string | ✅ | Admin email |\n| password | string | ✅ | Admin password (12–64 chars) |\n\n### Business Rules\n- Unknown email and wrong password look identical (`ADMIN_INVALID_CREDENTIALS`).\n- 5 failures lock the account for 15 minutes.\n- `twoFactorRequired: true` → run **2FA Verify** with the challenge.\n- `twoFactorSetupRequired: true` → run **Two-Factor Setup / Setup-Challenge**, then **Enable-Challenge**.\n- 2FA is mandatory for every admin.\n\n### Next Step\nThe test script saves `challengeToken` automatically. Call `POST /admin/api/auth/2fa/verify` (2FA on) or the setup-challenge flow (2FA off).\n\n### Frontend Notes\n- On `twoFactorRequired` show the 6-digit TOTP screen.\n- On `twoFactorSetupRequired` route to `/login/2fa-setup`.\n- Never reveal whether the email exists.",
+        "auth": {
+         "type": "noauth"
+        },
+        "body": {
+         "mode": "raw",
+         "raw": "{\n  \"email\": \"shahdmohy00@gmail.com\",\n  \"password\": \"Shahd@12345678\"\n}",
+         "options": {
+          "raw": {
+           "language": "json"
+          }
+         }
+        }
+       },
+       "response": [
+        {
+         "name": "200 OK — 2FA Required",
+         "status": "OK",
+         "code": 200,
+         "_postman_previewlanguage": "json",
+         "header": [
+          {
+           "key": "Content-Type",
+           "value": "application/json"
+          }
+         ],
+         "cookie": [],
+         "body": "{\n  \"success\": true,\n  \"message\": \"Two-factor authentication required.\",\n  \"data\": {\n    \"twoFactorRequired\": true,\n    \"twoFactorSetupRequired\": false,\n    \"challenge\": {\n      \"challengeToken\": \"ch_9f8e7d6c5b4a\",\n      \"expiresInSeconds\": 300\n    },\n    \"auth\": null\n  }\n}",
+         "originalRequest": {
+          "method": "POST",
+          "header": [
+           {
+            "key": "Content-Type",
+            "value": "application/json"
+           },
+           {
+            "key": "Accept-Language",
+            "value": "{{language}}"
+           }
+          ],
+          "url": {
+           "raw": "{{baseUrl}}/admin/api/auth/login",
+           "host": [
+            "{{baseUrl}}"
+           ],
+           "path": [
+            "admin",
+            "api",
+            "auth",
+            "login"
+           ]
+          },
+          "description": "## Sign In (Password Step)\n\n**Public endpoint — no authentication required.**\n\nFirst step of the admin login. Returns a 5-minute single-use 2FA challenge when 2FA is enabled or not yet set up — tokens are issued only after the 2FA step.\n\n### Request Fields\n| Field | Type | Required | Rules |\n|---|---|---|---|\n| email | string | ✅ | Admin email |\n| password | string | ✅ | Admin password (12–64 chars) |\n\n### Business Rules\n- Unknown email and wrong password look identical (`ADMIN_INVALID_CREDENTIALS`).\n- 5 failures lock the account for 15 minutes.\n- `twoFactorRequired: true` → run **2FA Verify** with the challenge.\n- `twoFactorSetupRequired: true` → run **Two-Factor Setup / Setup-Challenge**, then **Enable-Challenge**.\n- 2FA is mandatory for every admin.\n\n### Next Step\nThe test script saves `challengeToken` automatically. Call `POST /admin/api/auth/2fa/verify` (2FA on) or the setup-challenge flow (2FA off).\n\n### Frontend Notes\n- On `twoFactorRequired` show the 6-digit TOTP screen.\n- On `twoFactorSetupRequired` route to `/login/2fa-setup`.\n- Never reveal whether the email exists.",
+          "auth": {
+           "type": "noauth"
+          },
+          "body": {
+           "mode": "raw",
+           "raw": "{\n  \"email\": \"shahdmohy00@gmail.com\",\n  \"password\": \"Shahd@12345678\"\n}",
+           "options": {
+            "raw": {
+             "language": "json"
+            }
+           }
+          }
+         }
+        },
+        {
+         "name": "200 OK — 2FA Setup Required",
+         "status": "OK",
+         "code": 200,
+         "_postman_previewlanguage": "json",
+         "header": [
+          {
+           "key": "Content-Type",
+           "value": "application/json"
+          }
+         ],
+         "cookie": [],
+         "body": "{\n  \"success\": true,\n  \"message\": \"Two-factor setup required.\",\n  \"data\": {\n    \"twoFactorRequired\": false,\n    \"twoFactorSetupRequired\": true,\n    \"challenge\": {\n      \"challengeToken\": \"ch_9f8e7d6c5b4a\",\n      \"expiresInSeconds\": 300\n    },\n    \"auth\": null\n  }\n}",
+         "originalRequest": {
+          "method": "POST",
+          "header": [
+           {
+            "key": "Content-Type",
+            "value": "application/json"
+           },
+           {
+            "key": "Accept-Language",
+            "value": "{{language}}"
+           }
+          ],
+          "url": {
+           "raw": "{{baseUrl}}/admin/api/auth/login",
+           "host": [
+            "{{baseUrl}}"
+           ],
+           "path": [
+            "admin",
+            "api",
+            "auth",
+            "login"
+           ]
+          },
+          "description": "## Sign In (Password Step)\n\n**Public endpoint — no authentication required.**\n\nFirst step of the admin login. Returns a 5-minute single-use 2FA challenge when 2FA is enabled or not yet set up — tokens are issued only after the 2FA step.\n\n### Request Fields\n| Field | Type | Required | Rules |\n|---|---|---|---|\n| email | string | ✅ | Admin email |\n| password | string | ✅ | Admin password (12–64 chars) |\n\n### Business Rules\n- Unknown email and wrong password look identical (`ADMIN_INVALID_CREDENTIALS`).\n- 5 failures lock the account for 15 minutes.\n- `twoFactorRequired: true` → run **2FA Verify** with the challenge.\n- `twoFactorSetupRequired: true` → run **Two-Factor Setup / Setup-Challenge**, then **Enable-Challenge**.\n- 2FA is mandatory for every admin.\n\n### Next Step\nThe test script saves `challengeToken` automatically. Call `POST /admin/api/auth/2fa/verify` (2FA on) or the setup-challenge flow (2FA off).\n\n### Frontend Notes\n- On `twoFactorRequired` show the 6-digit TOTP screen.\n- On `twoFactorSetupRequired` route to `/login/2fa-setup`.\n- Never reveal whether the email exists.",
+          "auth": {
+           "type": "noauth"
+          },
+          "body": {
+           "mode": "raw",
+           "raw": "{\n  \"email\": \"shahdmohy00@gmail.com\",\n  \"password\": \"Shahd@12345678\"\n}",
+           "options": {
+            "raw": {
+             "language": "json"
+            }
+           }
+          }
+         }
+        },
+        {
+         "name": "200 OK — Invalid Credentials",
+         "status": "OK",
+         "code": 200,
+         "_postman_previewlanguage": "json",
+         "header": [
+          {
+           "key": "Content-Type",
+           "value": "application/json"
+          }
+         ],
+         "cookie": [],
+         "body": "{\n  \"success\": false,\n  \"message\": \"Invalid credentials.\",\n  \"data\": null,\n  \"errors\": [\n    {\n      \"code\": \"ADMIN_INVALID_CREDENTIALS\",\n      \"message\": \"Invalid credentials.\"\n    }\n  ]\n}",
+         "originalRequest": {
+          "method": "POST",
+          "header": [
+           {
+            "key": "Content-Type",
+            "value": "application/json"
+           },
+           {
+            "key": "Accept-Language",
+            "value": "{{language}}"
+           }
+          ],
+          "url": {
+           "raw": "{{baseUrl}}/admin/api/auth/login",
+           "host": [
+            "{{baseUrl}}"
+           ],
+           "path": [
+            "admin",
+            "api",
+            "auth",
+            "login"
+           ]
+          },
+          "description": "## Sign In (Password Step)\n\n**Public endpoint — no authentication required.**\n\nFirst step of the admin login. Returns a 5-minute single-use 2FA challenge when 2FA is enabled or not yet set up — tokens are issued only after the 2FA step.\n\n### Request Fields\n| Field | Type | Required | Rules |\n|---|---|---|---|\n| email | string | ✅ | Admin email |\n| password | string | ✅ | Admin password (12–64 chars) |\n\n### Business Rules\n- Unknown email and wrong password look identical (`ADMIN_INVALID_CREDENTIALS`).\n- 5 failures lock the account for 15 minutes.\n- `twoFactorRequired: true` → run **2FA Verify** with the challenge.\n- `twoFactorSetupRequired: true` → run **Two-Factor Setup / Setup-Challenge**, then **Enable-Challenge**.\n- 2FA is mandatory for every admin.\n\n### Next Step\nThe test script saves `challengeToken` automatically. Call `POST /admin/api/auth/2fa/verify` (2FA on) or the setup-challenge flow (2FA off).\n\n### Frontend Notes\n- On `twoFactorRequired` show the 6-digit TOTP screen.\n- On `twoFactorSetupRequired` route to `/login/2fa-setup`.\n- Never reveal whether the email exists.",
+          "auth": {
+           "type": "noauth"
+          },
+          "body": {
+           "mode": "raw",
+           "raw": "{\n  \"email\": \"shahdmohy00@gmail.com\",\n  \"password\": \"Shahd@12345678\"\n}",
+           "options": {
+            "raw": {
+             "language": "json"
+            }
+           }
+          }
+         }
+        },
+        {
+         "name": "429 — Account Locked",
+         "status": "Too Many Requests",
+         "code": 429,
+         "_postman_previewlanguage": "json",
+         "header": [
+          {
+           "key": "Content-Type",
+           "value": "application/json"
+          }
+         ],
+         "cookie": [],
+         "body": "{\n  \"success\": false,\n  \"message\": \"Account locked. Try again later.\",\n  \"data\": null,\n  \"errors\": [\n    {\n      \"code\": \"ADMIN_ACCOUNT_LOCKED\",\n      \"message\": \"Account locked. Try again later.\"\n    }\n  ]\n}",
+         "originalRequest": {
+          "method": "POST",
+          "header": [
+           {
+            "key": "Content-Type",
+            "value": "application/json"
+           },
+           {
+            "key": "Accept-Language",
+            "value": "{{language}}"
+           }
+          ],
+          "url": {
+           "raw": "{{baseUrl}}/admin/api/auth/login",
+           "host": [
+            "{{baseUrl}}"
+           ],
+           "path": [
+            "admin",
+            "api",
+            "auth",
+            "login"
+           ]
+          },
+          "description": "## Sign In (Password Step)\n\n**Public endpoint — no authentication required.**\n\nFirst step of the admin login. Returns a 5-minute single-use 2FA challenge when 2FA is enabled or not yet set up — tokens are issued only after the 2FA step.\n\n### Request Fields\n| Field | Type | Required | Rules |\n|---|---|---|---|\n| email | string | ✅ | Admin email |\n| password | string | ✅ | Admin password (12–64 chars) |\n\n### Business Rules\n- Unknown email and wrong password look identical (`ADMIN_INVALID_CREDENTIALS`).\n- 5 failures lock the account for 15 minutes.\n- `twoFactorRequired: true` → run **2FA Verify** with the challenge.\n- `twoFactorSetupRequired: true` → run **Two-Factor Setup / Setup-Challenge**, then **Enable-Challenge**.\n- 2FA is mandatory for every admin.\n\n### Next Step\nThe test script saves `challengeToken` automatically. Call `POST /admin/api/auth/2fa/verify` (2FA on) or the setup-challenge flow (2FA off).\n\n### Frontend Notes\n- On `twoFactorRequired` show the 6-digit TOTP screen.\n- On `twoFactorSetupRequired` route to `/login/2fa-setup`.\n- Never reveal whether the email exists.",
+          "auth": {
+           "type": "noauth"
+          },
+          "body": {
+           "mode": "raw",
+           "raw": "{\n  \"email\": \"shahdmohy00@gmail.com\",\n  \"password\": \"Shahd@12345678\"\n}",
+           "options": {
+            "raw": {
+             "language": "json"
+            }
+           }
+          }
+         }
+        }
+       ]
+      },
+      {
+       "name": "2FA Verify",
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "const res = pm.response.json();",
+           "pm.test('Status is a documented response (200, 401, 429)', () => pm.expect([200, 401, 429]).to.include(pm.response.code));",
+           "pm.test('Response uses the standard envelope', () => {",
+           "  pm.expect(res).to.have.property('success');",
+           "  pm.expect(res).to.have.property('message');",
+           "});",
+           "if (res.success && res.data && res.data.accessToken) {",
+           "  pm.collectionVariables.set('accessToken', res.data.accessToken);",
+           "  pm.collectionVariables.set('refreshToken', res.data.refreshToken);",
+           "  console.log('Tokens saved');",
+           "}",
+           "if (res.success && res.data && res.data.challenge && res.data.challenge.challengeToken) {",
+           "  pm.collectionVariables.set('challengeToken', res.data.challenge.challengeToken);",
+           "}"
+          ]
+         }
+        }
+       ],
+       "request": {
+        "method": "POST",
+        "header": [
+         {
+          "key": "Content-Type",
+          "value": "application/json"
+         },
+         {
+          "key": "Accept-Language",
+          "value": "{{language}}"
+         }
+        ],
+        "url": {
+         "raw": "{{baseUrl}}/admin/api/auth/2fa/verify",
+         "host": [
+          "{{baseUrl}}"
+         ],
+         "path": [
+          "admin",
+          "api",
+          "auth",
+          "2fa",
+          "verify"
+         ]
+        },
+        "description": "## Verify 2FA Code\n\n**Public endpoint — no authentication required.**\n\nExchange the login challenge plus a TOTP code (30 s step, +/-1 drift) for tokens.\n\n### Request Fields\n| Field | Type | Required | Rules |\n|---|---|---|---|\n| challengeToken | string | ✅ | From Login |\n| code | string | ✅ | 6-digit TOTP from Google Authenticator |\n\n### Business Rules\n- A wrong code issues nothing and counts toward lockout.\n- The challenge is single-use and expires in 5 minutes.\n\n### Next Step\nTokens are saved automatically by the test script.\n\n### Frontend Notes\n- Show the remaining attempts on a wrong code; lockout is 15 minutes after 5 failures.",
+        "auth": {
+         "type": "noauth"
+        },
+        "body": {
+         "mode": "raw",
+         "raw": "{\n  \"challengeToken\": \"{{challengeToken}}\",\n  \"code\": \"123456\"\n}",
+         "options": {
+          "raw": {
+           "language": "json"
+          }
+         }
+        }
+       },
+       "response": [
+        {
+         "name": "200 OK — Signed In",
+         "status": "OK",
+         "code": 200,
+         "_postman_previewlanguage": "json",
+         "header": [
+          {
+           "key": "Content-Type",
+           "value": "application/json"
+          }
+         ],
+         "cookie": [],
+         "body": "{\n  \"success\": true,\n  \"message\": \"Signed in.\",\n  \"data\": {\n    \"accessToken\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI0IiwidHlwZSI6ImFkbWluIn0.signature\",\n    \"refreshToken\": \"8f3a2b1c-4d5e-6f70-81a2-b3c4d5e6f708\",\n    \"expiresInSeconds\": 900,\n    \"admin\": {\n      \"id\": 4,\n      \"name\": \"Shahd Mohy\",\n      \"email\": \"shahdmohy00@gmail.com\",\n      \"status\": \"active\",\n      \"twoFactorEnabled\": true,\n      \"lastLoginAt\": \"2026-11-16T08:00:00Z\",\n      \"roles\": [\n        \"super-admin\"\n      ],\n      \"permissions\": [\n        \"admin.users.view\",\n        \"admin.users.manage\",\n        \"admin.disputes.decide\"\n      ]\n    }\n  }\n}",
+         "originalRequest": {
+          "method": "POST",
+          "header": [
+           {
+            "key": "Content-Type",
+            "value": "application/json"
+           },
+           {
+            "key": "Accept-Language",
+            "value": "{{language}}"
+           }
+          ],
+          "url": {
+           "raw": "{{baseUrl}}/admin/api/auth/2fa/verify",
+           "host": [
+            "{{baseUrl}}"
+           ],
+           "path": [
+            "admin",
+            "api",
+            "auth",
+            "2fa",
+            "verify"
+           ]
+          },
+          "description": "## Verify 2FA Code\n\n**Public endpoint — no authentication required.**\n\nExchange the login challenge plus a TOTP code (30 s step, +/-1 drift) for tokens.\n\n### Request Fields\n| Field | Type | Required | Rules |\n|---|---|---|---|\n| challengeToken | string | ✅ | From Login |\n| code | string | ✅ | 6-digit TOTP from Google Authenticator |\n\n### Business Rules\n- A wrong code issues nothing and counts toward lockout.\n- The challenge is single-use and expires in 5 minutes.\n\n### Next Step\nTokens are saved automatically by the test script.\n\n### Frontend Notes\n- Show the remaining attempts on a wrong code; lockout is 15 minutes after 5 failures.",
+          "auth": {
+           "type": "noauth"
+          },
+          "body": {
+           "mode": "raw",
+           "raw": "{\n  \"challengeToken\": \"{{challengeToken}}\",\n  \"code\": \"123456\"\n}",
+           "options": {
+            "raw": {
+             "language": "json"
+            }
+           }
+          }
+         }
+        },
+        {
+         "name": "200 OK — Invalid Code",
+         "status": "OK",
+         "code": 200,
+         "_postman_previewlanguage": "json",
+         "header": [
+          {
+           "key": "Content-Type",
+           "value": "application/json"
+          }
+         ],
+         "cookie": [],
+         "body": "{\n  \"success\": false,\n  \"message\": \"Invalid two-factor code.\",\n  \"data\": null,\n  \"errors\": [\n    {\n      \"code\": \"ADMIN_2FA_CODE_INVALID\",\n      \"message\": \"Invalid two-factor code.\"\n    }\n  ]\n}",
+         "originalRequest": {
+          "method": "POST",
+          "header": [
+           {
+            "key": "Content-Type",
+            "value": "application/json"
+           },
+           {
+            "key": "Accept-Language",
+            "value": "{{language}}"
+           }
+          ],
+          "url": {
+           "raw": "{{baseUrl}}/admin/api/auth/2fa/verify",
+           "host": [
+            "{{baseUrl}}"
+           ],
+           "path": [
+            "admin",
+            "api",
+            "auth",
+            "2fa",
+            "verify"
+           ]
+          },
+          "description": "## Verify 2FA Code\n\n**Public endpoint — no authentication required.**\n\nExchange the login challenge plus a TOTP code (30 s step, +/-1 drift) for tokens.\n\n### Request Fields\n| Field | Type | Required | Rules |\n|---|---|---|---|\n| challengeToken | string | ✅ | From Login |\n| code | string | ✅ | 6-digit TOTP from Google Authenticator |\n\n### Business Rules\n- A wrong code issues nothing and counts toward lockout.\n- The challenge is single-use and expires in 5 minutes.\n\n### Next Step\nTokens are saved automatically by the test script.\n\n### Frontend Notes\n- Show the remaining attempts on a wrong code; lockout is 15 minutes after 5 failures.",
+          "auth": {
+           "type": "noauth"
+          },
+          "body": {
+           "mode": "raw",
+           "raw": "{\n  \"challengeToken\": \"{{challengeToken}}\",\n  \"code\": \"123456\"\n}",
+           "options": {
+            "raw": {
+             "language": "json"
+            }
+           }
+          }
+         }
+        }
+       ]
+      },
+      {
+       "name": "Refresh Token",
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "const res = pm.response.json();",
+           "pm.test('Status is a documented response (200, 401)', () => pm.expect([200, 401]).to.include(pm.response.code));",
+           "pm.test('Response uses the standard envelope', () => {",
+           "  pm.expect(res).to.have.property('success');",
+           "  pm.expect(res).to.have.property('message');",
+           "});",
+           "if (res.success && res.data && res.data.accessToken) {",
+           "  pm.collectionVariables.set('accessToken', res.data.accessToken);",
+           "  pm.collectionVariables.set('refreshToken', res.data.refreshToken);",
+           "  console.log('Tokens saved');",
+           "}",
+           "if (res.success && res.data && res.data.challenge && res.data.challenge.challengeToken) {",
+           "  pm.collectionVariables.set('challengeToken', res.data.challenge.challengeToken);",
+           "}"
+          ]
+         }
+        }
+       ],
+       "request": {
+        "method": "POST",
+        "header": [
+         {
+          "key": "Content-Type",
+          "value": "application/json"
+         },
+         {
+          "key": "Accept-Language",
+          "value": "{{language}}"
+         }
+        ],
+        "url": {
+         "raw": "{{baseUrl}}/admin/api/auth/refresh",
+         "host": [
+          "{{baseUrl}}"
+         ],
+         "path": [
+          "admin",
+          "api",
+          "auth",
+          "refresh"
+         ]
+        },
+        "description": "## Refresh Token\n\n**Public endpoint — no authentication required.**\n\nRotate the refresh token (30 days) and get a new access token (15 minutes).\n\n### Request Fields\n| Field | Type | Required | Rules |\n|---|---|---|---|\n| refreshToken | string | ✅ | Current refresh token |\n\n### Business Rules\n- Reusing a rotated token ends ALL admin sessions of that admin (`ADMIN_REFRESH_REUSED`).\n\n### Next Step\nTokens are saved automatically by the test script.\n\n### Frontend Notes\n- The admin interceptor refreshes once on `TOKEN_EXPIRED` / `TOKEN_INVALID`, then retries the request once.",
+        "auth": {
+         "type": "noauth"
+        },
+        "body": {
+         "mode": "raw",
+         "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}",
+         "options": {
+          "raw": {
+           "language": "json"
+          }
+         }
+        }
+       },
+       "response": [
+        {
+         "name": "200 OK — Refreshed",
+         "status": "OK",
+         "code": 200,
+         "_postman_previewlanguage": "json",
+         "header": [
+          {
+           "key": "Content-Type",
+           "value": "application/json"
+          }
+         ],
+         "cookie": [],
+         "body": "{\n  \"success\": true,\n  \"message\": \"Token refreshed.\",\n  \"data\": {\n    \"accessToken\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI0IiwidHlwZSI6ImFkbWluIn0.signature\",\n    \"refreshToken\": \"8f3a2b1c-4d5e-6f70-81a2-b3c4d5e6f708\",\n    \"expiresInSeconds\": 900,\n    \"admin\": {\n      \"id\": 4,\n      \"name\": \"Shahd Mohy\",\n      \"email\": \"shahdmohy00@gmail.com\",\n      \"status\": \"active\",\n      \"twoFactorEnabled\": true,\n      \"lastLoginAt\": \"2026-11-16T08:00:00Z\",\n      \"roles\": [\n        \"super-admin\"\n      ],\n      \"permissions\": [\n        \"admin.users.view\",\n        \"admin.users.manage\",\n        \"admin.disputes.decide\"\n      ]\n    }\n  }\n}",
+         "originalRequest": {
+          "method": "POST",
+          "header": [
+           {
+            "key": "Content-Type",
+            "value": "application/json"
+           },
+           {
+            "key": "Accept-Language",
+            "value": "{{language}}"
+           }
+          ],
+          "url": {
+           "raw": "{{baseUrl}}/admin/api/auth/refresh",
+           "host": [
+            "{{baseUrl}}"
+           ],
+           "path": [
+            "admin",
+            "api",
+            "auth",
+            "refresh"
+           ]
+          },
+          "description": "## Refresh Token\n\n**Public endpoint — no authentication required.**\n\nRotate the refresh token (30 days) and get a new access token (15 minutes).\n\n### Request Fields\n| Field | Type | Required | Rules |\n|---|---|---|---|\n| refreshToken | string | ✅ | Current refresh token |\n\n### Business Rules\n- Reusing a rotated token ends ALL admin sessions of that admin (`ADMIN_REFRESH_REUSED`).\n\n### Next Step\nTokens are saved automatically by the test script.\n\n### Frontend Notes\n- The admin interceptor refreshes once on `TOKEN_EXPIRED` / `TOKEN_INVALID`, then retries the request once.",
+          "auth": {
+           "type": "noauth"
+          },
+          "body": {
+           "mode": "raw",
+           "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}",
+           "options": {
+            "raw": {
+             "language": "json"
+            }
+           }
+          }
+         }
+        },
+        {
+         "name": "200 OK — Refresh Reused",
+         "status": "OK",
+         "code": 200,
+         "_postman_previewlanguage": "json",
+         "header": [
+          {
+           "key": "Content-Type",
+           "value": "application/json"
+          }
+         ],
+         "cookie": [],
+         "body": "{\n  \"success\": false,\n  \"message\": \"Refresh token reused.\",\n  \"data\": null,\n  \"errors\": [\n    {\n      \"code\": \"ADMIN_REFRESH_REUSED\",\n      \"message\": \"Refresh token reused. All sessions ended.\"\n    }\n  ]\n}",
+         "originalRequest": {
+          "method": "POST",
+          "header": [
+           {
+            "key": "Content-Type",
+            "value": "application/json"
+           },
+           {
+            "key": "Accept-Language",
+            "value": "{{language}}"
+           }
+          ],
+          "url": {
+           "raw": "{{baseUrl}}/admin/api/auth/refresh",
+           "host": [
+            "{{baseUrl}}"
+           ],
+           "path": [
+            "admin",
+            "api",
+            "auth",
+            "refresh"
+           ]
+          },
+          "description": "## Refresh Token\n\n**Public endpoint — no authentication required.**\n\nRotate the refresh token (30 days) and get a new access token (15 minutes).\n\n### Request Fields\n| Field | Type | Required | Rules |\n|---|---|---|---|\n| refreshToken | string | ✅ | Current refresh token |\n\n### Business Rules\n- Reusing a rotated token ends ALL admin sessions of that admin (`ADMIN_REFRESH_REUSED`).\n\n### Next Step\nTokens are saved automatically by the test script.\n\n### Frontend Notes\n- The admin interceptor refreshes once on `TOKEN_EXPIRED` / `TOKEN_INVALID`, then retries the request once.",
+          "auth": {
+           "type": "noauth"
+          },
+          "body": {
+           "mode": "raw",
+           "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}",
+           "options": {
+            "raw": {
+             "language": "json"
+            }
+           }
+          }
+         }
+        }
+       ]
+      },
+      {
+       "name": "Logout",
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "const res = pm.response.json();",
+           "pm.test('Status is a documented response (200, 401)', () => pm.expect([200, 401]).to.include(pm.response.code));",
+           "pm.test('Response uses the standard envelope', () => {",
+           "  pm.expect(res).to.have.property('success');",
+           "  pm.expect(res).to.have.property('message');",
+           "});"
+          ]
+         }
+        }
+       ],
+       "request": {
+        "method": "POST",
+        "header": [
+         {
+          "key": "Content-Type",
+          "value": "application/json"
+         },
+         {
+          "key": "Accept-Language",
+          "value": "{{language}}"
+         }
+        ],
+        "url": {
+         "raw": "{{baseUrl}}/admin/api/auth/logout",
+         "host": [
+          "{{baseUrl}}"
+         ],
+         "path": [
+          "admin",
+          "api",
+          "auth",
+          "logout"
+         ]
+        },
+        "description": "## Sign Out (This Session)\n\n**Requires authentication.**\n\nEnds this session. Body is optional.\n\n### Frontend Notes\n- Clear the stored tokens and route to the login page.",
+        "body": {
+         "mode": "raw",
+         "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}",
+         "options": {
+          "raw": {
+           "language": "json"
+          }
+         }
+        }
+       },
+       "response": [
+        {
+         "name": "200 OK",
+         "status": "OK",
+         "code": 200,
+         "_postman_previewlanguage": "json",
+         "header": [
+          {
+           "key": "Content-Type",
+           "value": "application/json"
+          }
+         ],
+         "cookie": [],
+         "body": "{\n  \"success\": true,\n  \"message\": \"Signed out.\",\n  \"data\": null\n}",
+         "originalRequest": {
+          "method": "POST",
+          "header": [
+           {
+            "key": "Content-Type",
+            "value": "application/json"
+           },
+           {
+            "key": "Accept-Language",
+            "value": "{{language}}"
+           }
+          ],
+          "url": {
+           "raw": "{{baseUrl}}/admin/api/auth/logout",
+           "host": [
+            "{{baseUrl}}"
+           ],
+           "path": [
+            "admin",
+            "api",
+            "auth",
+            "logout"
+           ]
+          },
+          "description": "## Sign Out (This Session)\n\n**Requires authentication.**\n\nEnds this session. Body is optional.\n\n### Frontend Notes\n- Clear the stored tokens and route to the login page.",
+          "body": {
+           "mode": "raw",
+           "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}",
+           "options": {
+            "raw": {
+             "language": "json"
+            }
+           }
+          }
+         }
+        }
+       ]
+      },
+      {
+       "name": "Logout All",
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "const res = pm.response.json();",
+           "pm.test('Status is a documented response (200, 401)', () => pm.expect([200, 401]).to.include(pm.response.code));",
+           "pm.test('Response uses the standard envelope', () => {",
+           "  pm.expect(res).to.have.property('success');",
+           "  pm.expect(res).to.have.property('message');",
+           "});"
+          ]
+         }
+        }
+       ],
+       "request": {
+        "method": "POST",
+        "header": [
+         {
+          "key": "Accept-Language",
+          "value": "{{language}}"
+         }
+        ],
+        "url": {
+         "raw": "{{baseUrl}}/admin/api/auth/logout-all",
+         "host": [
+          "{{baseUrl}}"
+         ],
+         "path": [
+          "admin",
+          "api",
+          "auth",
+          "logout-all"
+         ]
+        },
+        "description": "## Sign Out From All Sessions\n\n**Requires authentication.**\n\nEnds every session of the current admin.\n\n### Frontend Notes\n- Use after a suspected account compromise."
+       },
+       "response": [
+        {
+         "name": "200 OK",
+         "status": "OK",
+         "code": 200,
+         "_postman_previewlanguage": "json",
+         "header": [
+          {
+           "key": "Content-Type",
+           "value": "application/json"
+          }
+         ],
+         "cookie": [],
+         "body": "{\n  \"success\": true,\n  \"message\": \"Signed out from all sessions.\",\n  \"data\": null\n}",
+         "originalRequest": {
+          "method": "POST",
+          "header": [
+           {
+            "key": "Accept-Language",
+            "value": "{{language}}"
+           }
+          ],
+          "url": {
+           "raw": "{{baseUrl}}/admin/api/auth/logout-all",
+           "host": [
+            "{{baseUrl}}"
+           ],
+           "path": [
+            "admin",
+            "api",
+            "auth",
+            "logout-all"
+           ]
+          },
+          "description": "## Sign Out From All Sessions\n\n**Requires authentication.**\n\nEnds every session of the current admin.\n\n### Frontend Notes\n- Use after a suspected account compromise."
+         }
+        }
+       ]
+      },
+      {
+       "name": "Get Me",
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "const res = pm.response.json();",
+           "pm.test('Status is a documented response (200, 401)', () => pm.expect([200, 401]).to.include(pm.response.code));",
+           "pm.test('Response uses the standard envelope', () => {",
+           "  pm.expect(res).to.have.property('success');",
+           "  pm.expect(res).to.have.property('message');",
+           "});"
+          ]
+         }
+        }
+       ],
+       "request": {
+        "method": "GET",
+        "header": [
+         {
+          "key": "Accept-Language",
+          "value": "{{language}}"
+         }
+        ],
+        "url": {
+         "raw": "{{baseUrl}}/admin/api/auth/me",
+         "host": [
+          "{{baseUrl}}"
+         ],
+         "path": [
+          "admin",
+          "api",
+          "auth",
+          "me"
+         ]
+        },
+        "description": "## Get Current Admin\n\n**Requires authentication.**\n\nReturns the current admin with roles and permissions read from the database.\n\n### Business Rules\n- Permissions are never read from the token; they are re-checked from the database on every request.\n\n### Frontend Notes\n- Use this to drive the sidebar and per-route permission checks; never decode the token."
+       },
+       "response": [
+        {
+         "name": "200 OK",
+         "status": "OK",
+         "code": 200,
+         "_postman_previewlanguage": "json",
+         "header": [
+          {
+           "key": "Content-Type",
+           "value": "application/json"
+          }
+         ],
+         "cookie": [],
+         "body": "{\n  \"success\": true,\n  \"message\": \"Success\",\n  \"data\": {\n    \"id\": 4,\n    \"name\": \"Shahd Mohy\",\n    \"email\": \"shahdmohy00@gmail.com\",\n    \"status\": \"active\",\n    \"twoFactorEnabled\": true,\n    \"lastLoginAt\": \"2026-11-16T08:00:00Z\",\n    \"roles\": [\n      \"super-admin\"\n    ],\n    \"permissions\": [\n      \"admin.users.view\",\n      \"admin.users.manage\",\n      \"admin.disputes.decide\"\n    ]\n  }\n}",
+         "originalRequest": {
+          "method": "GET",
+          "header": [
+           {
+            "key": "Accept-Language",
+            "value": "{{language}}"
+           }
+          ],
+          "url": {
+           "raw": "{{baseUrl}}/admin/api/auth/me",
+           "host": [
+            "{{baseUrl}}"
+           ],
+           "path": [
+            "admin",
+            "api",
+            "auth",
+            "me"
+           ]
+          },
+          "description": "## Get Current Admin\n\n**Requires authentication.**\n\nReturns the current admin with roles and permissions read from the database.\n\n### Business Rules\n- Permissions are never read from the token; they are re-checked from the database on every request.\n\n### Frontend Notes\n- Use this to drive the sidebar and per-route permission checks; never decode the token."
+         }
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "name": "🔑 Two-Factor Setup",
+     "item": [
+      {
+       "name": "Setup-Challenge — Step 1",
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "const res = pm.response.json();",
+           "pm.test('Status is a documented response (200, 401, 429)', () => pm.expect([200, 401, 429]).to.include(pm.response.code));",
+           "pm.test('Response uses the standard envelope', () => {",
+           "  pm.expect(res).to.have.property('success');",
+           "  pm.expect(res).to.have.property('message');",
+           "});",
+           "if (res.success && res.data && res.data.secret) {",
+           "  console.log('TOTP secret: ' + res.data.secret);",
+           "  console.log('otpauth: ' + res.data.otpAuthUri);",
+           "}"
+          ]
+         }
+        }
+       ],
+       "request": {
+        "method": "POST",
+        "header": [
+         {
+          "key": "Content-Type",
+          "value": "application/json"
+         },
+         {
+          "key": "Accept-Language",
+          "value": "{{language}}"
+         }
+        ],
+        "url": {
+         "raw": "{{baseUrl}}/admin/api/auth/2fa/setup-challenge",
+         "host": [
+          "{{baseUrl}}"
+         ],
+         "path": [
+          "admin",
+          "api",
+          "auth",
+          "2fa",
+          "setup-challenge"
+         ]
+        },
+        "description": "## 2FA Setup — Step 1 (Anonymous)\n\n**Public endpoint — no authentication required.**\n\nMandatory-2FA setup step 1. Exchange the login setup-challenge for a TOTP secret (stored encrypted, inactive until enabled). Does not consume the challenge.\n\n### Request Fields\n| Field | Type | Required | Rules |\n|---|---|---|---|\n| challengeToken | string | ✅ | From a Login that returned `twoFactorSetupRequired` |\n\n### Next Step\nAdd the returned `secret` to Google Authenticator (or open `otpAuthUri`), then call **Enable-Challenge** with a current code.\n\n### Frontend Notes\n- Show the secret and the QR code from `otpAuthUri` on the `/login/2fa-setup` page.",
+        "auth": {
+         "type": "noauth"
+        },
+        "body": {
+         "mode": "raw",
+         "raw": "{\n  \"challengeToken\": \"{{challengeToken}}\"\n}",
+         "options": {
+          "raw": {
+           "language": "json"
+          }
+         }
+        }
+       },
+       "response": [
+        {
+         "name": "200 OK — Secret Issued",
+         "status": "OK",
+         "code": 200,
+         "_postman_previewlanguage": "json",
+         "header": [
+          {
+           "key": "Content-Type",
+           "value": "application/json"
+          }
+         ],
+         "cookie": [],
+         "body": "{\n  \"success\": true,\n  \"message\": \"Success\",\n  \"data\": {\n    \"secret\": \"JBSWY3DPEHPK3PXP\",\n    \"otpAuthUri\": \"otpauth://totp/Etamid:shahdmohy00@gmail.com?secret=JBSWY3DPEHPK3PXP&issuer=Etamid\"\n  }\n}",
+         "originalRequest": {
+          "method": "POST",
+          "header": [
+           {
+            "key": "Content-Type",
+            "value": "application/json"
+           },
+           {
+            "key": "Accept-Language",
+            "value": "{{language}}"
+           }
+          ],
+          "url": {
+           "raw": "{{baseUrl}}/admin/api/auth/2fa/setup-challenge",
+           "host": [
+            "{{baseUrl}}"
+           ],
+           "path": [
+            "admin",
+            "api",
+            "auth",
+            "2fa",
+            "setup-challenge"
+           ]
+          },
+          "description": "## 2FA Setup — Step 1 (Anonymous)\n\n**Public endpoint — no authentication required.**\n\nMandatory-2FA setup step 1. Exchange the login setup-challenge for a TOTP secret (stored encrypted, inactive until enabled). Does not consume the challenge.\n\n### Request Fields\n| Field | Type | Required | Rules |\n|---|---|---|---|\n| challengeToken | string | ✅ | From a Login that returned `twoFactorSetupRequired` |\n\n### Next Step\nAdd the returned `secret` to Google Authenticator (or open `otpAuthUri`), then call **Enable-Challenge** with a current code.\n\n### Frontend Notes\n- Show the secret and the QR code from `otpAuthUri` on the `/login/2fa-setup` page.",
+          "auth": {
+           "type": "noauth"
+          },
+          "body": {
+           "mode": "raw",
+           "raw": "{\n  \"challengeToken\": \"{{challengeToken}}\"\n}",
+           "options": {
+            "raw": {
+             "language": "json"
+            }
+           }
+          }
+         }
+        }
+       ]
+      },
+      {
+       "name": "Enable-Challenge — Step 2",
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "const res = pm.response.json();",
+           "pm.test('Status is a documented response (200, 401, 409, 429)', () => pm.expect([200, 401, 409, 429]).to.include(pm.response.code));",
+           "pm.test('Response uses the standard envelope', () => {",
+           "  pm.expect(res).to.have.property('success');",
+           "  pm.expect(res).to.have.property('message');",
+           "});",
+           "if (res.success && res.data && res.data.accessToken) {",
+           "  pm.collectionVariables.set('accessToken', res.data.accessToken);",
+           "  pm.collectionVariables.set('refreshToken', res.data.refreshToken);",
+           "  console.log('Tokens saved');",
+           "}",
+           "if (res.success && res.data && res.data.challenge && res.data.challenge.challengeToken) {",
+           "  pm.collectionVariables.set('challengeToken', res.data.challenge.challengeToken);",
+           "}"
+          ]
+         }
+        }
+       ],
+       "request": {
+        "method": "POST",
+        "header": [
+         {
+          "key": "Content-Type",
+          "value": "application/json"
+         },
+         {
+          "key": "Accept-Language",
+          "value": "{{language}}"
+         }
+        ],
+        "url": {
+         "raw": "{{baseUrl}}/admin/api/auth/2fa/enable-challenge",
+         "host": [
+          "{{baseUrl}}"
+         ],
+         "path": [
+          "admin",
+          "api",
+          "auth",
+          "2fa",
+          "enable-challenge"
+         ]
+        },
+        "description": "## 2FA Setup — Step 2 (Anonymous)\n\n**Public endpoint — no authentication required.**\n\nMandatory-2FA setup step 2. Verify a current code, enable 2FA, consume the challenge and start a session.\n\n### Request Fields\n| Field | Type | Required | Rules |\n|---|---|---|---|\n| challengeToken | string | ✅ | From Login |\n| code | string | ✅ | 6-digit TOTP from the newly added secret |\n\n### Business Rules\n- A wrong code issues nothing and counts toward lockout.\n- Calling setup-challenge again overwrites the stored secret.\n\n### Next Step\nTokens are saved automatically by the test script.",
+        "auth": {
+         "type": "noauth"
+        },
+        "body": {
+         "mode": "raw",
+         "raw": "{\n  \"challengeToken\": \"{{challengeToken}}\",\n  \"code\": \"123456\"\n}",
+         "options": {
+          "raw": {
+           "language": "json"
+          }
+         }
+        }
+       },
+       "response": [
+        {
+         "name": "200 OK — 2FA Enabled",
+         "status": "OK",
+         "code": 200,
+         "_postman_previewlanguage": "json",
+         "header": [
+          {
+           "key": "Content-Type",
+           "value": "application/json"
+          }
+         ],
+         "cookie": [],
+         "body": "{\n  \"success\": true,\n  \"message\": \"Two-factor authentication enabled.\",\n  \"data\": {\n    \"accessToken\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI0IiwidHlwZSI6ImFkbWluIn0.signature\",\n    \"refreshToken\": \"8f3a2b1c-4d5e-6f70-81a2-b3c4d5e6f708\",\n    \"expiresInSeconds\": 900,\n    \"admin\": {\n      \"id\": 4,\n      \"name\": \"Shahd Mohy\",\n      \"email\": \"shahdmohy00@gmail.com\",\n      \"status\": \"active\",\n      \"twoFactorEnabled\": true,\n      \"lastLoginAt\": \"2026-11-16T08:00:00Z\",\n      \"roles\": [\n        \"super-admin\"\n      ],\n      \"permissions\": [\n        \"admin.users.view\",\n        \"admin.users.manage\",\n        \"admin.disputes.decide\"\n      ]\n    }\n  }\n}",
+         "originalRequest": {
+          "method": "POST",
+          "header": [
+           {
+            "key": "Content-Type",
+            "value": "application/json"
+           },
+           {
+            "key": "Accept-Language",
+            "value": "{{language}}"
+           }
+          ],
+          "url": {
+           "raw": "{{baseUrl}}/admin/api/auth/2fa/enable-challenge",
+           "host": [
+            "{{baseUrl}}"
+           ],
+           "path": [
+            "admin",
+            "api",
+            "auth",
+            "2fa",
+            "enable-challenge"
+           ]
+          },
+          "description": "## 2FA Setup — Step 2 (Anonymous)\n\n**Public endpoint — no authentication required.**\n\nMandatory-2FA setup step 2. Verify a current code, enable 2FA, consume the challenge and start a session.\n\n### Request Fields\n| Field | Type | Required | Rules |\n|---|---|---|---|\n| challengeToken | string | ✅ | From Login |\n| code | string | ✅ | 6-digit TOTP from the newly added secret |\n\n### Business Rules\n- A wrong code issues nothing and counts toward lockout.\n- Calling setup-challenge again overwrites the stored secret.\n\n### Next Step\nTokens are saved automatically by the test script.",
+          "auth": {
+           "type": "noauth"
+          },
+          "body": {
+           "mode": "raw",
+           "raw": "{\n  \"challengeToken\": \"{{challengeToken}}\",\n  \"code\": \"123456\"\n}",
+           "options": {
+            "raw": {
+             "language": "json"
+            }
+           }
+          }
+         }
+        },
+        {
+         "name": "200 OK — Invalid Code",
+         "status": "OK",
+         "code": 200,
+         "_postman_previewlanguage": "json",
+         "header": [
+          {
+           "key": "Content-Type",
+           "value": "application/json"
+          }
+         ],
+         "cookie": [],
+         "body": "{\n  \"success\": false,\n  \"message\": \"Invalid two-factor code.\",\n  \"data\": null,\n  \"errors\": [\n    {\n      \"code\": \"ADMIN_2FA_CODE_INVALID\",\n      \"message\": \"Invalid two-factor code.\"\n    }\n  ]\n}",
+         "originalRequest": {
+          "method": "POST",
+          "header": [
+           {
+            "key": "Content-Type",
+            "value": "application/json"
+           },
+           {
+            "key": "Accept-Language",
+            "value": "{{language}}"
+           }
+          ],
+          "url": {
+           "raw": "{{baseUrl}}/admin/api/auth/2fa/enable-challenge",
+           "host": [
+            "{{baseUrl}}"
+           ],
+           "path": [
+            "admin",
+            "api",
+            "auth",
+            "2fa",
+            "enable-challenge"
+           ]
+          },
+          "description": "## 2FA Setup — Step 2 (Anonymous)\n\n**Public endpoint — no authentication required.**\n\nMandatory-2FA setup step 2. Verify a current code, enable 2FA, consume the challenge and start a session.\n\n### Request Fields\n| Field | Type | Required | Rules |\n|---|---|---|---|\n| challengeToken | string | ✅ | From Login |\n| code | string | ✅ | 6-digit TOTP from the newly added secret |\n\n### Business Rules\n- A wrong code issues nothing and counts toward lockout.\n- Calling setup-challenge again overwrites the stored secret.\n\n### Next Step\nTokens are saved automatically by the test script.",
+          "auth": {
+           "type": "noauth"
+          },
+          "body": {
+           "mode": "raw",
+           "raw": "{\n  \"challengeToken\": \"{{challengeToken}}\",\n  \"code\": \"123456\"\n}",
+           "options": {
+            "raw": {
+             "language": "json"
+            }
+           }
+          }
+         }
+        }
+       ]
+      },
+      {
+       "name": "2FA Setup (Logged In)",
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "const res = pm.response.json();",
+           "pm.test('Status is a documented response (200, 409)', () => pm.expect([200, 409]).to.include(pm.response.code));",
+           "pm.test('Response uses the standard envelope', () => {",
+           "  pm.expect(res).to.have.property('success');",
+           "  pm.expect(res).to.have.property('message');",
+           "});"
+          ]
+         }
+        }
+       ],
+       "request": {
+        "method": "POST",
+        "header": [
+         {
+          "key": "Accept-Language",
+          "value": "{{language}}"
+         }
+        ],
+        "url": {
+         "raw": "{{baseUrl}}/admin/api/auth/2fa/setup",
+         "host": [
+          "{{baseUrl}}"
+         ],
+         "path": [
+          "admin",
+          "api",
+          "auth",
+          "2fa",
+          "setup"
+         ]
+        },
+        "description": "## Generate TOTP Secret (Logged In)\n\n**Requires authentication.**\n\nGenerate a TOTP secret (stored encrypted, inactive until enabled). Returns the Base32 secret and an otpauth URI.\n\n### Business Rules\n- Returns 409 `ADMIN_2FA_ALREADY_ENABLED` when 2FA is already on.\n- Prefer the anonymous setup-challenge flow for admins who have not set up 2FA yet."
+       },
+       "response": [
+        {
+         "name": "200 OK — Secret Issued",
+         "status": "OK",
+         "code": 200,
+         "_postman_previewlanguage": "json",
+         "header": [
+          {
+           "key": "Content-Type",
+           "value": "application/json"
+          }
+         ],
+         "cookie": [],
+         "body": "{\n  \"success\": true,\n  \"message\": \"Success\",\n  \"data\": {\n    \"secret\": \"JBSWY3DPEHPK3PXP\",\n    \"otpAuthUri\": \"otpauth://totp/Etamid:shahdmohy00@gmail.com?secret=JBSWY3DPEHPK3PXP&issuer=Etamid\"\n  }\n}",
+         "originalRequest": {
+          "method": "POST",
+          "header": [
+           {
+            "key": "Accept-Language",
+            "value": "{{language}}"
+           }
+          ],
+          "url": {
+           "raw": "{{baseUrl}}/admin/api/auth/2fa/setup",
+           "host": [
+            "{{baseUrl}}"
+           ],
+           "path": [
+            "admin",
+            "api",
+            "auth",
+            "2fa",
+            "setup"
+           ]
+          },
+          "description": "## Generate TOTP Secret (Logged In)\n\n**Requires authentication.**\n\nGenerate a TOTP secret (stored encrypted, inactive until enabled). Returns the Base32 secret and an otpauth URI.\n\n### Business Rules\n- Returns 409 `ADMIN_2FA_ALREADY_ENABLED` when 2FA is already on.\n- Prefer the anonymous setup-challenge flow for admins who have not set up 2FA yet."
+         }
+        }
+       ]
+      },
+      {
+       "name": "2FA Enable (Logged In)",
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "const res = pm.response.json();",
+           "pm.test('Status is a documented response (200, 401, 409)', () => pm.expect([200, 401, 409]).to.include(pm.response.code));",
+           "pm.test('Response uses the standard envelope', () => {",
+           "  pm.expect(res).to.have.property('success');",
+           "  pm.expect(res).to.have.property('message');",
+           "});"
+          ]
+         }
+        }
+       ],
+       "request": {
+        "method": "POST",
+        "header": [
+         {
+          "key": "Content-Type",
+          "value": "application/json"
+         },
+         {
+          "key": "Accept-Language",
+          "value": "{{language}}"
+         }
+        ],
+        "url": {
+         "raw": "{{baseUrl}}/admin/api/auth/2fa/enable",
+         "host": [
+          "{{baseUrl}}"
+         ],
+         "path": [
+          "admin",
+          "api",
+          "auth",
+          "2fa",
+          "enable"
+         ]
+        },
+        "description": "## Activate 2FA (Logged In)\n\n**Requires authentication.**\n\nActivate 2FA by proving a current code.\n\n### Request Fields\n| Field | Type | Required | Rules |\n|---|---|---|---|\n| code | string | ✅ | 6-digit TOTP |\n\n### Frontend Notes\n- Remove the setup screen from the Profile page once enabled.",
+        "body": {
+         "mode": "raw",
+         "raw": "{\n  \"code\": \"123456\"\n}",
+         "options": {
+          "raw": {
+           "language": "json"
+          }
+         }
+        }
+       },
+       "response": [
+        {
+         "name": "200 OK",
+         "status": "OK",
+         "code": 200,
+         "_postman_previewlanguage": "json",
+         "header": [
+          {
+           "key": "Content-Type",
+           "value": "application/json"
+          }
+         ],
+         "cookie": [],
+         "body": "{\n  \"success\": true,\n  \"message\": \"Two-factor authentication enabled.\",\n  \"data\": {\n    \"id\": 4,\n    \"name\": \"Shahd Mohy\",\n    \"email\": \"shahdmohy00@gmail.com\",\n    \"status\": \"active\",\n    \"twoFactorEnabled\": true,\n    \"lastLoginAt\": \"2026-11-16T08:00:00Z\",\n    \"roles\": [\n      \"super-admin\"\n    ],\n    \"permissions\": [\n      \"admin.users.view\",\n      \"admin.users.manage\",\n      \"admin.disputes.decide\"\n    ]\n  }\n}",
+         "originalRequest": {
+          "method": "POST",
+          "header": [
+           {
+            "key": "Content-Type",
+            "value": "application/json"
+           },
+           {
+            "key": "Accept-Language",
+            "value": "{{language}}"
+           }
+          ],
+          "url": {
+           "raw": "{{baseUrl}}/admin/api/auth/2fa/enable",
+           "host": [
+            "{{baseUrl}}"
+           ],
+           "path": [
+            "admin",
+            "api",
+            "auth",
+            "2fa",
+            "enable"
+           ]
+          },
+          "description": "## Activate 2FA (Logged In)\n\n**Requires authentication.**\n\nActivate 2FA by proving a current code.\n\n### Request Fields\n| Field | Type | Required | Rules |\n|---|---|---|---|\n| code | string | ✅ | 6-digit TOTP |\n\n### Frontend Notes\n- Remove the setup screen from the Profile page once enabled.",
+          "body": {
+           "mode": "raw",
+           "raw": "{\n  \"code\": \"123456\"\n}",
+           "options": {
+            "raw": {
+             "language": "json"
+            }
+           }
+          }
+         }
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "👥 Admins & RBAC",
+   "item": [
+    {
+     "name": "👤 Admins",
+     "item": [
+      {
+       "name": "List Admins",
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "const res = pm.response.json();",
+           "pm.test('Status is a documented response (200, 403)', () => pm.expect([200, 403]).to.include(pm.response.code));",
+           "pm.test('Response uses the standard envelope', () => {",
+           "  pm.expect(res).to.have.property('success');",
+           "  pm.expect(res).to.have.property('message');",
+           "});"
+          ]
+         }
+        }
+       ],
+       "request": {
+        "method": "GET",
+        "header": [
+         {
+          "key": "Accept-Language",
+          "value": "{{language}}"
+         }
+        ],
+        "url": {
+         "raw": "{{baseUrl}}/admin/api/admins?page=1&pageSize=20",
+         "host": [
+          "{{baseUrl}}"
+         ],
+         "path": [
+          "admin",
+          "api",
+          "admins"
+         ],
+         "query": [
+          {
+           "key": "page",
+           "value": "1"
+          },
+          {
+           "key": "pageSize",
+           "value": "20"
+          }
+         ]
+        },
+        "description": "## List Admins\n\n**Requires authentication.** Needs `admin.roles.manage`.\n\n### Query Params\n| Param | Type | Rules |\n|---|---|---|\n| status | string | `active` \\| `disabled` |\n| page | integer | Default 1 |\n| pageSize | integer | Default 20, max 50 |\n\n### Frontend Notes\n- Admins are disabled, never deleted."
+       },
+       "response": [
+        {
+         "name": "200 OK",
+         "status": "OK",
+         "code": 200,
+         "_postman_previewlanguage": "json",
+         "header": [
+          {
+           "key": "Content-Type",
+           "value": "application/json"
+          }
+         ],
+         "cookie": [],
+         "body": "{\n  \"success\": true,\n  \"message\": \"Success\",\n  \"data\": [\n    {\n      \"id\": 4,\n      \"name\": \"Shahd Mohy\",\n      \"email\": \"shahdmohy00@gmail.com\",\n      \"status\": \"active\",\n      \"twoFactorEnabled\": true,\n      \"lastLoginAt\": \"2026-11-16T08:00:00Z\",\n      \"roles\": [\n        \"super-admin\"\n      ],\n      \"permissions\": [\n        \"admin.users.view\",\n        \"admin.users.manage\",\n        \"admin.disputes.decide\"\n      ]\n    }\n  ],\n  \"meta\": {\n    \"page\": 1,\n    \"pageSize\": 20,\n    \"total\": 2,\n    \"totalPages\": 1\n  }\n}",
+         "originalRequest": {
+          "method": "GET",
+          "header": [
+           {
+            "key": "Accept-Language",
+            "value": "{{language}}"
+           }
+          ],
+          "url": {
+           "raw": "{{baseUrl}}/admin/api/admins?page=1&pageSize=20",
+           "host": [
+            "{{baseUrl}}"
+           ],
+           "path": [
+            "admin",
+            "api",
+            "admins"
+           ],
+           "query": [
+            {
+             "key": "page",
+             "value": "1"
+            },
+            {
+             "key": "pageSize",
+             "value": "20"
+            }
+           ]
+          },
+          "description": "## List Admins\n\n**Requires authentication.** Needs `admin.roles.manage`.\n\n### Query Params\n| Param | Type | Rules |\n|---|---|---|\n| status | string | `active` \\| `disabled` |\n| page | integer | Default 1 |\n| pageSize | integer | Default 20, max 50 |\n\n### Frontend Notes\n- Admins are disabled, never deleted."
+         }
+        }
+       ]
+      },
+      {
+       "name": "Create Admin",
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "const res = pm.response.json();",
+           "pm.test('Status is a documented response (200, 403, 409, 422)', () => pm.expect([200, 403, 409, 422]).to.include(pm.response.code));",
+           "pm.test('Response uses the standard envelope', () => {",
+           "  pm.expect(res).to.have.property('success');",
+           "  pm.expect(res).to.have.property('message');",
+           "});"
+          ]
+         }
+        }
+       ],
+       "request": {
+        "method": "POST",
+        "header": [
+         {
+          "key": "Content-Type",
+          "value": "application/json"
+         },
+         {
+          "key": "Accept-Language",
+          "value": "{{language}}"
+         }
+        ],
+        "url": {
+         "raw": "{{baseUrl}}/admin/api/admins",
+         "host": [
+          "{{baseUrl}}"
+         ],
+         "path": [
+          "admin",
+          "api",
+          "admins"
+         ]
+        },
+        "description": "## Create Admin\n\n**Requires authentication.** Super-admin only (role membership) plus `admin.roles.manage`.\n\n### Request Fields\n| Field | Type | Required | Rules |\n|---|---|---|---|\n| name | string | ✅ | Admin name |\n| email | string | ✅ | Unique email |\n| password | string | ✅ | 12–64 chars, letter + digit + symbol |\n| roleIds | integer[] | — | Roles to assign |\n\n### Business Rules\n- The new admin must complete mandatory 2FA setup on first login.",
+        "body": {
+         "mode": "raw",
+         "raw": "{\n  \"name\": \"New Admin\",\n  \"email\": \"new.admin@etamid.com\",\n  \"password\": \"NewAdmin@123456\",\n  \"roleIds\": [\n    2\n  ]\n}",
+         "options": {
+          "raw": {
+           "language": "json"
+          }
+         }
+        }
+       },
+       "response": [
+        {
+         "name": "200 OK — Created",
+         "status": "OK",
+         "code": 200,
+         "_postman_previewlanguage": "json",
+         "header": [
+          {
+           "key": "Content-Type",
+           "value": "application/json"
+          }
+         ],
+         "cookie": [],
+         "body": "{\n  \"success\": true,\n  \"message\": \"Admin created.\",\n  \"data\": {\n    \"id\": 5,\n    \"name\": \"New Admin\",\n    \"email\": \"new.admin@etamid.com\",\n    \"status\": \"active\",\n    \"twoFactorEnabled\": false,\n    \"lastLoginAt\": null,\n    \"roles\": [\n      \"operator\"\n    ],\n    \"permissions\": [\n      \"admin.disputes.view\"\n    ]\n  }\n}",
+         "originalRequest": {
+          "method": "POST",
+          "header": [
+           {
+            "key": "Content-Type",
+            "value": "application/json"
+           },
+           {
+            "key": "Accept-Language",
+            "value": "{{language}}"
+           }
+          ],
+          "url": {
+           "raw": "{{baseUrl}}/admin/api/admins",
+           "host": [
+            "{{baseUrl}}"
+           ],
+           "path": [
+            "admin",
+            "api",
+            "admins"
+           ]
+          },
+          "description": "## Create Admin\n\n**Requires authentication.** Super-admin only (role membership) plus `admin.roles.manage`.\n\n### Request Fields\n| Field | Type | Required | Rules |\n|---|---|---|---|\n| name | string | ✅ | Admin name |\n| email | string | ✅ | Unique email |\n| password | string | ✅ | 12–64 chars, letter + digit + symbol |\n| roleIds | integer[] | — | Roles to assign |\n\n### Business Rules\n- The new admin must complete mandatory 2FA setup on first login.",
+          "body": {
+           "mode": "raw",
+           "raw": "{\n  \"name\": \"New Admin\",\n  \"email\": \"new.admin@etamid.com\",\n  \"password\": \"NewAdmin@123456\",\n  \"roleIds\": [\n    2\n  ]\n}",
+           "options": {
+            "raw": {
+             "language": "json"
+            }
+           }
+          }
+         }
+        },
+        {
+         "name": "200 OK — Email Exists",
+         "status": "OK",
+         "code": 200,
+         "_postman_previewlanguage": "json",
+         "header": [
+          {
+           "key": "Content-Type",
+           "value": "application/json"
+          }
+         ],
+         "cookie": [],
+         "body": "{\n  \"success\": false,\n  \"message\": \"Email already exists.\",\n  \"data\": null,\n  \"errors\": [\n    {\n      \"code\": \"ADMIN_EMAIL_EXISTS\",\n      \"message\": \"Email already exists.\",\n      \"field\": \"email\"\n    }\n  ]\n}",
+         "originalRequest": {
+          "method": "POST",
+          "header": [
+           {
+            "key": "Content-Type",
+            "value": "application/json"
+           },
+           {
+            "key": "Accept-Language",
+            "value": "{{language}}"
+           }
+          ],
+          "url": {
+           "raw": "{{baseUrl}}/admin/api/admins",
+           "host": [
+            "{{baseUrl}}"
+           ],
+           "path": [
+            "admin",
+            "api",
+            "admins"
+           ]
+          },
+          "description": "## Create Admin\n\n**Requires authentication.** Super-admin only (role membership) plus `admin.roles.manage`.\n\n### Request Fields\n| Field | Type | Required | Rules |\n|---|---|---|---|\n| name | string | ✅ | Admin name |\n| email | string | ✅ | Unique email |\n| password | string | ✅ | 12–64 chars, letter + digit + symbol |\n| roleIds | integer[] | — | Roles to assign |\n\n### Business Rules\n- The new admin must complete mandatory 2FA setup on first login.",
+          "body": {
+           "mode": "raw",
+           "raw": "{\n  \"name\": \"New Admin\",\n  \"email\": \"new.admin@etamid.com\",\n  \"password\": \"NewAdmin@123456\",\n  \"roleIds\": [\n    2\n  ]\n}",
+           "options": {
+            "raw": {
+             "language": "json"
+            }
+           }
+          }
+         }
+        }
+       ]
+      },
+      {
+       "name": "Get Admin",
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "const res = pm.response.json();",
+           "pm.test('Status is a documented response (200, 404)', () => pm.expect([200, 404]).to.include(pm.response.code));",
+           "pm.test('Response uses the standard envelope', () => {",
+           "  pm.expect(res).to.have.property('success');",
+           "  pm.expect(res).to.have.property('message');",
+           "});"
+          ]
+         }
+        }
+       ],
+       "request": {
+        "method": "GET",
+        "header": [
+         {
+          "key": "Accept-Language",
+          "value": "{{language}}"
+         }
+        ],
+        "url": {
+         "raw": "{{baseUrl}}/admin/api/admins/{{adminId}}",
+         "host": [
+          "{{baseUrl}}"
+         ],
+         "path": [
+          "admin",
+          "api",
+          "admins",
+          "{{adminId}}"
+         ]
+        },
+        "description": "## Get Admin\n\n**Requires authentication.** Needs `admin.roles.manage`.\n\n### Frontend Notes\n- Use for the admin detail page."
+       },
+       "response": [
+        {
+         "name": "200 OK",
+         "status": "OK",
+         "code": 200,
+         "_postman_previewlanguage": "json",
+         "header": [
+          {
+           "key": "Content-Type",
+           "value": "application/json"
+          }
+         ],
+         "cookie": [],
+         "body": "{\n  \"success\": true,\n  \"message\": \"Success\",\n  \"data\": {\n    \"id\": 4,\n    \"name\": \"Shahd Mohy\",\n    \"email\": \"shahdmohy00@gmail.com\",\n    \"status\": \"active\",\n    \"twoFactorEnabled\": true,\n    \"lastLoginAt\": \"2026-11-16T08:00:00Z\",\n    \"roles\": [\n      \"super-admin\"\n    ],\n    \"permissions\": [\n      \"admin.users.view\",\n      \"admin.users.manage\",\n      \"admin.disputes.decide\"\n    ]\n  }\n}",
+         "originalRequest": {
+          "method": "GET",
+          "header": [
+           {
+            "key": "Accept-Language",
+            "value": "{{language}}"
+           }
+          ],
+          "url": {
+           "raw": "{{baseUrl}}/admin/api/admins/{{adminId}}",
+           "host": [
+            "{{baseUrl}}"
+           ],
+           "path": [
+            "admin",
+            "api",
+            "admins",
+            "{{adminId}}"
+           ]
+          },
+          "description": "## Get Admin\n\n**Requires authentication.** Needs `admin.roles.manage`.\n\n### Frontend Notes\n- Use for the admin detail page."
+         }
+        }
+       ]
+      },
+      {
+       "name": "Update Admin",
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "const res = pm.response.json();",
+           "pm.test('Status is a documented response (200, 403, 409)', () => pm.expect([200, 403, 409]).to.include(pm.response.code));",
+           "pm.test('Response uses the standard envelope', () => {",
+           "  pm.expect(res).to.have.property('success');",
+           "  pm.expect(res).to.have.property('message');",
+           "});"
+          ]
+         }
+        }
+       ],
+       "request": {
+        "method": "PATCH",
+        "header": [
+         {
+          "key": "Content-Type",
+          "value": "application/json"
+         },
+         {
+          "key": "Accept-Language",
+          "value": "{{language}}"
+         }
+        ],
+        "url": {
+         "raw": "{{baseUrl}}/admin/api/admins/{{adminId}}",
+         "host": [
+          "{{baseUrl}}"
+         ],
+         "path": [
+          "admin",
+          "api",
+          "admins",
+          "{{adminId}}"
+         ]
+        },
+        "description": "## Update Admin\n\n**Requires authentication.** Super-admin only. Update name and/or email.\n\n### Request Fields\n| Field | Type | Required | Rules |\n|---|---|---|---|\n| name | string | — | New name |\n| email | string | — | New unique email |",
+        "body": {
+         "mode": "raw",
+         "raw": "{\n  \"name\": \"Shahd Mohy\",\n  \"email\": \"shahdmohy00@gmail.com\"\n}",
+         "options": {
+          "raw": {
+           "language": "json"
+          }
+         }
+        }
+       },
+       "response": [
+        {
+         "name": "200 OK",
+         "status": "OK",
+         "code": 200,
+         "_postman_previewlanguage": "json",
+         "header": [
+          {
+           "key": "Content-Type",
+           "value": "application/json"
+          }
+         ],
+         "cookie": [],
+         "body": "{\n  \"success\": true,\n  \"message\": \"Admin updated.\",\n  \"data\": {\n    \"id\": 4,\n    \"name\": \"Shahd Mohy\",\n    \"email\": \"shahdmohy00@gmail.com\",\n    \"status\": \"active\",\n    \"twoFactorEnabled\": true,\n    \"lastLoginAt\": \"2026-11-16T08:00:00Z\",\n    \"roles\": [\n      \"super-admin\"\n    ],\n    \"permissions\": [\n      \"admin.users.view\",\n      \"admin.users.manage\",\n      \"admin.disputes.decide\"\n    ]\n  }\n}",
+         "originalRequest": {
+          "method": "PATCH",
+          "header": [
+           {
+            "key": "Content-Type",
+            "value": "application/json"
+           },
+           {
+            "key": "Accept-Language",
+            "value": "{{language}}"
+           }
+          ],
+          "url": {
+           "raw": "{{baseUrl}}/admin/api/admins/{{adminId}}",
+           "host": [
+            "{{baseUrl}}"
+           ],
+           "path": [
+            "admin",
+            "api",
+            "admins",
+            "{{adminId}}"
+           ]
+          },
+          "description": "## Update Admin\n\n**Requires authentication.** Super-admin only. Update name and/or email.\n\n### Request Fields\n| Field | Type | Required | Rules |\n|---|---|---|---|\n| name | string | — | New name |\n| email | string | — | New unique email |",
+          "body": {
+           "mode": "raw",
+           "raw": "{\n  \"name\": \"Shahd Mohy\",\n  \"email\": \"shahdmohy00@gmail.com\"\n}",
+           "options": {
+            "raw": {
+             "language": "json"
+            }
+           }
+          }
+         }
+        }
+       ]
+      },
+      {
+       "name": "Disable Admin",
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "const res = pm.response.json();",
+           "pm.test('Status is a documented response (200, 403, 409)', () => pm.expect([200, 403, 409]).to.include(pm.response.code));",
+           "pm.test('Response uses the standard envelope', () => {",
+           "  pm.expect(res).to.have.property('success');",
+           "  pm.expect(res).to.have.property('message');",
+           "});"
+          ]
+         }
+        }
+       ],
+       "request": {
+        "method": "POST",
+        "header": [
+         {
+          "key": "Accept-Language",
+          "value": "{{language}}"
+         }
+        ],
+        "url": {
+         "raw": "{{baseUrl}}/admin/api/admins/{{adminId}}/disable",
+         "host": [
+          "{{baseUrl}}"
+         ],
+         "path": [
+          "admin",
+          "api",
+          "admins",
+          "{{adminId}}",
+          "disable"
+         ]
+        },
+        "description": "## Disable Admin\n\n**Requires authentication.** Super-admin only. Disable an admin and end their sessions.\n\n### Business Rules\n- Refused for yourself and for the last active super-admin."
+       },
+       "response": [
+        {
+         "name": "200 OK",
+         "status": "OK",
+         "code": 200,
+         "_postman_previewlanguage": "json",
+         "header": [
+          {
+           "key": "Content-Type",
+           "value": "application/json"
+          }
+         ],
+         "cookie": [],
+         "body": "{\n  \"success\": true,\n  \"message\": \"Admin disabled.\",\n  \"data\": {\n    \"id\": 4,\n    \"name\": \"Shahd Mohy\",\n    \"email\": \"shahdmohy00@gmail.com\",\n    \"status\": \"disabled\",\n    \"twoFactorEnabled\": true,\n    \"lastLoginAt\": \"2026-11-16T08:00:00Z\",\n    \"roles\": [\n      \"super-admin\"\n    ],\n    \"permissions\": [\n      \"admin.users.view\",\n      \"admin.users.manage\",\n      \"admin.disputes.decide\"\n    ]\n  }\n}",
+         "originalRequest": {
+          "method": "POST",
+          "header": [
+           {
+            "key": "Accept-Language",
+            "value": "{{language}}"
+           }
+          ],
+          "url": {
+           "raw": "{{baseUrl}}/admin/api/admins/{{adminId}}/disable",
+           "host": [
+            "{{baseUrl}}"
+           ],
+           "path": [
+            "admin",
+            "api",
+            "admins",
+            "{{adminId}}",
+            "disable"
+           ]
+          },
+          "description": "## Disable Admin\n\n**Requires authentication.** Super-admin only. Disable an admin and end their sessions.\n\n### Business Rules\n- Refused for yourself and for the last active super-admin."
+         }
+        }
+       ]
+      },
+      {
+       "name": "Enable Admin",
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "const res = pm.response.json();",
+           "pm.test('Status is a documented response (200, 403)', () => pm.expect([200, 403]).to.include(pm.response.code));",
+           "pm.test('Response uses the standard envelope', () => {",
+           "  pm.expect(res).to.have.property('success');",
+           "  pm.expect(res).to.have.property('message');",
+           "});"
+          ]
+         }
+        }
+       ],
+       "request": {
+        "method": "POST",
+        "header": [
+         {
+          "key": "Accept-Language",
+          "value": "{{language}}"
+         }
+        ],
+        "url": {
+         "raw": "{{baseUrl}}/admin/api/admins/{{adminId}}/enable",
+         "host": [
+          "{{baseUrl}}"
+         ],
+         "path": [
+          "admin",
+          "api",
+          "admins",
+          "{{adminId}}",
+          "enable"
+         ]
+        },
+        "description": "## Enable Admin\n\n**Requires authentication.** Super-admin only. Enable an admin and clear their lockout."
+       },
+       "response": [
+        {
+         "name": "200 OK",
+         "status": "OK",
+         "code": 200,
+         "_postman_previewlanguage": "json",
+         "header": [
+          {
+           "key": "Content-Type",
+           "value": "application/json"
+          }
+         ],
+         "cookie": [],
+         "body": "{\n  \"success\": true,\n  \"message\": \"Admin enabled.\",\n  \"data\": {\n    \"id\": 4,\n    \"name\": \"Shahd Mohy\",\n    \"email\": \"shahdmohy00@gmail.com\",\n    \"status\": \"active\",\n    \"twoFactorEnabled\": true,\n    \"lastLoginAt\": \"2026-11-16T08:00:00Z\",\n    \"roles\": [\n      \"super-admin\"\n    ],\n    \"permissions\": [\n      \"admin.users.view\",\n      \"admin.users.manage\",\n      \"admin.disputes.decide\"\n    ]\n  }\n}",
+         "originalRequest": {
+          "method": "POST",
+          "header": [
+           {
+            "key": "Accept-Language",
+            "value": "{{language}}"
+           }
+          ],
+          "url": {
+           "raw": "{{baseUrl}}/admin/api/admins/{{adminId}}/enable",
+           "host": [
+            "{{baseUrl}}"
+           ],
+           "path": [
+            "admin",
+            "api",
+            "admins",
+            "{{adminId}}",
+            "enable"
+           ]
+          },
+          "description": "## Enable Admin\n\n**Requires authentication.** Super-admin only. Enable an admin and clear their lockout."
+         }
+        }
+       ]
+      },
+      {
+       "name": "Reset 2FA",
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "const res = pm.response.json();",
+           "pm.test('Status is a documented response (200, 403)', () => pm.expect([200, 403]).to.include(pm.response.code));",
+           "pm.test('Response uses the standard envelope', () => {",
+           "  pm.expect(res).to.have.property('success');",
+           "  pm.expect(res).to.have.property('message');",
+           "});"
+          ]
+         }
+        }
+       ],
+       "request": {
+        "method": "POST",
+        "header": [
+         {
+          "key": "Accept-Language",
+          "value": "{{language}}"
+         }
+        ],
+        "url": {
+         "raw": "{{baseUrl}}/admin/api/admins/{{adminId}}/reset-2fa",
+         "host": [
+          "{{baseUrl}}"
+         ],
+         "path": [
+          "admin",
+          "api",
+          "admins",
+          "{{adminId}}",
+          "reset-2fa"
+         ]
+        },
+        "description": "## Reset Admin 2FA\n\n**Requires authentication.** Super-admin only. Remove an admin's 2FA and end their sessions.\n\n### Business Rules\n- This is the only recovery for a lost phone; there are no recovery codes."
+       },
+       "response": [
+        {
+         "name": "200 OK",
+         "status": "OK",
+         "code": 200,
+         "_postman_previewlanguage": "json",
+         "header": [
+          {
+           "key": "Content-Type",
+           "value": "application/json"
+          }
+         ],
+         "cookie": [],
+         "body": "{\n  \"success\": true,\n  \"message\": \"Two-factor authentication reset.\",\n  \"data\": {\n    \"id\": 4,\n    \"name\": \"Shahd Mohy\",\n    \"email\": \"shahdmohy00@gmail.com\",\n    \"status\": \"active\",\n    \"twoFactorEnabled\": false,\n    \"lastLoginAt\": \"2026-11-16T08:00:00Z\",\n    \"roles\": [\n      \"super-admin\"\n    ],\n    \"permissions\": [\n      \"admin.users.view\",\n      \"admin.users.manage\",\n      \"admin.disputes.decide\"\n    ]\n  }\n}",
+         "originalRequest": {
+          "method": "POST",
+          "header": [
+           {
+            "key": "Accept-Language",
+            "value": "{{language}}"
+           }
+          ],
+          "url": {
+           "raw": "{{baseUrl}}/admin/api/admins/{{adminId}}/reset-2fa",
+           "host": [
+            "{{baseUrl}}"
+           ],
+           "path": [
+            "admin",
+            "api",
+            "admins",
+            "{{adminId}}",
+            "reset-2fa"
+           ]
+          },
+          "description": "## Reset Admin 2FA\n\n**Requires authentication.** Super-admin only. Remove an admin's 2FA and end their sessions.\n\n### Business Rules\n- This is the only recovery for a lost phone; there are no recovery codes."
+         }
+        }
+       ]
+      },
+      {
+       "name": "Replace Admin Roles",
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "const res = pm.response.json();",
+           "pm.test('Status is a documented response (200, 403, 404, 409)', () => pm.expect([200, 403, 404, 409]).to.include(pm.response.code));",
+           "pm.test('Response uses the standard envelope', () => {",
+           "  pm.expect(res).to.have.property('success');",
+           "  pm.expect(res).to.have.property('message');",
+           "});"
+          ]
+         }
+        }
+       ],
+       "request": {
+        "method": "POST",
+        "header": [
+         {
+          "key": "Content-Type",
+          "value": "application/json"
+         },
+         {
+          "key": "Accept-Language",
+          "value": "{{language}}"
+         }
+        ],
+        "url": {
+         "raw": "{{baseUrl}}/admin/api/admins/{{adminId}}/roles",
+         "host": [
+          "{{baseUrl}}"
+         ],
+         "path": [
+          "admin",
+          "api",
+          "admins",
+          "{{adminId}}",
+          "roles"
+         ]
+        },
+        "description": "## Replace Admin Roles\n\n**Requires authentication.** Super-admin only. Replace the admin's whole role set.\n\n### Request Fields\n| Field | Type | Required | Rules |\n|---|---|---|---|\n| roleIds | integer[] | ✅ | Full new role set (REPLACE, not add) |\n\n### Business Rules\n- Cannot remove super-admin from the last active super-admin.",
+        "body": {
+         "mode": "raw",
+         "raw": "{\n  \"roleIds\": [\n    1\n  ]\n}",
+         "options": {
+          "raw": {
+           "language": "json"
+          }
+         }
+        }
+       },
+       "response": [
+        {
+         "name": "200 OK",
+         "status": "OK",
+         "code": 200,
+         "_postman_previewlanguage": "json",
+         "header": [
+          {
+           "key": "Content-Type",
+           "value": "application/json"
+          }
+         ],
+         "cookie": [],
+         "body": "{\n  \"success\": true,\n  \"message\": \"Roles updated.\",\n  \"data\": {\n    \"id\": 4,\n    \"name\": \"Shahd Mohy\",\n    \"email\": \"shahdmohy00@gmail.com\",\n    \"status\": \"active\",\n    \"twoFactorEnabled\": true,\n    \"lastLoginAt\": \"2026-11-16T08:00:00Z\",\n    \"roles\": [\n      \"super-admin\"\n    ],\n    \"permissions\": [\n      \"admin.users.view\",\n      \"admin.users.manage\",\n      \"admin.disputes.decide\"\n    ]\n  }\n}",
+         "originalRequest": {
+          "method": "POST",
+          "header": [
+           {
+            "key": "Content-Type",
+            "value": "application/json"
+           },
+           {
+            "key": "Accept-Language",
+            "value": "{{language}}"
+           }
+          ],
+          "url": {
+           "raw": "{{baseUrl}}/admin/api/admins/{{adminId}}/roles",
+           "host": [
+            "{{baseUrl}}"
+           ],
+           "path": [
+            "admin",
+            "api",
+            "admins",
+            "{{adminId}}",
+            "roles"
+           ]
+          },
+          "description": "## Replace Admin Roles\n\n**Requires authentication.** Super-admin only. Replace the admin's whole role set.\n\n### Request Fields\n| Field | Type | Required | Rules |\n|---|---|---|---|\n| roleIds | integer[] | ✅ | Full new role set (REPLACE, not add) |\n\n### Business Rules\n- Cannot remove super-admin from the last active super-admin.",
+          "body": {
+           "mode": "raw",
+           "raw": "{\n  \"roleIds\": [\n    1\n  ]\n}",
+           "options": {
+            "raw": {
+             "language": "json"
+            }
+           }
+          }
+         }
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "name": "🛡️ Roles & Permissions",
+     "item": [
+      {
+       "name": "List Roles",
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "const res = pm.response.json();",
+           "pm.test('Status is a documented response (200, 403)', () => pm.expect([200, 403]).to.include(pm.response.code));",
+           "pm.test('Response uses the standard envelope', () => {",
+           "  pm.expect(res).to.have.property('success');",
+           "  pm.expect(res).to.have.property('message');",
+           "});"
+          ]
+         }
+        }
+       ],
+       "request": {
+        "method": "GET",
+        "header": [
+         {
+          "key": "Accept-Language",
+          "value": "{{language}}"
+         }
+        ],
+        "url": {
+         "raw": "{{baseUrl}}/admin/api/roles",
+         "host": [
+          "{{baseUrl}}"
+         ],
+         "path": [
+          "admin",
+          "api",
+          "roles"
+         ]
+        },
+        "description": "## List Roles\n\n**Requires authentication.** Needs `admin.roles.manage`. Returns roles with their permission codes."
+       },
+       "response": [
+        {
+         "name": "200 OK",
+         "status": "OK",
+         "code": 200,
+         "_postman_previewlanguage": "json",
+         "header": [
+          {
+           "key": "Content-Type",
+           "value": "application/json"
+          }
+         ],
+         "cookie": [],
+         "body": "{\n  \"success\": true,\n  \"message\": \"Success\",\n  \"data\": [\n    {\n      \"id\": 1,\n      \"name\": \"super-admin\",\n      \"description\": \"Full access\",\n      \"permissions\": [\n        \"admin.users.view\",\n        \"admin.users.manage\"\n      ]\n    }\n  ]\n}",
+         "originalRequest": {
+          "method": "GET",
+          "header": [
+           {
+            "key": "Accept-Language",
+            "value": "{{language}}"
+           }
+          ],
+          "url": {
+           "raw": "{{baseUrl}}/admin/api/roles",
+           "host": [
+            "{{baseUrl}}"
+           ],
+           "path": [
+            "admin",
+            "api",
+            "roles"
+           ]
+          },
+          "description": "## List Roles\n\n**Requires authentication.** Needs `admin.roles.manage`. Returns roles with their permission codes."
+         }
+        }
+       ]
+      },
+      {
+       "name": "Create Role",
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "const res = pm.response.json();",
+           "pm.test('Status is a documented response (200, 403, 409)', () => pm.expect([200, 403, 409]).to.include(pm.response.code));",
+           "pm.test('Response uses the standard envelope', () => {",
+           "  pm.expect(res).to.have.property('success');",
+           "  pm.expect(res).to.have.property('message');",
+           "});"
+          ]
+         }
+        }
+       ],
+       "request": {
+        "method": "POST",
+        "header": [
+         {
+          "key": "Content-Type",
+          "value": "application/json"
+         },
+         {
+          "key": "Accept-Language",
+          "value": "{{language}}"
+         }
+        ],
+        "url": {
+         "raw": "{{baseUrl}}/admin/api/roles",
+         "host": [
+          "{{baseUrl}}"
+         ],
+         "path": [
+          "admin",
+          "api",
+          "roles"
+         ]
+        },
+        "description": "## Create Role\n\n**Requires authentication.** Super-admin only.\n\n### Request Fields\n| Field | Type | Required | Rules |\n|---|---|---|---|\n| name | string | ✅ | Unique role name |\n| description | string | — | Role description |",
+        "body": {
+         "mode": "raw",
+         "raw": "{\n  \"name\": \"Support\",\n  \"description\": \"Support operators\"\n}",
+         "options": {
+          "raw": {
+           "language": "json"
+          }
+         }
+        }
+       },
+       "response": [
+        {
+         "name": "200 OK — Created",
+         "status": "OK",
+         "code": 200,
+         "_postman_previewlanguage": "json",
+         "header": [
+          {
+           "key": "Content-Type",
+           "value": "application/json"
+          }
+         ],
+         "cookie": [],
+         "body": "{\n  \"success\": true,\n  \"message\": \"Role created.\",\n  \"data\": {\n    \"id\": 3,\n    \"name\": \"Support\",\n    \"description\": \"Support operators\",\n    \"permissions\": []\n  }\n}",
+         "originalRequest": {
+          "method": "POST",
+          "header": [
+           {
+            "key": "Content-Type",
+            "value": "application/json"
+           },
+           {
+            "key": "Accept-Language",
+            "value": "{{language}}"
+           }
+          ],
+          "url": {
+           "raw": "{{baseUrl}}/admin/api/roles",
+           "host": [
+            "{{baseUrl}}"
+           ],
+           "path": [
+            "admin",
+            "api",
+            "roles"
+           ]
+          },
+          "description": "## Create Role\n\n**Requires authentication.** Super-admin only.\n\n### Request Fields\n| Field | Type | Required | Rules |\n|---|---|---|---|\n| name | string | ✅ | Unique role name |\n| description | string | — | Role description |",
+          "body": {
+           "mode": "raw",
+           "raw": "{\n  \"name\": \"Support\",\n  \"description\": \"Support operators\"\n}",
+           "options": {
+            "raw": {
+             "language": "json"
+            }
+           }
+          }
+         }
+        }
+       ]
+      },
+      {
+       "name": "Get Role",
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "const res = pm.response.json();",
+           "pm.test('Status is a documented response (200, 404)', () => pm.expect([200, 404]).to.include(pm.response.code));",
+           "pm.test('Response uses the standard envelope', () => {",
+           "  pm.expect(res).to.have.property('success');",
+           "  pm.expect(res).to.have.property('message');",
+           "});"
+          ]
+         }
+        }
+       ],
+       "request": {
+        "method": "GET",
+        "header": [
+         {
+          "key": "Accept-Language",
+          "value": "{{language}}"
+         }
+        ],
+        "url": {
+         "raw": "{{baseUrl}}/admin/api/roles/{{roleId}}",
+         "host": [
+          "{{baseUrl}}"
+         ],
+         "path": [
+          "admin",
+          "api",
+          "roles",
+          "{{roleId}}"
+         ]
+        },
+        "description": "## Get Role\n\n**Requires authentication.** Needs `admin.roles.manage`."
+       },
+       "response": [
+        {
+         "name": "200 OK",
+         "status": "OK",
+         "code": 200,
+         "_postman_previewlanguage": "json",
+         "header": [
+          {
+           "key": "Content-Type",
+           "value": "application/json"
+          }
+         ],
+         "cookie": [],
+         "body": "{\n  \"success\": true,\n  \"message\": \"Success\",\n  \"data\": {\n    \"id\": 1,\n    \"name\": \"super-admin\",\n    \"description\": \"Full access\",\n    \"permissions\": [\n      \"admin.users.view\"\n    ]\n  }\n}",
+         "originalRequest": {
+          "method": "GET",
+          "header": [
+           {
+            "key": "Accept-Language",
+            "value": "{{language}}"
+           }
+          ],
+          "url": {
+           "raw": "{{baseUrl}}/admin/api/roles/{{roleId}}",
+           "host": [
+            "{{baseUrl}}"
+           ],
+           "path": [
+            "admin",
+            "api",
+            "roles",
+            "{{roleId}}"
+           ]
+          },
+          "description": "## Get Role\n\n**Requires authentication.** Needs `admin.roles.manage`."
+         }
+        }
+       ]
+      },
+      {
+       "name": "Update Role",
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "const res = pm.response.json();",
+           "pm.test('Status is a documented response (200, 403, 409)', () => pm.expect([200, 403, 409]).to.include(pm.response.code));",
+           "pm.test('Response uses the standard envelope', () => {",
+           "  pm.expect(res).to.have.property('success');",
+           "  pm.expect(res).to.have.property('message');",
+           "});"
+          ]
+         }
+        }
+       ],
+       "request": {
+        "method": "PATCH",
+        "header": [
+         {
+          "key": "Content-Type",
+          "value": "application/json"
+         },
+         {
+          "key": "Accept-Language",
+          "value": "{{language}}"
+         }
+        ],
+        "url": {
+         "raw": "{{baseUrl}}/admin/api/roles/{{roleId}}",
+         "host": [
+          "{{baseUrl}}"
+         ],
+         "path": [
+          "admin",
+          "api",
+          "roles",
+          "{{roleId}}"
+         ]
+        },
+        "description": "## Update Role\n\n**Requires authentication.** Super-admin only. Rename / re-describe a role.\n\n### Business Rules\n- The super-admin role is protected (`ADMIN_ROLE_PROTECTED`).",
+        "body": {
+         "mode": "raw",
+         "raw": "{\n  \"name\": \"Support\",\n  \"description\": \"Support operators\"\n}",
+         "options": {
+          "raw": {
+           "language": "json"
+          }
+         }
+        }
+       },
+       "response": [
+        {
+         "name": "200 OK",
+         "status": "OK",
+         "code": 200,
+         "_postman_previewlanguage": "json",
+         "header": [
+          {
+           "key": "Content-Type",
+           "value": "application/json"
+          }
+         ],
+         "cookie": [],
+         "body": "{\n  \"success\": true,\n  \"message\": \"Role updated.\",\n  \"data\": {\n    \"id\": 3,\n    \"name\": \"Support\",\n    \"description\": \"Support operators\",\n    \"permissions\": []\n  }\n}",
+         "originalRequest": {
+          "method": "PATCH",
+          "header": [
+           {
+            "key": "Content-Type",
+            "value": "application/json"
+           },
+           {
+            "key": "Accept-Language",
+            "value": "{{language}}"
+           }
+          ],
+          "url": {
+           "raw": "{{baseUrl}}/admin/api/roles/{{roleId}}",
+           "host": [
+            "{{baseUrl}}"
+           ],
+           "path": [
+            "admin",
+            "api",
+            "roles",
+            "{{roleId}}"
+           ]
+          },
+          "description": "## Update Role\n\n**Requires authentication.** Super-admin only. Rename / re-describe a role.\n\n### Business Rules\n- The super-admin role is protected (`ADMIN_ROLE_PROTECTED`).",
+          "body": {
+           "mode": "raw",
+           "raw": "{\n  \"name\": \"Support\",\n  \"description\": \"Support operators\"\n}",
+           "options": {
+            "raw": {
+             "language": "json"
+            }
+           }
+          }
+         }
+        }
+       ]
+      },
+      {
+       "name": "Delete Role",
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "const res = pm.response.json();",
+           "pm.test('Status is a documented response (200, 403, 409)', () => pm.expect([200, 403, 409]).to.include(pm.response.code));",
+           "pm.test('Response uses the standard envelope', () => {",
+           "  pm.expect(res).to.have.property('success');",
+           "  pm.expect(res).to.have.property('message');",
+           "});"
+          ]
+         }
+        }
+       ],
+       "request": {
+        "method": "DELETE",
+        "header": [
+         {
+          "key": "Accept-Language",
+          "value": "{{language}}"
+         }
+        ],
+        "url": {
+         "raw": "{{baseUrl}}/admin/api/roles/{{roleId}}",
+         "host": [
+          "{{baseUrl}}"
+         ],
+         "path": [
+          "admin",
+          "api",
+          "roles",
+          "{{roleId}}"
+         ]
+        },
+        "description": "## Delete Role\n\n**Requires authentication.** Super-admin only. Delete an unassigned role.\n\n### Business Rules\n- Returns 409 when the role is in use or protected."
+       },
+       "response": [
+        {
+         "name": "200 OK",
+         "status": "OK",
+         "code": 200,
+         "_postman_previewlanguage": "json",
+         "header": [
+          {
+           "key": "Content-Type",
+           "value": "application/json"
+          }
+         ],
+         "cookie": [],
+         "body": "{\n  \"success\": true,\n  \"message\": \"Role deleted.\",\n  \"data\": null\n}",
+         "originalRequest": {
+          "method": "DELETE",
+          "header": [
+           {
+            "key": "Accept-Language",
+            "value": "{{language}}"
+           }
+          ],
+          "url": {
+           "raw": "{{baseUrl}}/admin/api/roles/{{roleId}}",
+           "host": [
+            "{{baseUrl}}"
+           ],
+           "path": [
+            "admin",
+            "api",
+            "roles",
+            "{{roleId}}"
+           ]
+          },
+          "description": "## Delete Role\n\n**Requires authentication.** Super-admin only. Delete an unassigned role.\n\n### Business Rules\n- Returns 409 when the role is in use or protected."
+         }
+        }
+       ]
+      },
+      {
+       "name": "Replace Role Permissions",
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "const res = pm.response.json();",
+           "pm.test('Status is a documented response (200, 403, 404, 409)', () => pm.expect([200, 403, 404, 409]).to.include(pm.response.code));",
+           "pm.test('Response uses the standard envelope', () => {",
+           "  pm.expect(res).to.have.property('success');",
+           "  pm.expect(res).to.have.property('message');",
+           "});"
+          ]
+         }
+        }
+       ],
+       "request": {
+        "method": "POST",
+        "header": [
+         {
+          "key": "Content-Type",
+          "value": "application/json"
+         },
+         {
+          "key": "Accept-Language",
+          "value": "{{language}}"
+         }
+        ],
+        "url": {
+         "raw": "{{baseUrl}}/admin/api/roles/{{roleId}}/permissions",
+         "host": [
+          "{{baseUrl}}"
+         ],
+         "path": [
+          "admin",
+          "api",
+          "roles",
+          "{{roleId}}",
+          "permissions"
+         ]
+        },
+        "description": "## Replace Role Permissions\n\n**Requires authentication.** Super-admin only. Replace the role's whole permission set by code.\n\n### Request Fields\n| Field | Type | Required | Rules |\n|---|---|---|---|\n| permissions | string[] | ✅ | Full new set (REPLACE, not add) |\n\n### Business Rules\n- Takes effect on the next request of every admin holding the role.",
+        "body": {
+         "mode": "raw",
+         "raw": "{\n  \"permissions\": [\n    \"admin.audit.view\",\n    \"admin.users.view\"\n  ]\n}",
+         "options": {
+          "raw": {
+           "language": "json"
+          }
+         }
+        }
+       },
+       "response": [
+        {
+         "name": "200 OK",
+         "status": "OK",
+         "code": 200,
+         "_postman_previewlanguage": "json",
+         "header": [
+          {
+           "key": "Content-Type",
+           "value": "application/json"
+          }
+         ],
+         "cookie": [],
+         "body": "{\n  \"success\": true,\n  \"message\": \"Permissions updated.\",\n  \"data\": {\n    \"id\": 2,\n    \"name\": \"operator\",\n    \"description\": \"Operators\",\n    \"permissions\": [\n      \"admin.audit.view\",\n      \"admin.users.view\"\n    ]\n  }\n}",
+         "originalRequest": {
+          "method": "POST",
+          "header": [
+           {
+            "key": "Content-Type",
+            "value": "application/json"
+           },
+           {
+            "key": "Accept-Language",
+            "value": "{{language}}"
+           }
+          ],
+          "url": {
+           "raw": "{{baseUrl}}/admin/api/roles/{{roleId}}/permissions",
+           "host": [
+            "{{baseUrl}}"
+           ],
+           "path": [
+            "admin",
+            "api",
+            "roles",
+            "{{roleId}}",
+            "permissions"
+           ]
+          },
+          "description": "## Replace Role Permissions\n\n**Requires authentication.** Super-admin only. Replace the role's whole permission set by code.\n\n### Request Fields\n| Field | Type | Required | Rules |\n|---|---|---|---|\n| permissions | string[] | ✅ | Full new set (REPLACE, not add) |\n\n### Business Rules\n- Takes effect on the next request of every admin holding the role.",
+          "body": {
+           "mode": "raw",
+           "raw": "{\n  \"permissions\": [\n    \"admin.audit.view\",\n    \"admin.users.view\"\n  ]\n}",
+           "options": {
+            "raw": {
+             "language": "json"
+            }
+           }
+          }
+         }
+        }
+       ]
+      },
+      {
+       "name": "List Permissions",
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "const res = pm.response.json();",
+           "pm.test('Status is a documented response (200, 403)', () => pm.expect([200, 403]).to.include(pm.response.code));",
+           "pm.test('Response uses the standard envelope', () => {",
+           "  pm.expect(res).to.have.property('success');",
+           "  pm.expect(res).to.have.property('message');",
+           "});"
+          ]
+         }
+        }
+       ],
+       "request": {
+        "method": "GET",
+        "header": [
+         {
+          "key": "Accept-Language",
+          "value": "{{language}}"
+         }
+        ],
+        "url": {
+         "raw": "{{baseUrl}}/admin/api/permissions",
+         "host": [
+          "{{baseUrl}}"
+         ],
+         "path": [
+          "admin",
+          "api",
+          "permissions"
+         ]
+        },
+        "description": "## List Permissions\n\n**Requires authentication.** Needs `admin.roles.manage`. Returns the 18 permission codes."
+       },
+       "response": [
+        {
+         "name": "200 OK",
+         "status": "OK",
+         "code": 200,
+         "_postman_previewlanguage": "json",
+         "header": [
+          {
+           "key": "Content-Type",
+           "value": "application/json"
+          }
+         ],
+         "cookie": [],
+         "body": "{\n  \"success\": true,\n  \"message\": \"Success\",\n  \"data\": [\n    {\n      \"id\": 1,\n      \"code\": \"admin.users.view\",\n      \"description\": \"View app users\"\n    }\n  ]\n}",
+         "originalRequest": {
+          "method": "GET",
+          "header": [
+           {
+            "key": "Accept-Language",
+            "value": "{{language}}"
+           }
+          ],
+          "url": {
+           "raw": "{{baseUrl}}/admin/api/permissions",
+           "host": [
+            "{{baseUrl}}"
+           ],
+           "path": [
+            "admin",
+            "api",
+            "permissions"
+           ]
+          },
+          "description": "## List Permissions\n\n**Requires authentication.** Needs `admin.roles.manage`. Returns the 18 permission codes."
+         }
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "📊 Dashboard & Users",
+   "item": [
+    {
+     "name": "📊 Dashboard",
+     "item": [
+      {
+       "name": "Get User Counts",
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "const res = pm.response.json();",
+           "pm.test('Status is a documented response (200, 401, 403)', () => pm.expect([200, 401, 403]).to.include(pm.response.code));",
+           "pm.test('Response uses the standard envelope', () => {",
+           "  pm.expect(res).to.have.property('success');",
+           "  pm.expect(res).to.have.property('message');",
+           "});"
+          ]
+         }
+        }
+       ],
+       "request": {
+        "method": "GET",
+        "header": [
+         {
+          "key": "Accept-Language",
+          "value": "{{language}}"
+         }
+        ],
+        "url": {
+         "raw": "{{baseUrl}}/admin/api/users/counts",
+         "host": [
+          "{{baseUrl}}"
+         ],
+         "path": [
+          "admin",
+          "api",
+          "users",
+          "counts"
+         ]
+        },
+        "description": "## Get User Counts\n\n**Requires authentication.** Needs `admin.users.view`. App user counts for the dashboard.\n\n### Business Rules\n- Returns `sellers`, `buyers`, `companies`, `individuals`.\n- Known issue: counts currently include soft-deleted users (one-line fix pending).\n\n### Frontend Notes\n- The dashboard cards are Individuals and Companies (counted from Users, not from Deals)."
+       },
+       "response": [
+        {
+         "name": "200 OK",
+         "status": "OK",
+         "code": 200,
+         "_postman_previewlanguage": "json",
+         "header": [
+          {
+           "key": "Content-Type",
+           "value": "application/json"
+          }
+         ],
+         "cookie": [],
+         "body": "{\n  \"success\": true,\n  \"message\": \"Success\",\n  \"data\": {\n    \"sellers\": 0,\n    \"buyers\": 0,\n    \"companies\": 0,\n    \"individuals\": 2\n  }\n}",
+         "originalRequest": {
+          "method": "GET",
+          "header": [
+           {
+            "key": "Accept-Language",
+            "value": "{{language}}"
+           }
+          ],
+          "url": {
+           "raw": "{{baseUrl}}/admin/api/users/counts",
+           "host": [
+            "{{baseUrl}}"
+           ],
+           "path": [
+            "admin",
+            "api",
+            "users",
+            "counts"
+           ]
+          },
+          "description": "## Get User Counts\n\n**Requires authentication.** Needs `admin.users.view`. App user counts for the dashboard.\n\n### Business Rules\n- Returns `sellers`, `buyers`, `companies`, `individuals`.\n- Known issue: counts currently include soft-deleted users (one-line fix pending).\n\n### Frontend Notes\n- The dashboard cards are Individuals and Companies (counted from Users, not from Deals)."
+         }
+        }
+       ]
+      },
+      {
+       "name": "List Deals",
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "const res = pm.response.json();",
+           "pm.test('Status is a documented response (200, 401, 403)', () => pm.expect([200, 401, 403]).to.include(pm.response.code));",
+           "pm.test('Response uses the standard envelope', () => {",
+           "  pm.expect(res).to.have.property('success');",
+           "  pm.expect(res).to.have.property('message');",
+           "});"
+          ]
+         }
+        }
+       ],
+       "request": {
+        "method": "GET",
+        "header": [
+         {
+          "key": "Accept-Language",
+          "value": "{{language}}"
+         }
+        ],
+        "url": {
+         "raw": "{{baseUrl}}/admin/api/deals?page=1&pageSize=20",
+         "host": [
+          "{{baseUrl}}"
+         ],
+         "path": [
+          "admin",
+          "api",
+          "deals"
+         ],
+         "query": [
+          {
+           "key": "page",
+           "value": "1"
+          },
+          {
+           "key": "pageSize",
+           "value": "20"
+          }
+         ]
+        },
+        "description": "## List Deals\n\n**Requires authentication.** Needs `admin.deals.view`. List all deals for the admin dashboard.\n\n### Query Params\n| Param | Type | Rules |\n|---|---|---|\n| status | string | Optional deal status filter |\n| page | integer | Default 1 |\n| pageSize | integer | Default 20 |\n\n### Business Rules\n- `meta.total` is the deals count.\n- Known issue: the UI filter covers only 7 of 12 statuses; `AwaitingFunding` is not filterable yet.\n\n### Frontend Notes\n- There is no deal detail page yet; the list is read-only."
+       },
+       "response": [
+        {
+         "name": "200 OK",
+         "status": "OK",
+         "code": 200,
+         "_postman_previewlanguage": "json",
+         "header": [
+          {
+           "key": "Content-Type",
+           "value": "application/json"
+          }
+         ],
+         "cookie": [],
+         "body": "{\n  \"success\": true,\n  \"message\": \"Success\",\n  \"data\": [\n    {\n      \"id\": 2,\n      \"number\": \"45872\",\n      \"title\": \"صفقة تجريبية - سماعة\",\n      \"amount\": 500.0,\n      \"currency\": \"SAR\",\n      \"status\": \"Disputed\",\n      \"buyerId\": 1,\n      \"buyerName\": \"Shahinda\",\n      \"sellerId\": 2,\n      \"sellerName\": \"Hossam\",\n      \"createdAt\": \"2026-11-15T08:00:00Z\"\n    }\n  ],\n  \"meta\": {\n    \"page\": 1,\n    \"pageSize\": 20,\n    \"total\": 1,\n    \"totalPages\": 1\n  }\n}",
+         "originalRequest": {
+          "method": "GET",
+          "header": [
+           {
+            "key": "Accept-Language",
+            "value": "{{language}}"
+           }
+          ],
+          "url": {
+           "raw": "{{baseUrl}}/admin/api/deals?page=1&pageSize=20",
+           "host": [
+            "{{baseUrl}}"
+           ],
+           "path": [
+            "admin",
+            "api",
+            "deals"
+           ],
+           "query": [
+            {
+             "key": "page",
+             "value": "1"
+            },
+            {
+             "key": "pageSize",
+             "value": "20"
+            }
+           ]
+          },
+          "description": "## List Deals\n\n**Requires authentication.** Needs `admin.deals.view`. List all deals for the admin dashboard.\n\n### Query Params\n| Param | Type | Rules |\n|---|---|---|\n| status | string | Optional deal status filter |\n| page | integer | Default 1 |\n| pageSize | integer | Default 20 |\n\n### Business Rules\n- `meta.total` is the deals count.\n- Known issue: the UI filter covers only 7 of 12 statuses; `AwaitingFunding` is not filterable yet.\n\n### Frontend Notes\n- There is no deal detail page yet; the list is read-only."
+         }
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "name": "👥 App Users",
+     "item": [
+      {
+       "name": "List Users",
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "const res = pm.response.json();",
+           "pm.test('Status is a documented response (200, 401, 403)', () => pm.expect([200, 401, 403]).to.include(pm.response.code));",
+           "pm.test('Response uses the standard envelope', () => {",
+           "  pm.expect(res).to.have.property('success');",
+           "  pm.expect(res).to.have.property('message');",
+           "});"
+          ]
+         }
+        }
+       ],
+       "request": {
+        "method": "GET",
+        "header": [
+         {
+          "key": "Accept-Language",
+          "value": "{{language}}"
+         }
+        ],
+        "url": {
+         "raw": "{{baseUrl}}/admin/api/users?type=individual&status=active&page=1&pageSize=20",
+         "host": [
+          "{{baseUrl}}"
+         ],
+         "path": [
+          "admin",
+          "api",
+          "users"
+         ],
+         "query": [
+          {
+           "key": "type",
+           "value": "individual"
+          },
+          {
+           "key": "status",
+           "value": "active"
+          },
+          {
+           "key": "page",
+           "value": "1"
+          },
+          {
+           "key": "pageSize",
+           "value": "20"
+          }
+         ]
+        },
+        "description": "## List App Users\n\n**Requires authentication.** Needs `admin.users.view`. List all app users, companies and individuals.\n\n### Query Params\n| Param | Type | Rules |\n|---|---|---|\n| type | string | `individual` \\| `company` |\n| status | string | e.g. `active` |\n| search | string | Name, email or phone |\n| page | integer | Default 1 |\n| pageSize | integer | Default 20 |\n\n### Business Rules\n- Paginated, newest first.\n- Remove `type` to list everyone; change it to `company` for companies only."
+       },
+       "response": [
+        {
+         "name": "200 OK",
+         "status": "OK",
+         "code": 200,
+         "_postman_previewlanguage": "json",
+         "header": [
+          {
+           "key": "Content-Type",
+           "value": "application/json"
+          }
+         ],
+         "cookie": [],
+         "body": "{\n  \"success\": true,\n  \"message\": \"Success\",\n  \"data\": [\n    {\n      \"id\": 1,\n      \"code\": \"USR-0001\",\n      \"type\": \"individual\",\n      \"name\": \"Shahinda\",\n      \"phone\": \"0501234567\",\n      \"email\": \"shahinda@gmail.com\",\n      \"status\": \"active\",\n      \"nafathVerified\": false,\n      \"createdAt\": \"2026-11-15T08:00:00Z\"\n    }\n  ],\n  \"meta\": {\n    \"page\": 1,\n    \"pageSize\": 20,\n    \"total\": 2,\n    \"totalPages\": 1\n  }\n}",
+         "originalRequest": {
+          "method": "GET",
+          "header": [
+           {
+            "key": "Accept-Language",
+            "value": "{{language}}"
+           }
+          ],
+          "url": {
+           "raw": "{{baseUrl}}/admin/api/users?type=individual&status=active&page=1&pageSize=20",
+           "host": [
+            "{{baseUrl}}"
+           ],
+           "path": [
+            "admin",
+            "api",
+            "users"
+           ],
+           "query": [
+            {
+             "key": "type",
+             "value": "individual"
+            },
+            {
+             "key": "status",
+             "value": "active"
+            },
+            {
+             "key": "page",
+             "value": "1"
+            },
+            {
+             "key": "pageSize",
+             "value": "20"
+            }
+           ]
+          },
+          "description": "## List App Users\n\n**Requires authentication.** Needs `admin.users.view`. List all app users, companies and individuals.\n\n### Query Params\n| Param | Type | Rules |\n|---|---|---|\n| type | string | `individual` \\| `company` |\n| status | string | e.g. `active` |\n| search | string | Name, email or phone |\n| page | integer | Default 1 |\n| pageSize | integer | Default 20 |\n\n### Business Rules\n- Paginated, newest first.\n- Remove `type` to list everyone; change it to `company` for companies only."
+         }
+        }
+       ]
+      },
+      {
+       "name": "Get User",
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "const res = pm.response.json();",
+           "pm.test('Status is a documented response (200, 401, 403, 404)', () => pm.expect([200, 401, 403, 404]).to.include(pm.response.code));",
+           "pm.test('Response uses the standard envelope', () => {",
+           "  pm.expect(res).to.have.property('success');",
+           "  pm.expect(res).to.have.property('message');",
+           "});"
+          ]
+         }
+        }
+       ],
+       "request": {
+        "method": "GET",
+        "header": [
+         {
+          "key": "Accept-Language",
+          "value": "{{language}}"
+         }
+        ],
+        "url": {
+         "raw": "{{baseUrl}}/admin/api/users/{{userId}}",
+         "host": [
+          "{{baseUrl}}"
+         ],
+         "path": [
+          "admin",
+          "api",
+          "users",
+          "{{userId}}"
+         ]
+        },
+        "description": "## Get App User\n\n**Requires authentication.** Needs `admin.users.view`. One app user with company profile (or null) and deal counts.\n\n### Frontend Notes\n- The admin cannot activate or verify a user from here; activation is user-side OTP only, and Nafath is a separate flag."
+       },
+       "response": [
+        {
+         "name": "200 OK",
+         "status": "OK",
+         "code": 200,
+         "_postman_previewlanguage": "json",
+         "header": [
+          {
+           "key": "Content-Type",
+           "value": "application/json"
+          }
+         ],
+         "cookie": [],
+         "body": "{\n  \"success\": true,\n  \"message\": \"Success\",\n  \"data\": {\n    \"id\": 1,\n    \"code\": \"USR-0001\",\n    \"type\": \"individual\",\n    \"name\": \"Shahinda\",\n    \"phone\": \"0501234567\",\n    \"email\": \"shahinda@gmail.com\",\n    \"status\": \"active\",\n    \"nafathVerified\": false,\n    \"companyProfile\": null,\n    \"dealCounts\": {\n      \"active\": 1,\n      \"total\": 1\n    }\n  }\n}",
+         "originalRequest": {
+          "method": "GET",
+          "header": [
+           {
+            "key": "Accept-Language",
+            "value": "{{language}}"
+           }
+          ],
+          "url": {
+           "raw": "{{baseUrl}}/admin/api/users/{{userId}}",
+           "host": [
+            "{{baseUrl}}"
+           ],
+           "path": [
+            "admin",
+            "api",
+            "users",
+            "{{userId}}"
+           ]
+          },
+          "description": "## Get App User\n\n**Requires authentication.** Needs `admin.users.view`. One app user with company profile (or null) and deal counts.\n\n### Frontend Notes\n- The admin cannot activate or verify a user from here; activation is user-side OTP only, and Nafath is a separate flag."
+         }
+        }
+       ]
+      },
+      {
+       "name": "Delete User",
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "const res = pm.response.json();",
+           "pm.test('Status is a documented response (200, 401, 403, 404, 409)', () => pm.expect([200, 401, 403, 404, 409]).to.include(pm.response.code));",
+           "pm.test('Response uses the standard envelope', () => {",
+           "  pm.expect(res).to.have.property('success');",
+           "  pm.expect(res).to.have.property('message');",
+           "});"
+          ]
+         }
+        }
+       ],
+       "request": {
+        "method": "DELETE",
+        "header": [
+         {
+          "key": "Accept-Language",
+          "value": "{{language}}"
+         }
+        ],
+        "url": {
+         "raw": "{{baseUrl}}/admin/api/users/{{userId}}",
+         "host": [
+          "{{baseUrl}}"
+         ],
+         "path": [
+          "admin",
+          "api",
+          "users",
+          "{{userId}}"
+         ]
+        },
+        "description": "## Delete App User\n\n**Requires authentication.** Needs `admin.users.manage`. Soft-delete an app user.\n\n### Business Rules\n- Blocked with 409 `USER_HAS_ACTIVE_DEALS` while the user has a non-finished regular deal **or** a non-finished CompanyDeal (Draft / Pending / Active).\n- Deleting revokes the user's refresh tokens and writes an audit row.\n- The user has no global soft-delete filter; queries must exclude `Deleted` explicitly.\n\n### Frontend Notes\n- Ask for confirmation before calling. Do NOT test this on the company user Future #3 unless you mean to delete it."
+       },
+       "response": [
+        {
+         "name": "200 OK — Deleted",
+         "status": "OK",
+         "code": 200,
+         "_postman_previewlanguage": "json",
+         "header": [
+          {
+           "key": "Content-Type",
+           "value": "application/json"
+          }
+         ],
+         "cookie": [],
+         "body": "{\n  \"success\": true,\n  \"message\": \"User deleted.\",\n  \"data\": null\n}",
+         "originalRequest": {
+          "method": "DELETE",
+          "header": [
+           {
+            "key": "Accept-Language",
+            "value": "{{language}}"
+           }
+          ],
+          "url": {
+           "raw": "{{baseUrl}}/admin/api/users/{{userId}}",
+           "host": [
+            "{{baseUrl}}"
+           ],
+           "path": [
+            "admin",
+            "api",
+            "users",
+            "{{userId}}"
+           ]
+          },
+          "description": "## Delete App User\n\n**Requires authentication.** Needs `admin.users.manage`. Soft-delete an app user.\n\n### Business Rules\n- Blocked with 409 `USER_HAS_ACTIVE_DEALS` while the user has a non-finished regular deal **or** a non-finished CompanyDeal (Draft / Pending / Active).\n- Deleting revokes the user's refresh tokens and writes an audit row.\n- The user has no global soft-delete filter; queries must exclude `Deleted` explicitly.\n\n### Frontend Notes\n- Ask for confirmation before calling. Do NOT test this on the company user Future #3 unless you mean to delete it."
+         }
+        },
+        {
+         "name": "200 OK — Has Active Deals",
+         "status": "OK",
+         "code": 200,
+         "_postman_previewlanguage": "json",
+         "header": [
+          {
+           "key": "Content-Type",
+           "value": "application/json"
+          }
+         ],
+         "cookie": [],
+         "body": "{\n  \"success\": false,\n  \"message\": \"User has active deals.\",\n  \"data\": null,\n  \"errors\": [\n    {\n      \"code\": \"USER_HAS_ACTIVE_DEALS\",\n      \"message\": \"User has active deals.\"\n    }\n  ]\n}",
+         "originalRequest": {
+          "method": "DELETE",
+          "header": [
+           {
+            "key": "Accept-Language",
+            "value": "{{language}}"
+           }
+          ],
+          "url": {
+           "raw": "{{baseUrl}}/admin/api/users/{{userId}}",
+           "host": [
+            "{{baseUrl}}"
+           ],
+           "path": [
+            "admin",
+            "api",
+            "users",
+            "{{userId}}"
+           ]
+          },
+          "description": "## Delete App User\n\n**Requires authentication.** Needs `admin.users.manage`. Soft-delete an app user.\n\n### Business Rules\n- Blocked with 409 `USER_HAS_ACTIVE_DEALS` while the user has a non-finished regular deal **or** a non-finished CompanyDeal (Draft / Pending / Active).\n- Deleting revokes the user's refresh tokens and writes an audit row.\n- The user has no global soft-delete filter; queries must exclude `Deleted` explicitly.\n\n### Frontend Notes\n- Ask for confirmation before calling. Do NOT test this on the company user Future #3 unless you mean to delete it."
+         }
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "name": "📋 Audit Log",
+     "item": [
+      {
+       "name": "List Audit Logs",
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "const res = pm.response.json();",
+           "pm.test('Status is a documented response (200, 403)', () => pm.expect([200, 403]).to.include(pm.response.code));",
+           "pm.test('Response uses the standard envelope', () => {",
+           "  pm.expect(res).to.have.property('success');",
+           "  pm.expect(res).to.have.property('message');",
+           "});"
+          ]
+         }
+        }
+       ],
+       "request": {
+        "method": "GET",
+        "header": [
+         {
+          "key": "Accept-Language",
+          "value": "{{language}}"
+         }
+        ],
+        "url": {
+         "raw": "{{baseUrl}}/admin/api/audit-logs?page=1&pageSize=20",
+         "host": [
+          "{{baseUrl}}"
+         ],
+         "path": [
+          "admin",
+          "api",
+          "audit-logs"
+         ],
+         "query": [
+          {
+           "key": "page",
+           "value": "1"
+          },
+          {
+           "key": "pageSize",
+           "value": "20"
+          }
+         ]
+        },
+        "description": "## List Audit Logs\n\n**Requires authentication.** Needs `admin.audit.view`. Audit log, newest first.\n\n### Query Params\n| Param | Type | Rules |\n|---|---|---|\n| action | string | e.g. `admin.login.failed` |\n| entityType | string | e.g. `Admin` |\n| actorId | integer | Filter by actor |\n| page | integer | Default 1 |\n| pageSize | integer | Default 20, max 100 |\n\n### Business Rules\n- Every login attempt and every admin-management write is recorded with actor id + `actorName`, action, entity, before/after values and IP.\n- Reads and denials are not audited yet."
+       },
+       "response": [
+        {
+         "name": "200 OK",
+         "status": "OK",
+         "code": 200,
+         "_postman_previewlanguage": "json",
+         "header": [
+          {
+           "key": "Content-Type",
+           "value": "application/json"
+          }
+         ],
+         "cookie": [],
+         "body": "{\n  \"success\": true,\n  \"message\": \"Success\",\n  \"data\": [\n    {\n      \"id\": 1,\n      \"actorId\": 4,\n      \"actorName\": \"Shahd Mohy\",\n      \"action\": \"admin.login.success\",\n      \"entityType\": \"Admin\",\n      \"entityId\": 4,\n      \"before\": null,\n      \"after\": null,\n      \"ipAddress\": \"127.0.0.1\",\n      \"createdAt\": \"2026-11-16T08:00:00Z\"\n    }\n  ],\n  \"meta\": {\n    \"page\": 1,\n    \"pageSize\": 20,\n    \"total\": 1,\n    \"totalPages\": 1\n  }\n}",
+         "originalRequest": {
+          "method": "GET",
+          "header": [
+           {
+            "key": "Accept-Language",
+            "value": "{{language}}"
+           }
+          ],
+          "url": {
+           "raw": "{{baseUrl}}/admin/api/audit-logs?page=1&pageSize=20",
+           "host": [
+            "{{baseUrl}}"
+           ],
+           "path": [
+            "admin",
+            "api",
+            "audit-logs"
+           ],
+           "query": [
+            {
+             "key": "page",
+             "value": "1"
+            },
+            {
+             "key": "pageSize",
+             "value": "20"
+            }
+           ]
+          },
+          "description": "## List Audit Logs\n\n**Requires authentication.** Needs `admin.audit.view`. Audit log, newest first.\n\n### Query Params\n| Param | Type | Rules |\n|---|---|---|\n| action | string | e.g. `admin.login.failed` |\n| entityType | string | e.g. `Admin` |\n| actorId | integer | Filter by actor |\n| page | integer | Default 1 |\n| pageSize | integer | Default 20, max 100 |\n\n### Business Rules\n- Every login attempt and every admin-management write is recorded with actor id + `actorName`, action, entity, before/after values and IP.\n- Reads and denials are not audited yet."
+         }
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "💰 Operator — Withdrawals & Penalties",
+   "item": [
+    {
+     "name": "🏧 Withdrawals",
+     "item": [
+      {
+       "name": "List Withdrawals",
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "const res = pm.response.json();",
+           "pm.test('Status is a documented response (200, 401, 403)', () => pm.expect([200, 401, 403]).to.include(pm.response.code));",
+           "pm.test('Response uses the standard envelope', () => {",
+           "  pm.expect(res).to.have.property('success');",
+           "  pm.expect(res).to.have.property('message');",
+           "});"
+          ]
+         }
+        }
+       ],
+       "request": {
+        "method": "GET",
+        "header": [
+         {
+          "key": "Accept-Language",
+          "value": "{{language}}"
+         }
+        ],
+        "url": {
+         "raw": "{{baseUrl}}/api/v1/admin/withdrawals?page=1&pageSize=20",
+         "host": [
+          "{{baseUrl}}"
+         ],
+         "path": [
+          "api",
+          "v1",
+          "admin",
+          "withdrawals"
+         ],
+         "query": [
+          {
+           "key": "page",
+           "value": "1"
+          },
+          {
+           "key": "pageSize",
+           "value": "20"
+          }
+         ]
+        },
+        "description": "## List Withdrawal Requests\n\n**Requires authentication.** Needs `admin.withdrawals.view`. These keep their `/api/v1/admin` path (frozen mobile contract) but are gated by the AdminJwt token plus a database-checked permission. App-user token: 403. No token: 401.\n\n### Query Params\n| Param | Type | Rules |\n|---|---|---|\n| status | string | e.g. `Pending` |\n| page | integer | Default 1 |\n| pageSize | integer | Default 20 |"
+       },
+       "response": [
+        {
+         "name": "200 OK",
+         "status": "OK",
+         "code": 200,
+         "_postman_previewlanguage": "json",
+         "header": [
+          {
+           "key": "Content-Type",
+           "value": "application/json"
+          }
+         ],
+         "cookie": [],
+         "body": "{\n  \"success\": true,\n  \"message\": \"Success\",\n  \"data\": [\n    {\n      \"id\": 1,\n      \"userId\": 2,\n      \"amount\": 1000.0,\n      \"currency\": \"SAR\",\n      \"status\": \"Pending\",\n      \"createdAt\": \"2026-11-15T08:00:00Z\"\n    }\n  ],\n  \"meta\": {\n    \"page\": 1,\n    \"pageSize\": 20,\n    \"total\": 1,\n    \"totalPages\": 1\n  }\n}",
+         "originalRequest": {
+          "method": "GET",
+          "header": [
+           {
+            "key": "Accept-Language",
+            "value": "{{language}}"
+           }
+          ],
+          "url": {
+           "raw": "{{baseUrl}}/api/v1/admin/withdrawals?page=1&pageSize=20",
+           "host": [
+            "{{baseUrl}}"
+           ],
+           "path": [
+            "api",
+            "v1",
+            "admin",
+            "withdrawals"
+           ],
+           "query": [
+            {
+             "key": "page",
+             "value": "1"
+            },
+            {
+             "key": "pageSize",
+             "value": "20"
+            }
+           ]
+          },
+          "description": "## List Withdrawal Requests\n\n**Requires authentication.** Needs `admin.withdrawals.view`. These keep their `/api/v1/admin` path (frozen mobile contract) but are gated by the AdminJwt token plus a database-checked permission. App-user token: 403. No token: 401.\n\n### Query Params\n| Param | Type | Rules |\n|---|---|---|\n| status | string | e.g. `Pending` |\n| page | integer | Default 1 |\n| pageSize | integer | Default 20 |"
+         }
+        }
+       ]
+      },
+      {
+       "name": "Approve Withdrawal",
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "const res = pm.response.json();",
+           "pm.test('Status is a documented response (200, 403)', () => pm.expect([200, 403]).to.include(pm.response.code));",
+           "pm.test('Response uses the standard envelope', () => {",
+           "  pm.expect(res).to.have.property('success');",
+           "  pm.expect(res).to.have.property('message');",
+           "});"
+          ]
+         }
+        }
+       ],
+       "request": {
+        "method": "POST",
+        "header": [
+         {
+          "key": "Accept-Language",
+          "value": "{{language}}"
+         }
+        ],
+        "url": {
+         "raw": "{{baseUrl}}/api/v1/admin/withdrawals/{{withdrawalId}}/approve",
+         "host": [
+          "{{baseUrl}}"
+         ],
+         "path": [
+          "api",
+          "v1",
+          "admin",
+          "withdrawals",
+          "{{withdrawalId}}",
+          "approve"
+         ]
+        },
+        "description": "## Approve Withdrawal\n\n**Requires authentication.** Needs `admin.withdrawals.approve`. Approve a pending withdrawal (re-checks the balance).\n\n### Business Rules\n- Fills `ApprovedByAdminId`. Audit action `admin.withdrawal.approve`.\n- The money leaves the wallet only on **Complete**, not here."
+       },
+       "response": [
+        {
+         "name": "200 OK",
+         "status": "OK",
+         "code": 200,
+         "_postman_previewlanguage": "json",
+         "header": [
+          {
+           "key": "Content-Type",
+           "value": "application/json"
+          }
+         ],
+         "cookie": [],
+         "body": "{\n  \"success\": true,\n  \"message\": \"Withdrawal approved.\",\n  \"data\": {\n    \"id\": 1,\n    \"userId\": 2,\n    \"amount\": 1000.0,\n    \"currency\": \"SAR\",\n    \"status\": \"Approved\",\n    \"approvedByAdminId\": 4\n  }\n}",
+         "originalRequest": {
+          "method": "POST",
+          "header": [
+           {
+            "key": "Accept-Language",
+            "value": "{{language}}"
+           }
+          ],
+          "url": {
+           "raw": "{{baseUrl}}/api/v1/admin/withdrawals/{{withdrawalId}}/approve",
+           "host": [
+            "{{baseUrl}}"
+           ],
+           "path": [
+            "api",
+            "v1",
+            "admin",
+            "withdrawals",
+            "{{withdrawalId}}",
+            "approve"
+           ]
+          },
+          "description": "## Approve Withdrawal\n\n**Requires authentication.** Needs `admin.withdrawals.approve`. Approve a pending withdrawal (re-checks the balance).\n\n### Business Rules\n- Fills `ApprovedByAdminId`. Audit action `admin.withdrawal.approve`.\n- The money leaves the wallet only on **Complete**, not here."
+         }
+        }
+       ]
+      },
+      {
+       "name": "Reject Withdrawal",
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "const res = pm.response.json();",
+           "pm.test('Status is a documented response (200, 403)', () => pm.expect([200, 403]).to.include(pm.response.code));",
+           "pm.test('Response uses the standard envelope', () => {",
+           "  pm.expect(res).to.have.property('success');",
+           "  pm.expect(res).to.have.property('message');",
+           "});"
+          ]
+         }
+        }
+       ],
+       "request": {
+        "method": "POST",
+        "header": [
+         {
+          "key": "Content-Type",
+          "value": "application/json"
+         },
+         {
+          "key": "Accept-Language",
+          "value": "{{language}}"
+         }
+        ],
+        "url": {
+         "raw": "{{baseUrl}}/api/v1/admin/withdrawals/{{withdrawalId}}/reject",
+         "host": [
+          "{{baseUrl}}"
+         ],
+         "path": [
+          "api",
+          "v1",
+          "admin",
+          "withdrawals",
+          "{{withdrawalId}}",
+          "reject"
+         ]
+        },
+        "description": "## Reject Withdrawal\n\n**Requires authentication.** Covered by `admin.withdrawals.approve` (there is no separate reject code).\n\n### Request Fields\n| Field | Type | Required | Rules |\n|---|---|---|---|\n| reason | string | ✅ | Rejection reason |\n\n### Business Rules\n- Audit action `admin.withdrawal.reject`.",
+        "body": {
+         "mode": "raw",
+         "raw": "{\n  \"reason\": \"Bank details incomplete\"\n}",
+         "options": {
+          "raw": {
+           "language": "json"
+          }
+         }
+        }
+       },
+       "response": [
+        {
+         "name": "200 OK",
+         "status": "OK",
+         "code": 200,
+         "_postman_previewlanguage": "json",
+         "header": [
+          {
+           "key": "Content-Type",
+           "value": "application/json"
+          }
+         ],
+         "cookie": [],
+         "body": "{\n  \"success\": true,\n  \"message\": \"Withdrawal rejected.\",\n  \"data\": {\n    \"id\": 1,\n    \"userId\": 2,\n    \"amount\": 1000.0,\n    \"currency\": \"SAR\",\n    \"status\": \"Rejected\"\n  }\n}",
+         "originalRequest": {
+          "method": "POST",
+          "header": [
+           {
+            "key": "Content-Type",
+            "value": "application/json"
+           },
+           {
+            "key": "Accept-Language",
+            "value": "{{language}}"
+           }
+          ],
+          "url": {
+           "raw": "{{baseUrl}}/api/v1/admin/withdrawals/{{withdrawalId}}/reject",
+           "host": [
+            "{{baseUrl}}"
+           ],
+           "path": [
+            "api",
+            "v1",
+            "admin",
+            "withdrawals",
+            "{{withdrawalId}}",
+            "reject"
+           ]
+          },
+          "description": "## Reject Withdrawal\n\n**Requires authentication.** Covered by `admin.withdrawals.approve` (there is no separate reject code).\n\n### Request Fields\n| Field | Type | Required | Rules |\n|---|---|---|---|\n| reason | string | ✅ | Rejection reason |\n\n### Business Rules\n- Audit action `admin.withdrawal.reject`.",
+          "body": {
+           "mode": "raw",
+           "raw": "{\n  \"reason\": \"Bank details incomplete\"\n}",
+           "options": {
+            "raw": {
+             "language": "json"
+            }
+           }
+          }
+         }
+        }
+       ]
+      },
+      {
+       "name": "Complete Withdrawal",
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "const res = pm.response.json();",
+           "pm.test('Status is a documented response (200, 403)', () => pm.expect([200, 403]).to.include(pm.response.code));",
+           "pm.test('Response uses the standard envelope', () => {",
+           "  pm.expect(res).to.have.property('success');",
+           "  pm.expect(res).to.have.property('message');",
+           "});"
+          ]
+         }
+        }
+       ],
+       "request": {
+        "method": "POST",
+        "header": [
+         {
+          "key": "Content-Type",
+          "value": "application/json"
+         },
+         {
+          "key": "Accept-Language",
+          "value": "{{language}}"
+         }
+        ],
+        "url": {
+         "raw": "{{baseUrl}}/api/v1/admin/withdrawals/{{withdrawalId}}/complete",
+         "host": [
+          "{{baseUrl}}"
+         ],
+         "path": [
+          "api",
+          "v1",
+          "admin",
+          "withdrawals",
+          "{{withdrawalId}}",
+          "complete"
+         ]
+        },
+        "description": "## Complete Withdrawal\n\n**Requires authentication.** Needs `admin.withdrawals.complete`. Confirm the manual bank transfer; the money leaves the wallet here.\n\n### Request Fields\n| Field | Type | Required | Rules |\n|---|---|---|---|\n| bankReference | string | ✅ | Bank transfer reference |\n\n### Business Rules\n- Audit action `admin.withdrawal.complete`.",
+        "body": {
+         "mode": "raw",
+         "raw": "{\n  \"bankReference\": \"TRF-2026-0001\"\n}",
+         "options": {
+          "raw": {
+           "language": "json"
+          }
+         }
+        }
+       },
+       "response": [
+        {
+         "name": "200 OK",
+         "status": "OK",
+         "code": 200,
+         "_postman_previewlanguage": "json",
+         "header": [
+          {
+           "key": "Content-Type",
+           "value": "application/json"
+          }
+         ],
+         "cookie": [],
+         "body": "{\n  \"success\": true,\n  \"message\": \"Withdrawal completed.\",\n  \"data\": {\n    \"id\": 1,\n    \"userId\": 2,\n    \"amount\": 1000.0,\n    \"currency\": \"SAR\",\n    \"status\": \"Completed\",\n    \"bankReference\": \"TRF-2026-0001\"\n  }\n}",
+         "originalRequest": {
+          "method": "POST",
+          "header": [
+           {
+            "key": "Content-Type",
+            "value": "application/json"
+           },
+           {
+            "key": "Accept-Language",
+            "value": "{{language}}"
+           }
+          ],
+          "url": {
+           "raw": "{{baseUrl}}/api/v1/admin/withdrawals/{{withdrawalId}}/complete",
+           "host": [
+            "{{baseUrl}}"
+           ],
+           "path": [
+            "api",
+            "v1",
+            "admin",
+            "withdrawals",
+            "{{withdrawalId}}",
+            "complete"
+           ]
+          },
+          "description": "## Complete Withdrawal\n\n**Requires authentication.** Needs `admin.withdrawals.complete`. Confirm the manual bank transfer; the money leaves the wallet here.\n\n### Request Fields\n| Field | Type | Required | Rules |\n|---|---|---|---|\n| bankReference | string | ✅ | Bank transfer reference |\n\n### Business Rules\n- Audit action `admin.withdrawal.complete`.",
+          "body": {
+           "mode": "raw",
+           "raw": "{\n  \"bankReference\": \"TRF-2026-0001\"\n}",
+           "options": {
+            "raw": {
+             "language": "json"
+            }
+           }
+          }
+         }
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "name": "💸 Penalties",
+     "item": [
+      {
+       "name": "List Penalties",
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "const res = pm.response.json();",
+           "pm.test('Status is a documented response (200, 401, 403)', () => pm.expect([200, 401, 403]).to.include(pm.response.code));",
+           "pm.test('Response uses the standard envelope', () => {",
+           "  pm.expect(res).to.have.property('success');",
+           "  pm.expect(res).to.have.property('message');",
+           "});"
+          ]
+         }
+        }
+       ],
+       "request": {
+        "method": "GET",
+        "header": [
+         {
+          "key": "Accept-Language",
+          "value": "{{language}}"
+         }
+        ],
+        "url": {
+         "raw": "{{baseUrl}}/api/v1/admin/company-deals/penalties",
+         "host": [
+          "{{baseUrl}}"
+         ],
+         "path": [
+          "api",
+          "v1",
+          "admin",
+          "company-deals",
+          "penalties"
+         ]
+        },
+        "description": "## List Company-Deal Penalties\n\n**Requires authentication.** Needs `admin.penalties.view`.\n\n### Business Rules\n- A penalty is owed to the harmed party — the creator (payee) — not the platform.\n- Amount is a percent of the late installment, applied after the grace period (default 30 days)."
+       },
+       "response": [
+        {
+         "name": "200 OK",
+         "status": "OK",
+         "code": 200,
+         "_postman_previewlanguage": "json",
+         "header": [
+          {
+           "key": "Content-Type",
+           "value": "application/json"
+          }
+         ],
+         "cookie": [],
+         "body": "{\n  \"success\": true,\n  \"message\": \"Success\",\n  \"data\": [\n    {\n      \"id\": 1,\n      \"companyDealId\": 1,\n      \"installmentId\": 3,\n      \"amount\": 30625.0,\n      \"currency\": \"SAR\",\n      \"status\": \"Applied\",\n      \"createdAt\": \"2026-11-16T08:00:00Z\"\n    }\n  ],\n  \"meta\": {\n    \"page\": 1,\n    \"pageSize\": 20,\n    \"total\": 1,\n    \"totalPages\": 1\n  }\n}",
+         "originalRequest": {
+          "method": "GET",
+          "header": [
+           {
+            "key": "Accept-Language",
+            "value": "{{language}}"
+           }
+          ],
+          "url": {
+           "raw": "{{baseUrl}}/api/v1/admin/company-deals/penalties",
+           "host": [
+            "{{baseUrl}}"
+           ],
+           "path": [
+            "api",
+            "v1",
+            "admin",
+            "company-deals",
+            "penalties"
+           ]
+          },
+          "description": "## List Company-Deal Penalties\n\n**Requires authentication.** Needs `admin.penalties.view`.\n\n### Business Rules\n- A penalty is owed to the harmed party — the creator (payee) — not the platform.\n- Amount is a percent of the late installment, applied after the grace period (default 30 days)."
+         }
+        }
+       ]
+      },
+      {
+       "name": "Waive Penalty",
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "const res = pm.response.json();",
+           "pm.test('Status is a documented response (200, 403)', () => pm.expect([200, 403]).to.include(pm.response.code));",
+           "pm.test('Response uses the standard envelope', () => {",
+           "  pm.expect(res).to.have.property('success');",
+           "  pm.expect(res).to.have.property('message');",
+           "});"
+          ]
+         }
+        }
+       ],
+       "request": {
+        "method": "POST",
+        "header": [
+         {
+          "key": "Content-Type",
+          "value": "application/json"
+         },
+         {
+          "key": "Accept-Language",
+          "value": "{{language}}"
+         }
+        ],
+        "url": {
+         "raw": "{{baseUrl}}/api/v1/admin/company-deals/penalties/{{penaltyId}}/waive",
+         "host": [
+          "{{baseUrl}}"
+         ],
+         "path": [
+          "api",
+          "v1",
+          "admin",
+          "company-deals",
+          "penalties",
+          "{{penaltyId}}",
+          "waive"
+         ]
+        },
+        "description": "## Waive Penalty\n\n**Requires authentication.** Needs `admin.penalties.waive`. Waive an applied penalty.\n\n### Request Fields\n| Field | Type | Required | Rules |\n|---|---|---|---|\n| reason | string | ✅ | Waive reason |\n\n### Business Rules\n- Fills `WaivedByAdminId`. Audit action `admin.penalty.waive`.\n- The installment returns to `Overdue`; the payer then pays the plain amount only.",
+        "body": {
+         "mode": "raw",
+         "raw": "{\n  \"reason\": \"Goodwill — first delay\"\n}",
+         "options": {
+          "raw": {
+           "language": "json"
+          }
+         }
+        }
+       },
+       "response": [
+        {
+         "name": "200 OK",
+         "status": "OK",
+         "code": 200,
+         "_postman_previewlanguage": "json",
+         "header": [
+          {
+           "key": "Content-Type",
+           "value": "application/json"
+          }
+         ],
+         "cookie": [],
+         "body": "{\n  \"success\": true,\n  \"message\": \"Penalty waived.\",\n  \"data\": {\n    \"id\": 1,\n    \"companyDealId\": 1,\n    \"installmentId\": 3,\n    \"amount\": 30625.0,\n    \"currency\": \"SAR\",\n    \"status\": \"Waived\",\n    \"waivedByAdminId\": 4\n  }\n}",
+         "originalRequest": {
+          "method": "POST",
+          "header": [
+           {
+            "key": "Content-Type",
+            "value": "application/json"
+           },
+           {
+            "key": "Accept-Language",
+            "value": "{{language}}"
+           }
+          ],
+          "url": {
+           "raw": "{{baseUrl}}/api/v1/admin/company-deals/penalties/{{penaltyId}}/waive",
+           "host": [
+            "{{baseUrl}}"
+           ],
+           "path": [
+            "api",
+            "v1",
+            "admin",
+            "company-deals",
+            "penalties",
+            "{{penaltyId}}",
+            "waive"
+           ]
+          },
+          "description": "## Waive Penalty\n\n**Requires authentication.** Needs `admin.penalties.waive`. Waive an applied penalty.\n\n### Request Fields\n| Field | Type | Required | Rules |\n|---|---|---|---|\n| reason | string | ✅ | Waive reason |\n\n### Business Rules\n- Fills `WaivedByAdminId`. Audit action `admin.penalty.waive`.\n- The installment returns to `Overdue`; the payer then pays the plain amount only.",
+          "body": {
+           "mode": "raw",
+           "raw": "{\n  \"reason\": \"Goodwill — first delay\"\n}",
+           "options": {
+            "raw": {
+             "language": "json"
+            }
+           }
+          }
+         }
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "⚖️ Disputes",
+   "item": [
+    {
+     "name": "⚖️ Disputes",
+     "item": [
+      {
+       "name": "List Disputes",
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "const res = pm.response.json();",
+           "pm.test('Status is a documented response (200, 401, 403)', () => pm.expect([200, 401, 403]).to.include(pm.response.code));",
+           "pm.test('Response uses the standard envelope', () => {",
+           "  pm.expect(res).to.have.property('success');",
+           "  pm.expect(res).to.have.property('message');",
+           "});"
+          ]
+         }
+        }
+       ],
+       "request": {
+        "method": "GET",
+        "header": [
+         {
+          "key": "Accept-Language",
+          "value": "{{language}}"
+         }
+        ],
+        "url": {
+         "raw": "{{baseUrl}}/api/v1/admin/disputes?page=1&pageSize=100",
+         "host": [
+          "{{baseUrl}}"
+         ],
+         "path": [
+          "api",
+          "v1",
+          "admin",
+          "disputes"
+         ],
+         "query": [
+          {
+           "key": "page",
+           "value": "1"
+          },
+          {
+           "key": "pageSize",
+           "value": "100"
+          }
+         ]
+        },
+        "description": "## List Disputes\n\n**Requires authentication.** Needs `admin.disputes.view`.\n\n### Query Params\n| Param | Type | Rules |\n|---|---|---|\n| page | integer | Default 1 |\n| pageSize | integer | Default 20 |\n\n### Frontend Notes\n- Use `pageSize=100` for the dashboard open-count workaround until the server-side count lands."
+       },
+       "response": [
+        {
+         "name": "200 OK",
+         "status": "OK",
+         "code": 200,
+         "_postman_previewlanguage": "json",
+         "header": [
+          {
+           "key": "Content-Type",
+           "value": "application/json"
+          }
+         ],
+         "cookie": [],
+         "body": "{\n  \"success\": true,\n  \"message\": \"Success\",\n  \"data\": [\n    {\n      \"id\": 1,\n      \"number\": \"DSP-000002\",\n      \"dealId\": 2,\n      \"status\": \"Closed\",\n      \"openedByUserId\": 1,\n      \"againstUserId\": 2,\n      \"createdAt\": \"2026-11-15T09:14:00Z\"\n    }\n  ],\n  \"meta\": {\n    \"page\": 1,\n    \"pageSize\": 100,\n    \"total\": 1,\n    \"totalPages\": 1\n  }\n}",
+         "originalRequest": {
+          "method": "GET",
+          "header": [
+           {
+            "key": "Accept-Language",
+            "value": "{{language}}"
+           }
+          ],
+          "url": {
+           "raw": "{{baseUrl}}/api/v1/admin/disputes?page=1&pageSize=100",
+           "host": [
+            "{{baseUrl}}"
+           ],
+           "path": [
+            "api",
+            "v1",
+            "admin",
+            "disputes"
+           ],
+           "query": [
+            {
+             "key": "page",
+             "value": "1"
+            },
+            {
+             "key": "pageSize",
+             "value": "100"
+            }
+           ]
+          },
+          "description": "## List Disputes\n\n**Requires authentication.** Needs `admin.disputes.view`.\n\n### Query Params\n| Param | Type | Rules |\n|---|---|---|\n| page | integer | Default 1 |\n| pageSize | integer | Default 20 |\n\n### Frontend Notes\n- Use `pageSize=100` for the dashboard open-count workaround until the server-side count lands."
+         }
+        }
+       ]
+      },
+      {
+       "name": "Get Dispute",
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "const res = pm.response.json();",
+           "pm.test('Status is a documented response (200, 401, 403, 404)', () => pm.expect([200, 401, 403, 404]).to.include(pm.response.code));",
+           "pm.test('Response uses the standard envelope', () => {",
+           "  pm.expect(res).to.have.property('success');",
+           "  pm.expect(res).to.have.property('message');",
+           "});"
+          ]
+         }
+        }
+       ],
+       "request": {
+        "method": "GET",
+        "header": [
+         {
+          "key": "Accept-Language",
+          "value": "{{language}}"
+         }
+        ],
+        "url": {
+         "raw": "{{baseUrl}}/api/v1/admin/disputes/{{disputeId}}",
+         "host": [
+          "{{baseUrl}}"
+         ],
+         "path": [
+          "api",
+          "v1",
+          "admin",
+          "disputes",
+          "{{disputeId}}"
+         ]
+        },
+        "description": "## Get Dispute Detail\n\n**Requires authentication.** Needs `admin.disputes.view`. One dispute with reason, details, messages and attachments.\n\n### Business Rules\n- Dispute #1 is DSP-000002 on the test deal #45872 (\"Not the same color\"), already Closed — resolved by Shahd on 15 Nov 2026.\n\n### Frontend Notes\n- Render the messages thread and the reason label from this endpoint; the list DTO does not carry them."
+       },
+       "response": [
+        {
+         "name": "200 OK",
+         "status": "OK",
+         "code": 200,
+         "_postman_previewlanguage": "json",
+         "header": [
+          {
+           "key": "Content-Type",
+           "value": "application/json"
+          }
+         ],
+         "cookie": [],
+         "body": "{\n  \"success\": true,\n  \"message\": \"Success\",\n  \"data\": {\n    \"id\": 1,\n    \"number\": \"DSP-000002\",\n    \"dealId\": 2,\n    \"status\": \"Closed\",\n    \"reason\": \"Product differs from the agreed description\",\n    \"note\": \"Not the same color\",\n    \"openedByUserId\": 1,\n    \"againstUserId\": 2,\n    \"resolvedByAdminId\": 4,\n    \"messages\": [\n      {\n        \"id\": 1,\n        \"author\": \"Shahinda\",\n        \"text\": \"Just why?\",\n        \"createdAt\": \"2026-11-15T09:14:00Z\"\n      }\n    ]\n  }\n}",
+         "originalRequest": {
+          "method": "GET",
+          "header": [
+           {
+            "key": "Accept-Language",
+            "value": "{{language}}"
+           }
+          ],
+          "url": {
+           "raw": "{{baseUrl}}/api/v1/admin/disputes/{{disputeId}}",
+           "host": [
+            "{{baseUrl}}"
+           ],
+           "path": [
+            "api",
+            "v1",
+            "admin",
+            "disputes",
+            "{{disputeId}}"
+           ]
+          },
+          "description": "## Get Dispute Detail\n\n**Requires authentication.** Needs `admin.disputes.view`. One dispute with reason, details, messages and attachments.\n\n### Business Rules\n- Dispute #1 is DSP-000002 on the test deal #45872 (\"Not the same color\"), already Closed — resolved by Shahd on 15 Nov 2026.\n\n### Frontend Notes\n- Render the messages thread and the reason label from this endpoint; the list DTO does not carry them."
+         }
+        }
+       ]
+      },
+      {
+       "name": "Request Info",
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "const res = pm.response.json();",
+           "pm.test('Status is a documented response (200, 403)', () => pm.expect([200, 403]).to.include(pm.response.code));",
+           "pm.test('Response uses the standard envelope', () => {",
+           "  pm.expect(res).to.have.property('success');",
+           "  pm.expect(res).to.have.property('message');",
+           "});"
+          ]
+         }
+        }
+       ],
+       "request": {
+        "method": "POST",
+        "header": [
+         {
+          "key": "Content-Type",
+          "value": "application/json"
+         },
+         {
+          "key": "Accept-Language",
+          "value": "{{language}}"
+         }
+        ],
+        "url": {
+         "raw": "{{baseUrl}}/api/v1/admin/disputes/{{disputeId}}/request-info",
+         "host": [
+          "{{baseUrl}}"
+         ],
+         "path": [
+          "api",
+          "v1",
+          "admin",
+          "disputes",
+          "{{disputeId}}",
+          "request-info"
+         ]
+        },
+        "description": "## Request More Info\n\n**Requires authentication.** Needs `admin.disputes.decide`. Ask the buyer for more information. The request goes to the buyer only — the seller is not notified.\n\n### Request Fields\n| Field | Type | Required | Rules |\n|---|---|---|---|\n| note | string | — | What you need from the buyer |\n| deadlineDays | integer | ✅ | Days to respond |\n\n### Business Rules\n- Audit action `admin.dispute.request_info`. There is no ByAdminId column for it.\n- Notifies the buyer only; the seller is not notified.",
+        "body": {
+         "mode": "raw",
+         "raw": "{\n  \"note\": \"Please send more details and photos\",\n  \"deadlineDays\": 3\n}",
+         "options": {
+          "raw": {
+           "language": "json"
+          }
+         }
+        }
+       },
+       "response": [
+        {
+         "name": "200 OK",
+         "status": "OK",
+         "code": 200,
+         "_postman_previewlanguage": "json",
+         "header": [
+          {
+           "key": "Content-Type",
+           "value": "application/json"
+          }
+         ],
+         "cookie": [],
+         "body": "{\n  \"success\": true,\n  \"message\": \"Information requested.\",\n  \"data\": {\n    \"id\": 1,\n    \"number\": \"DSP-000002\",\n    \"status\": \"AwaitingInfo\"\n  }\n}",
+         "originalRequest": {
+          "method": "POST",
+          "header": [
+           {
+            "key": "Content-Type",
+            "value": "application/json"
+           },
+           {
+            "key": "Accept-Language",
+            "value": "{{language}}"
+           }
+          ],
+          "url": {
+           "raw": "{{baseUrl}}/api/v1/admin/disputes/{{disputeId}}/request-info",
+           "host": [
+            "{{baseUrl}}"
+           ],
+           "path": [
+            "api",
+            "v1",
+            "admin",
+            "disputes",
+            "{{disputeId}}",
+            "request-info"
+           ]
+          },
+          "description": "## Request More Info\n\n**Requires authentication.** Needs `admin.disputes.decide`. Ask both parties for more information.\n\n### Request Fields\n| Field | Type | Required | Rules |\n|---|---|---|---|\n| note | string | — | What you need from the parties |\n| deadlineDays | integer | ✅ | Days to respond |\n\n### Business Rules\n- Audit action `admin.dispute.request_info`. There is no ByAdminId column for it.",
+          "body": {
+           "mode": "raw",
+           "raw": "{\n  \"note\": \"Please send more details and photos\",\n  \"deadlineDays\": 3\n}",
+           "options": {
+            "raw": {
+             "language": "json"
+            }
+           }
+          }
+         }
+        }
+       ]
+      },
+      {
+       "name": "Execute Agreement",
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "const res = pm.response.json();",
+           "pm.test('Status is a documented response (200, 403)', () => pm.expect([200, 403]).to.include(pm.response.code));",
+           "pm.test('Response uses the standard envelope', () => {",
+           "  pm.expect(res).to.have.property('success');",
+           "  pm.expect(res).to.have.property('message');",
+           "});"
+          ]
+         }
+        }
+       ],
+       "request": {
+        "method": "POST",
+        "header": [
+         {
+          "key": "Content-Type",
+          "value": "application/json"
+         },
+         {
+          "key": "Accept-Language",
+          "value": "{{language}}"
+         }
+        ],
+        "url": {
+         "raw": "{{baseUrl}}/api/v1/admin/disputes/{{disputeId}}/execute-agreement",
+         "host": [
+          "{{baseUrl}}"
+         ],
+         "path": [
+          "api",
+          "v1",
+          "admin",
+          "disputes",
+          "{{disputeId}}",
+          "execute-agreement"
+         ]
+        },
+        "description": "## Execute Agreement\n\n**Requires authentication.** Needs `admin.disputes.decide`. Execute what the buyer and the seller agreed between themselves — the admin never decides a dispute. The money moves in the same request.\n\n### Request Fields\n| Field | Type | Required | Rules |\n|---|---|---|---|\n| resolution | string | ✅ | `ReleaseSeller` \\| `RefundBuyer` \\| `Partial` — what the parties agreed |\n| sellerPercent | integer | — | Required for `Partial` (1–99) — the agreed seller share |\n| note | string | ✅ | Record of the parties' agreement |\n\n### Business Rules\n- Fills `ResolvedByAdminId`. Audit action `admin.dispute.execute_agreement`.\n- The agreement is final: executing a second agreement returns `AlreadyResolved`.\n- Change `resolution` to `RefundBuyer` to refund the buyer, or to `Partial` with `sellerPercent` (e.g. 60) to split as agreed.\n\n### Frontend Notes\n- Confirm before calling — the money moves immediately and cannot be undone.",
+        "body": {
+         "mode": "raw",
+         "raw": "{\n  \"resolution\": \"ReleaseSeller\",\n  \"note\": \"The buyer and the seller agreed the seller keeps the amount\"\n}",
+         "options": {
+          "raw": {
+           "language": "json"
+          }
+         }
+        }
+       },
+       "response": [
+        {
+         "name": "200 OK — Release to Seller",
+         "status": "OK",
+         "code": 200,
+         "_postman_previewlanguage": "json",
+         "header": [
+          {
+           "key": "Content-Type",
+           "value": "application/json"
+          }
+         ],
+         "cookie": [],
+         "body": "{\n  \"success\": true,\n  \"message\": \"The agreement between the parties was executed.\",\n  \"data\": {\n    \"disputeId\": 1,\n    \"number\": \"DSP-000002\",\n    \"resolution\": \"ReleaseSeller\",\n    \"sellerAmount\": 950,\n    \"buyerAmount\": 0,\n    \"feeAmount\": 50,\n    \"dealStatus\": \"Released\"\n  }\n}",
+         "originalRequest": {
+          "method": "POST",
+          "header": [
+           {
+            "key": "Content-Type",
+            "value": "application/json"
+           },
+           {
+            "key": "Accept-Language",
+            "value": "{{language}}"
+           }
+          ],
+          "url": {
+           "raw": "{{baseUrl}}/api/v1/admin/disputes/{{disputeId}}/execute-agreement",
+           "host": [
+            "{{baseUrl}}"
+           ],
+           "path": [
+            "api",
+            "v1",
+            "admin",
+            "disputes",
+            "{{disputeId}}",
+            "execute-agreement"
+           ]
+          },
+          "description": "## Execute Agreement\n\n**Requires authentication.** Needs `admin.disputes.decide`. Execute what the buyer and the seller agreed between themselves — the admin never decides a dispute. The money moves in the same request.\n\n### Request Fields\n| Field | Type | Required | Rules |\n|---|---|---|---|\n| resolution | string | ✅ | `ReleaseSeller` \\| `RefundBuyer` \\| `Partial` — what the parties agreed |\n| sellerPercent | integer | — | Required for `Partial` (1–99) — the agreed seller share |\n| note | string | ✅ | Record of the parties' agreement |\n\n### Business Rules\n- Fills `ResolvedByAdminId`. Audit action `admin.dispute.execute_agreement`.\n- The agreement is final: executing a second agreement returns `AlreadyResolved`.\n- Change `resolution` to `RefundBuyer` to refund the buyer, or to `Partial` with `sellerPercent` (e.g. 60) to split as agreed.\n\n### Frontend Notes\n- Confirm before calling — the money moves immediately and cannot be undone.",
+          "body": {
+           "mode": "raw",
+           "raw": "{\n  \"resolution\": \"ReleaseSeller\",\n  \"note\": \"The buyer and the seller agreed the seller keeps the amount\"\n}",
+           "options": {
+            "raw": {
+             "language": "json"
+            }
+           }
+          }
+         }
+        },
+        {
+         "name": "200 OK — Refund Buyer",
+         "status": "OK",
+         "code": 200,
+         "_postman_previewlanguage": "json",
+         "header": [
+          {
+           "key": "Content-Type",
+           "value": "application/json"
+          }
+         ],
+         "cookie": [],
+         "body": "{\n  \"success\": true,\n  \"message\": \"The agreement between the parties was executed.\",\n  \"data\": {\n    \"disputeId\": 1,\n    \"number\": \"DSP-000002\",\n    \"resolution\": \"RefundBuyer\",\n    \"sellerAmount\": 0,\n    \"buyerAmount\": 1000,\n    \"feeAmount\": 50,\n    \"dealStatus\": \"Refunded\"\n  }\n}",
+         "originalRequest": {
+          "method": "POST",
+          "header": [
+           {
+            "key": "Content-Type",
+            "value": "application/json"
+           },
+           {
+            "key": "Accept-Language",
+            "value": "{{language}}"
+           }
+          ],
+          "url": {
+           "raw": "{{baseUrl}}/api/v1/admin/disputes/{{disputeId}}/execute-agreement",
+           "host": [
+            "{{baseUrl}}"
+           ],
+           "path": [
+            "api",
+            "v1",
+            "admin",
+            "disputes",
+            "{{disputeId}}",
+            "execute-agreement"
+           ]
+          },
+          "description": "## Execute Agreement\n\n**Requires authentication.** Needs `admin.disputes.decide`. Execute what the buyer and the seller agreed between themselves — the admin never decides a dispute. The money moves in the same request.\n\n### Request Fields\n| Field | Type | Required | Rules |\n|---|---|---|---|\n| resolution | string | ✅ | `ReleaseSeller` \\| `RefundBuyer` \\| `Partial` — what the parties agreed |\n| sellerPercent | integer | — | Required for `Partial` (1–99) — the agreed seller share |\n| note | string | ✅ | Record of the parties' agreement |\n\n### Business Rules\n- Fills `ResolvedByAdminId`. Audit action `admin.dispute.execute_agreement`.\n- The agreement is final: executing a second agreement returns `AlreadyResolved`.\n- Change `resolution` to `RefundBuyer` to refund the buyer, or to `Partial` with `sellerPercent` (e.g. 60) to split as agreed.\n\n### Frontend Notes\n- Confirm before calling — the money moves immediately and cannot be undone.",
+          "body": {
+           "mode": "raw",
+           "raw": "{\n  \"resolution\": \"RefundBuyer\",\n  \"note\": \"The buyer and the seller agreed on a full refund to the buyer\"\n}",
+           "options": {
+            "raw": {
+             "language": "json"
+            }
+           }
+          }
+         }
+        },
+        {
+         "name": "200 OK — Partial Split",
+         "status": "OK",
+         "code": 200,
+         "_postman_previewlanguage": "json",
+         "header": [
+          {
+           "key": "Content-Type",
+           "value": "application/json"
+          }
+         ],
+         "cookie": [],
+         "body": "{\n  \"success\": true,\n  \"message\": \"The agreement between the parties was executed.\",\n  \"data\": {\n    \"disputeId\": 1,\n    \"number\": \"DSP-000002\",\n    \"resolution\": \"Partial\",\n    \"sellerAmount\": 550,\n    \"buyerAmount\": 400,\n    \"feeAmount\": 50,\n    \"dealStatus\": \"Released\"\n  }\n}",
+         "originalRequest": {
+          "method": "POST",
+          "header": [
+           {
+            "key": "Content-Type",
+            "value": "application/json"
+           },
+           {
+            "key": "Accept-Language",
+            "value": "{{language}}"
+           }
+          ],
+          "url": {
+           "raw": "{{baseUrl}}/api/v1/admin/disputes/{{disputeId}}/execute-agreement",
+           "host": [
+            "{{baseUrl}}"
+           ],
+           "path": [
+            "api",
+            "v1",
+            "admin",
+            "disputes",
+            "{{disputeId}}",
+            "execute-agreement"
+           ]
+          },
+          "description": "## Execute Agreement\n\n**Requires authentication.** Needs `admin.disputes.decide`. Execute what the buyer and the seller agreed between themselves — the admin never decides a dispute. The money moves in the same request.\n\n### Request Fields\n| Field | Type | Required | Rules |\n|---|---|---|---|\n| resolution | string | ✅ | `ReleaseSeller` \\| `RefundBuyer` \\| `Partial` — what the parties agreed |\n| sellerPercent | integer | — | Required for `Partial` (1–99) — the agreed seller share |\n| note | string | ✅ | Record of the parties' agreement |\n\n### Business Rules\n- Fills `ResolvedByAdminId`. Audit action `admin.dispute.execute_agreement`.\n- The agreement is final: executing a second agreement returns `AlreadyResolved`.\n- Change `resolution` to `RefundBuyer` to refund the buyer, or to `Partial` with `sellerPercent` (e.g. 60) to split as agreed.\n\n### Frontend Notes\n- Confirm before calling — the money moves immediately and cannot be undone.",
+          "body": {
+           "mode": "raw",
+           "raw": "{\n  \"resolution\": \"Partial\",\n  \"sellerPercent\": 60,\n  \"note\": \"The buyer and the seller agreed on a 60/40 split\"\n}",
+           "options": {
+            "raw": {
+             "language": "json"
+            }
+           }
+          }
+         }
+        }
+       ]
+      },
+      {
+       "name": "Upload Dispute File",
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "const res = pm.response.json();",
+           "pm.test('Status is 201', () => pm.expect(pm.response.code).to.equal(201));",
+           "pm.test('Response uses the standard envelope', () => {",
+           "  pm.expect(res).to.have.property('success');",
+           "  pm.expect(res).to.have.property('message');",
+           "});",
+           "if (res.success && res.data && res.data.fileId) {",
+           "  pm.collectionVariables.set('disputeFileId', res.data.fileId);",
+           "}"
+          ]
+         }
+        }
+       ],
+       "request": {
+        "method": "POST",
+        "header": [
+         {
+          "key": "Accept-Language",
+          "value": "{{language}}"
+         }
+        ],
+        "url": {
+         "raw": "{{baseUrl}}/api/v1/admin/uploads",
+         "host": [
+          "{{baseUrl}}"
+         ],
+         "path": [
+          "api",
+          "v1",
+          "admin",
+          "uploads"
+         ]
+        },
+        "description": "## Upload Dispute File\n\n**Requires authentication.** Needs `admin.disputes.decide`. Upload one court document (image or PDF, up to 10MB) for a dispute. Purpose is fixed to `dispute` server-side; the file has no app-user owner. The returned `fileId` is saved as `disputeFileId` and sent with **Send Documents**.\n\n### Request Fields\n| Field | Type | Required | Rules |\n|---|---|---|---|\n| file | file | ✅ | Image (jpg/png/webp) or PDF, up to 10MB |",
+        "body": {
+         "mode": "formdata",
+         "formdata": [
+          {
+           "key": "file",
+           "type": "file",
+           "src": []
+          }
+         ]
+        }
+       },
+       "response": []
+      },
+      {
+       "name": "Send Documents",
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "const res = pm.response.json();",
+           "pm.test('Status is a documented response (200, 403)', () => pm.expect([200, 403]).to.include(pm.response.code));",
+           "pm.test('Response uses the standard envelope', () => {",
+           "  pm.expect(res).to.have.property('success');",
+           "  pm.expect(res).to.have.property('message');",
+           "});"
+          ]
+         }
+        }
+       ],
+       "request": {
+        "method": "POST",
+        "header": [
+         {
+          "key": "Content-Type",
+          "value": "application/json"
+         },
+         {
+          "key": "Accept-Language",
+          "value": "{{language}}"
+         }
+        ],
+        "url": {
+         "raw": "{{baseUrl}}/api/v1/admin/disputes/{{disputeId}}/send-documents",
+         "host": [
+          "{{baseUrl}}"
+         ],
+         "path": [
+          "api",
+          "v1",
+          "admin",
+          "disputes",
+          "{{disputeId}}",
+          "send-documents"
+         ]
+        },
+        "description": "## Send Dispute Documents\n\n**Requires authentication.** Needs `admin.disputes.decide`. Send the dispute documents to the buyer so the buyer can take the case to court — used when the buyer and the seller could not agree.\n\nUpload the files first with **Upload Dispute File** (it saves `disputeFileId`), then send their ids here.\n\n### Request Fields\n| Field | Type | Required | Rules |\n|---|---|---|---|\n| filePublicIds | string[] | ✅ | 1–5 ids of files uploaded with Upload Dispute File |\n\n### Business Rules\n- Moves no money and changes no status: the dispute stays open and the escrow stays frozen.\n- Adds an admin message with the files and no text (no sentence, no note) and notifies the buyer only. Audit action `admin.dispute.send_documents`.",
+        "body": {
+         "mode": "raw",
+         "raw": "{\n  \"filePublicIds\": [\"{{disputeFileId}}\"]\n}",
+         "options": {
+          "raw": {
+           "language": "json"
+          }
+         }
+        }
+       },
+       "response": [
+        {
+         "name": "200 OK",
+         "status": "OK",
+         "code": 200,
+         "_postman_previewlanguage": "json",
+         "header": [
+          {
+           "key": "Content-Type",
+           "value": "application/json"
+          }
+         ],
+         "cookie": [],
+         "body": "{\n  \"success\": true,\n  \"message\": \"The dispute documents were sent to the buyer.\",\n  \"data\": {\n    \"id\": 1,\n    \"number\": \"DSP-000002\",\n    \"status\": \"UnderReview\"\n  }\n}",
+         "originalRequest": {
+          "method": "POST",
+          "header": [
+           {
+            "key": "Content-Type",
+            "value": "application/json"
+           },
+           {
+            "key": "Accept-Language",
+            "value": "{{language}}"
+           }
+          ],
+          "url": {
+           "raw": "{{baseUrl}}/api/v1/admin/disputes/{{disputeId}}/send-documents",
+           "host": [
+            "{{baseUrl}}"
+           ],
+           "path": [
+            "api",
+            "v1",
+            "admin",
+            "disputes",
+            "{{disputeId}}",
+            "send-documents"
+           ]
+          },
+          "description": "## Send Dispute Documents\n\n**Requires authentication.** Needs `admin.disputes.decide`. Send the dispute documents to the buyer so the buyer can take the case to court — used when the buyer and the seller could not agree.\n\n### Request Fields\n| Field | Type | Required | Rules |\n|---|---|---|---|\n| note | string | — | Optional note added to the message (max 500) |\n\n### Business Rules\n- Moves no money and changes no status: the dispute stays open and the escrow stays frozen.\n- Adds a visible admin message to the thread and notifies the buyer only. Audit action `admin.dispute.send_documents`.",
+          "body": {
+           "mode": "raw",
+           "raw": "{\n  \"note\": \"The parties could not agree — documents sent so the buyer can take the case to court\"\n}",
+           "options": {
+            "raw": {
+             "language": "json"
+            }
+           }
+          }
+         }
+        }
+       ]
+      },
+      {
+       "name": "Post Dispute Message",
+       "event": [
+        {
+         "listen": "test",
+         "script": {
+          "type": "text/javascript",
+          "exec": [
+           "const res = pm.response.json();",
+           "pm.test('Status is a documented response (201, 403)', () => pm.expect([201, 403]).to.include(pm.response.code));",
+           "pm.test('Response uses the standard envelope', () => {",
+           "  pm.expect(res).to.have.property('success');",
+           "  pm.expect(res).to.have.property('message');",
+           "});"
+          ]
+         }
+        }
+       ],
+       "request": {
+        "method": "POST",
+        "header": [
+         {
+          "key": "Content-Type",
+          "value": "application/json"
+         },
+         {
+          "key": "Accept-Language",
+          "value": "{{language}}"
+         }
+        ],
+        "url": {
+         "raw": "{{baseUrl}}/api/v1/admin/disputes/{{disputeId}}/messages",
+         "host": [
+          "{{baseUrl}}"
+         ],
+         "path": [
+          "api",
+          "v1",
+          "admin",
+          "disputes",
+          "{{disputeId}}",
+          "messages"
+         ]
+        },
+        "description": "## Post Dispute Message\n\n**Requires authentication.** Needs `admin.disputes.decide`. Post a message in the dispute thread as the admin.\n\n### Request Fields\n| Field | Type | Required | Rules |\n|---|---|---|---|\n| message | string | ✅ | The message text (max 1000) |\n| isInternalNote | boolean | — | `true` = admins only, no notification. Default `false` = visible to both parties |\n\n### Business Rules\n- A visible message notifies both the buyer and the seller; an internal note notifies nobody. Audit action `admin.dispute.message`.\n- The dispute must be open — posting on a closed dispute returns `InvalidState`.\n- Returns **201 Created** with the created message.",
+        "body": {
+         "mode": "raw",
+         "raw": "{\n  \"message\": \"Please send the invoice and photos of the item.\",\n  \"isInternalNote\": false\n}",
+         "options": {
+          "raw": {
+           "language": "json"
+          }
+         }
+        }
+       },
+       "response": [
+        {
+         "name": "201 Created",
+         "status": "Created",
+         "code": 201,
+         "_postman_previewlanguage": "json",
+         "header": [
+          {
+           "key": "Content-Type",
+           "value": "application/json"
+          }
+         ],
+         "cookie": [],
+         "body": "{\n  \"success\": true,\n  \"message\": \"Message sent.\",\n  \"data\": {\n    \"id\": 5,\n    \"senderType\": \"Admin\",\n    \"senderName\": null,\n    \"message\": \"Please send the invoice and photos of the item.\",\n    \"isInternalNote\": false,\n    \"createdAt\": \"2026-11-16T13:00:00Z\",\n    \"attachments\": []\n  }\n}",
+         "originalRequest": {
+          "method": "POST",
+          "header": [
+           {
+            "key": "Content-Type",
+            "value": "application/json"
+           },
+           {
+            "key": "Accept-Language",
+            "value": "{{language}}"
+           }
+          ],
+          "url": {
+           "raw": "{{baseUrl}}/api/v1/admin/disputes/{{disputeId}}/messages",
+           "host": [
+            "{{baseUrl}}"
+           ],
+           "path": [
+            "api",
+            "v1",
+            "admin",
+            "disputes",
+            "{{disputeId}}",
+            "messages"
+           ]
+          },
+          "description": "## Post Dispute Message\n\n**Requires authentication.** Needs `admin.disputes.decide`. Post a message in the dispute thread as the admin.\n\n### Request Fields\n| Field | Type | Required | Rules |\n|---|---|---|---|\n| message | string | ✅ | The message text (max 1000) |\n| isInternalNote | boolean | — | `true` = admins only, no notification. Default `false` = visible to both parties |\n\n### Business Rules\n- A visible message notifies both the buyer and the seller; an internal note notifies nobody. Audit action `admin.dispute.message`.\n- The dispute must be open — posting on a closed dispute returns `InvalidState`.\n- Returns **201 Created** with the created message.",
+          "body": {
+           "mode": "raw",
+           "raw": "{\n  \"message\": \"Please send the invoice and photos of the item.\",\n  \"isInternalNote\": false\n}",
+           "options": {
+            "raw": {
+             "language": "json"
+            }
+           }
+          }
+         }
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

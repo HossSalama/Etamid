@@ -3,7 +3,7 @@ import { Router } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
 import { LanguageService } from '../../services/language.service';
 
-export type NavTab = 'home' | 'deals' | 'company' | 'wallet' | 'profile';
+export type NavTab = 'home' | 'deals' | 'shop' | 'company' | 'wallet' | 'profile';
 
 @Component({
   selector: 'app-bottom-nav',
@@ -86,8 +86,16 @@ export class BottomNavComponent {
   private readonly router = inject(Router);
 
   onSelect(tab: NavTab): void {
+    if (tab === 'shop') {
+      void this.router.navigate(['/shop']);
+      return;
+    }
     if (tab === 'company') {
       void this.router.navigate(['/company-deals']);
+      return;
+    }
+    if (tab === 'wallet') {
+      void this.router.navigate(['/wallet']);
       return;
     }
 

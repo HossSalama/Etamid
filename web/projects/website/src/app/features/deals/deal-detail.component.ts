@@ -1,5 +1,5 @@
 import { Component, computed, inject, signal } from '@angular/core';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
 import { DealDetail, DealsService, LookupItem, UserAddress } from '../../core/services/deals.service';
 import { LanguageService } from '../../core/services/language.service';
@@ -550,6 +550,7 @@ const KNOWN_STATUSES = [
 })
 export class DealDetailComponent {
   private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
   private readonly dealsApi = inject(DealsService);
   readonly authService = inject(AuthService);
   readonly lang = inject(LanguageService);
@@ -647,9 +648,10 @@ export class DealDetailComponent {
   }
 
   startAccept(): void {
-    this.actionError.set(null);
-    this.termsAccepted.set(false);
-    this.acceptStep.set('terms');
+    const d = this.deal();
+    if (d) {
+      void this.router.navigate(['/deals', d.id, 'accept']);
+    }
   }
 
   continueFromTerms(): void {

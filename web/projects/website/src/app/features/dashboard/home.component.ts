@@ -2730,8 +2730,7 @@ export class HomeComponent {
   }
 
   onNavWallet(): void {
-    this.activeNav.set('wallet');
-    this.scrollToSection('wallet-section');
+    void this.router.navigate(['/wallet']);
   }
 
   private scrollToSection(id: string): void {

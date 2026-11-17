@@ -119,6 +119,20 @@ export const routes: Routes = [
       ),
   },
   {
+    path: 'wallet',
+    loadComponent: () =>
+      import('./features/wallet/wallet.component').then(
+        (m) => m.WalletComponent
+      ),
+  },
+  {
+    path: 'deals/:id/accept',
+    loadComponent: () =>
+      import('./features/deals/accept-deal.component').then(
+        (m) => m.AcceptDealComponent
+      ),
+  },
+  {
     path: 'deals/:id',
     loadComponent: () =>
       import('./features/deals/deal-detail.component').then(
