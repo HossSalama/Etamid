@@ -425,9 +425,14 @@ export interface DealItem {
                 <p>{{ lang.t('wallet_loading') }}</p>
               } @else if (bankAccount() && !isEditingBankAccount()) {
                 <div class="bank-account-view">
-                  <p><span>{{ lang.t('bank_holder_label') }}:</span> {{ bankAccount()!.holderName }}</p>
-                  <p><span>{{ lang.t('bank_bank_label') }}:</span> {{ bankAccount()!.bankName }}</p>
-                  <p><span>{{ lang.t('bank_iban_label') }}:</span> <span dir="ltr">{{ bankAccount()!.ibanMasked }}</span></p>
+                  <div class="bank-account-info">
+                    <p class="bank-name">{{ bankAccount()!.bankName }}</p>
+                    <p><span>{{ lang.t('bank_holder_label') }}:</span> {{ bankAccount()!.holderName }}</p>
+                    <p><span>{{ lang.t('bank_iban_label') }}:</span> <span dir="ltr">{{ bankAccount()!.ibanMasked }}</span></p>
+                  </div>
+                  @if (bankLogo()) {
+                    <img class="bank-logo" [src]="bankLogo()" [alt]="bankAccount()!.bankName" />
+                  }
                 </div>
               } @else {
                 @if (!bankAccount()) {
@@ -1357,6 +1362,27 @@ export interface DealItem {
     }
 
     .bank-account-view {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+
+      .bank-logo {
+        max-width: 110px;
+        max-height: 44px;
+        object-fit: contain;
+      }
+
+      .bank-account-info {
+        flex: 1;
+        min-width: 0;
+
+        .bank-name {
+          font-size: 0.95rem;
+          font-weight: 800;
+          color: #111827;
+        }
+      }
+
       p {
         font-size: 0.9rem;
         color: #111827;
@@ -2026,6 +2052,38 @@ export class HomeComponent {
       default:
         return 'bank_error_generic';
     }
+  }
+
+  // Bank logos bundled with the website (public/assets/banks), keyed by the
+  // bank name the API returns (Arabic or English). The API's bankLogoUrl wins
+  // when the server has a logo file for the bank (Banks.LogoFileId).
+  private static readonly BANK_LOGOS: Record<string, string> = {
+    'مصرف الراجحي': '/assets/banks/80.webp',
+    'Al Rajhi Bank': '/assets/banks/80.webp',
+    'البنك الأهلي السعودي': '/assets/banks/10.png',
+    'Saudi National Bank': '/assets/banks/10.png',
+    'بنك الرياض': '/assets/banks/20.png',
+    'Riyad Bank': '/assets/banks/20.png',
+    'البنك السعودي الأول': '/assets/banks/45.png',
+    'Saudi Awwal Bank': '/assets/banks/45.png',
+    'البنك السعودي الفرنسي': '/assets/banks/55.webp',
+    'Banque Saudi Fransi': '/assets/banks/55.webp',
+    'بنك الجزيرة': '/assets/banks/60.jpg',
+    'Bank AlJazira': '/assets/banks/60.jpg',
+    'بنك الإنماء': '/assets/banks/05.png',
+    'Alinma Bank': '/assets/banks/05.png',
+    'بنك البلاد': '/assets/banks/15.png',
+    'Bank Albilad': '/assets/banks/15.png',
+    'البنك العربي الوطني': '/assets/banks/30.png',
+    'Arab National Bank': '/assets/banks/30.png',
+    'البنك السعودي للاستثمار': '/assets/banks/65.png',
+    'Saudi Investment Bank': '/assets/banks/65.png',
+  };
+
+  bankLogo(): string | null {
+    const account = this.bankAccount();
+    if (!account) return null;
+    return account.bankLogoUrl || HomeComponent.BANK_LOGOS[account.bankName] || null;
   }
 
   loadWalletTransactions(): void {
