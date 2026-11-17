@@ -595,40 +595,13 @@ export interface DealItem {
 
                   @if (deal.availableActions.includes('accept')) {
                     <div class="deal-actions-row">
-                      @if (acceptAddressDealId() === deal.id) {
-                        <select
-                          class="accept-address-select"
-                          [value]="selectedAcceptAddressId() ?? ''"
-                          (change)="selectedAcceptAddressId.set($any($event.target).value ? +$any($event.target).value : null)"
-                          [attr.aria-label]="lang.t('home_deal_accept_address')"
-                        >
-                          <option [value]="''">{{ lang.t('home_deal_accept_address_placeholder') }}</option>
-                          @for (address of acceptAddresses(); track address.id) {
-                            <option [value]="address.id">{{ addressLabel(address) }}</option>
-                          }
-                        </select>
-                        <button
-                          (click)="confirmAcceptDeal(deal.id)"
-                          class="btn btn-black btn-deal-accept"
-                          [disabled]="isAcceptingDeal() === deal.id || !selectedAcceptAddressId()"
-                        >
-                          {{ lang.t(isAcceptingDeal() === deal.id ? 'home_deal_accepting' : 'home_deal_accept') }}
-                        </button>
-                        <button type="button" class="btn btn-outline-coral" (click)="cancelAcceptAddress()">
-                          {{ lang.t('home_deal_accept_cancel') }}
-                        </button>
-                        @if (!isLoadingAcceptAddresses() && !acceptAddresses().length) {
-                          <p class="accept-address-hint">{{ lang.t('home_deal_accept_no_address') }} <a routerLink="/addresses">{{ lang.t('deal_manage_addresses') }}</a></p>
-                        }
-                      } @else {
-                        <button
-                          (click)="acceptDeal(deal)"
-                          class="btn btn-black btn-deal-accept"
-                          [disabled]="isAcceptingDeal() === deal.id"
-                        >
-                          {{ lang.t(isAcceptingDeal() === deal.id ? 'home_deal_accepting' : 'home_deal_accept') }}
-                        </button>
-                      }
+                      <a
+                        [routerLink]="['/deals', deal.id, 'accept']"
+                        class="btn btn-black btn-deal-accept"
+                        style="text-decoration: none; text-align: center; width: 100%; display: flex; align-items: center; justify-content: center;"
+                      >
+                        {{ lang.t('home_deal_accept') }}
+                      </a>
                     </div>
                   }
                   @if (deal.availableActions.includes('fund')) {

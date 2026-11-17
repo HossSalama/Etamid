@@ -151,9 +151,7 @@ import { BottomNavComponent } from '../../core/components/bottom-nav/bottom-nav.
       }
     }
 
-    [dir="rtl"] .figma-back-btn svg {
-      transform: scaleX(-1);
-    }
+    
 
     .figma-header-title {
       font-size: 1.25rem;
@@ -408,7 +406,11 @@ export class WalletComponent implements OnInit {
   }
 
   protected goBack(): void {
-    void this.router.navigate(['/home']);
+    if (globalThis.history && globalThis.history.length > 1) {
+      globalThis.history.back();
+    } else {
+      void this.router.navigate(['/home']);
+    }
   }
 
   private loadData(): void {

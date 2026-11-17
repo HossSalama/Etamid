@@ -178,12 +178,12 @@ import { LanguageService } from '../../core/services/language.service';
   styles: [`
     .accept-deal-screen {
       width: 100%;
-      max-width: 100%;
+      max-width: 440px;
+      margin: 0 auto;
       min-height: 100vh;
-      background-color: #fafbfc;
-      padding-bottom: 2rem;
+      background-color: #f8f9fa;
+      padding-bottom: 3rem;
       position: relative;
-      overflow-x: hidden;
       font-family: 'Cairo', -apple-system, BlinkMacSystemFont, sans-serif;
     }
 
@@ -216,9 +216,7 @@ import { LanguageService } from '../../core/services/language.service';
       }
     }
 
-    [dir="rtl"] .figma-back-btn svg {
-      transform: scaleX(-1);
-    }
+    
 
     .figma-header-title {
       font-size: 1.25rem;
@@ -235,11 +233,12 @@ import { LanguageService } from '../../core/services/language.service';
 
     /* Content Area */
     .accept-content {
-      width: min(480px, calc(100% - 2rem));
-      margin: 1.5rem auto 3rem;
+      width: 100%;
+      padding: 1.25rem 1rem;
+      box-sizing: border-box;
       display: flex;
       flex-direction: column;
-      gap: 1.75rem;
+      gap: 1.5rem;
     }
 
     /* 1. Map & Address Card */
@@ -489,7 +488,11 @@ export class AcceptDealComponent implements OnInit {
   }
 
   protected goBack(): void {
-    void this.router.navigate(['/deals', this.dealId]);
+    if (globalThis.history && globalThis.history.length > 1) {
+      globalThis.history.back();
+    } else {
+      void this.router.navigate(['/home']);
+    }
   }
 
   protected toggleAddressSelector(): void {
