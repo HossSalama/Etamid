@@ -50,17 +50,17 @@ public static class DisputeMapper
     public static string RoleOf(long dealBuyerId, long dealSellerId, long viewerId)
         => viewerId == dealBuyerId ? "buyer" : viewerId == dealSellerId ? "seller" : "operator";
 
+    // A party talks to the admin only (design decision, 16 Nov 2026): the buyer
+    // and the seller never see each other's messages or attachments, and there
+    // is no settlement proposal between them any more — the two sides agree
+    // through the admin, who executes their agreement (see DisputeAdmin).
     public static IReadOnlyList<string> AvailableActions(
-        Dispute dispute, long dealBuyerId, long dealSellerId, long viewerId, bool hasOpenProposal)
+        Dispute dispute, long dealBuyerId, long dealSellerId, long viewerId)
     {
         if (!IsOpen(dispute.Status)) return [];
-        var actions = new List<string>();
         if (viewerId == dealBuyerId || viewerId == dealSellerId)
-        {
-            actions.Add("send_message");
-            if (!hasOpenProposal) actions.Add("propose_settlement");
-        }
-        return actions;
+            return ["send_message"];
+        return [];
     }
 
     public static async Task<DisputeDetailDto> DetailAsync(
@@ -72,16 +72,12 @@ public static class DisputeMapper
             .Where(m => m.DisputeId == dispute.Id).OrderBy(m => m.CreatedAt).ThenBy(m => m.Id).ToListAsync(ct);
         var attachments = await db.DisputeAttachments.AsNoTracking()
             .Where(a => a.DisputeId == dispute.Id).OrderBy(a => a.CreatedAt).ThenBy(a => a.Id).ToListAsync(ct);
-        var proposal = await db.DisputeSettlementProposals.AsNoTracking()
-            .Where(p => p.DisputeId == dispute.Id && p.Status == SettlementProposalStatus.Open)
-            .OrderByDescending(p => p.CreatedAt).ThenByDescending(p => p.Id).FirstOrDefaultAsync(ct);
 
         var userIds = new HashSet<long> { dispute.OpenedById, dispute.AgainstUserId };
         foreach (var m in messages)
             if (m.SenderUserId is { } senderId) userIds.Add(senderId);
         foreach (var a in attachments)
             if (a.UploadedByUserId is { } uploaderId) userIds.Add(uploaderId);
-        if (proposal is not null) userIds.Add(proposal.ProposedByUserId);
         var users = await db.Users.AsNoTracking()
             .Where(u => userIds.Contains(u.Id)).ToDictionaryAsync(u => u.Id, u => u.Name, ct);
 
@@ -108,33 +104,57 @@ public static class DisputeMapper
                 uploaderName, a.CreatedAt);
         }
 
-        var visibleMessages = includeInternal
-            ? messages
-            : messages.Where(m => !m.IsInternalNote).ToList();
+        // Admin/operator view (includeInternal): everything. A party sees only
+        // the admin's messages and its own — never the other party's.
+        // The seller sees no thread at all (Shahd, 16 Nov 2026): only that a
+        // dispute exists, plus WHAT it is about — the reason and the details
+        // (Shahd, 16 Nov 2026, "يظهر له تفاصيل النزاع (السبب والتفاصيل)").
+        // The buyer talks to the admin; the seller is told separately, so
+        // the seller gets no messages, no attachments, and no actions.
+        var viewerRole = RoleOf(dealBuyerId, dealSellerId, viewerId);
+        var sellerView = !includeInternal && viewerRole == "seller";
+        var visibleMessages = sellerView
+            ? new List<DisputeMessage>()
+            : includeInternal
+                ? messages
+                : messages.Where(m => !m.IsInternalNote
+                    && (m.SenderType == DisputeSenderType.Admin
+                        || (viewerRole == "buyer" && m.SenderType == DisputeSenderType.Buyer)
+                        || (viewerRole == "seller" && m.SenderType == DisputeSenderType.Seller))).ToList();
         var messageDtos = visibleMessages.Select(m => new DisputeMessageDto(
             m.Id, ApiNames.Of(m.SenderType),
             m.SenderUserId is { } senderId ? NameOf(senderId) : null,
             m.Message, m.IsInternalNote, m.CreatedAt,
             attachments.Where(a => a.MessageId == m.Id).Select(MapAttachment).ToList())).ToList();
 
-        var standalone = attachments.Where(a => a.MessageId is null).Select(MapAttachment).ToList();
+        // Standalone attachments follow the same rule: a party sees its own and
+        // the operator's, never the other party's. Message attachments are only
+        // shown with their (visible) message, via MapAttachment above.
+        // The seller sees none of them (see above).
+        var standalone = sellerView
+            ? new List<DisputeAttachmentDto>()
+            : attachments
+                .Where(a => a.MessageId is null
+                    && (includeInternal
+                        || a.UploadedByUserId is null
+                        || a.UploadedByUserId == viewerId
+                        || (a.UploadedByUserId != dealBuyerId && a.UploadedByUserId != dealSellerId)))
+                .Select(MapAttachment).ToList();
 
-        SettlementProposalDto? proposalDto = proposal is null ? null : new SettlementProposalDto(
-            proposal.Id, proposal.ProposedByUserId, NameOf(proposal.ProposedByUserId),
-            ApiNames.Of(proposal.Resolution), proposal.SellerPercent, ApiNames.Of(proposal.Status),
-            proposal.CreatedAt, proposal.DecidedAt);
+        // No settlement proposals any more (16 Nov 2026): the field stays in the
+        // DTO as null so older clients do not break.
+        SettlementProposalDto? proposalDto = null;
 
-        var actions = AvailableActions(dispute, dealBuyerId, dealSellerId, viewerId, proposal is not null);
-        if (proposal is not null && viewerId != proposal.ProposedByUserId
-            && (viewerId == dealBuyerId || viewerId == dealSellerId))
-        {
-            actions = [..actions, "accept_settlement", "reject_settlement"];
-        }
+        var actions = sellerView
+            ? new List<string>()
+            : AvailableActions(dispute, dealBuyerId, dealSellerId, viewerId);
 
         return new DisputeDetailDto(
             dispute.Id, dispute.Number, dispute.DealId, dealTitle, dealAmount, dealCurrency,
-            ApiNames.Of(dispute.Status), ApiNames.Of(dispute.Resolution), dispute.ResolutionNote, dispute.Details,
-            dispute.ReasonId, reason?.NameAr, reason?.NameEn,
+            ApiNames.Of(dispute.Status), ApiNames.Of(dispute.Resolution), dispute.ResolutionNote,
+            dispute.Details,
+            dispute.ReasonId,
+            reason?.NameAr, reason?.NameEn,
             dispute.OpenedById, NameOf(dispute.OpenedById), dispute.AgainstUserId, NameOf(dispute.AgainstUserId),
             RoleOf(dealBuyerId, dealSellerId, viewerId),
             dispute.InfoDeadlineAt, dispute.ResolvedAt, dispute.CreatedAt,

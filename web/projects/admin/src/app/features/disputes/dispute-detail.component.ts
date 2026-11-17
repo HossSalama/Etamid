@@ -2,6 +2,7 @@ import { Component, OnInit, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
+import { forkJoin } from 'rxjs';
 import { AdminApiService } from '../../core/services/admin-api.service';
 import { AdminAuthService } from '../../core/services/admin-auth.service';
 import { AdminLanguageService } from '../../core/services/admin-language.service';
@@ -30,14 +31,22 @@ export class DisputeDetailComponent implements OnInit {
   protected reqLoading   = signal(false);
   protected reqError     = signal('');
 
-  protected showDecide    = signal(false);
-  protected decideRes     = signal<'ReleaseSeller' | 'RefundBuyer' | 'Partial'>('ReleaseSeller');
-  protected decidePercent = signal(50);
-  protected decideNote    = signal('');
-  protected decideLoading = signal(false);
-  protected decideError   = signal('');
+  // Send the dispute documents to the buyer for court.
+  protected showSendDocs    = signal(false);
+  protected sendDocsFiles   = signal<File[]>([]);
+  protected sendDocsLoading = signal(false);
+  protected sendDocsError   = signal('');
 
-  protected readonly canDecide = this.auth.hasPermission('admin.disputes.decide');
+  // Message the parties (visible to both; internal note = admins only).
+  protected msgText      = signal('');
+  protected msgInternal  = signal(false);
+  protected msgLoading   = signal(false);
+  protected msgError     = signal('');
+
+  // Same permission code as before (admin.disputes.decide): it now gates the
+  // operator actions above instead of a decision. The code itself is seeded
+  // in the database, so it is kept unchanged.
+  protected readonly canOperate = this.auth.hasPermission('admin.disputes.decide');
 
   ngOnInit(): void {
     const id = Number(this.route.snapshot.paramMap.get('id'));
@@ -81,23 +90,52 @@ export class DisputeDetailComponent implements OnInit {
     });
   }
 
-  protected openDecide(): void { this.showDecide.set(true); this.decideRes.set('ReleaseSeller'); this.decidePercent.set(50); this.decideNote.set(''); this.decideError.set(''); }
-  protected closeDecide(): void { this.showDecide.set(false); this.decideLoading.set(false); }
+  protected openSendDocs(): void { this.showSendDocs.set(true); this.sendDocsFiles.set([]); this.sendDocsError.set(''); }
+  protected closeSendDocs(): void { this.showSendDocs.set(false); this.sendDocsLoading.set(false); }
 
-  protected submitDecide(): void {
-    if (this.decideLoading() || !this.decideNote().trim()) return;
-    this.decideLoading.set(true); this.decideError.set('');
-    this.api.decideDispute(this.dispute()!.id, {
-      resolution: this.decideRes(),
-      sellerPercent: this.decideRes() === 'Partial' ? this.decidePercent() : undefined,
-      note: this.decideNote().trim(),
-    }).subscribe({
-      next: (res: { success: boolean; message?: string }) => {
-        this.decideLoading.set(false);
-        if (res.success) { this.closeDecide(); this.load(); }
-        else this.decideError.set(res.message ?? this.lang.t('error_generic'));
+  protected onSendDocsFiles(event: Event): void {
+    const target = event.target as HTMLInputElement;
+    this.sendDocsFiles.set(Array.from(target.files ?? []).slice(0, 5));
+  }
+
+  protected submitSendDocs(): void {
+    if (this.sendDocsLoading() || !this.sendDocsFiles().length) return;
+    this.sendDocsLoading.set(true); this.sendDocsError.set('');
+    const files = this.sendDocsFiles();
+    forkJoin(files.map((file) => this.api.uploadDisputeFile(file))).subscribe({
+      next: (uploads) => {
+        const fileIds = uploads.map((res) => res.data?.fileId).filter((id): id is string => !!id);
+        if (fileIds.length !== files.length) {
+          this.sendDocsLoading.set(false);
+          this.sendDocsError.set(this.lang.t('error_generic'));
+          return;
+        }
+        this.api.sendDisputeDocuments(this.dispute()!.id, { filePublicIds: fileIds }).subscribe({
+          next: (res) => {
+            this.sendDocsLoading.set(false);
+            if (res.success) { if (res.data) this.dispute.set(res.data as Dispute); this.closeSendDocs(); }
+            else this.sendDocsError.set(res.message ?? this.lang.t('error_generic'));
+          },
+          error: (err: HttpErrorResponse) => { this.sendDocsLoading.set(false); this.sendDocsError.set(err.error?.message ?? this.lang.t('error_generic')); },
+        });
       },
-      error: (err: HttpErrorResponse) => { this.decideLoading.set(false); this.decideError.set(err.error?.message ?? this.lang.t('error_generic')); },
+      error: (err: HttpErrorResponse) => { this.sendDocsLoading.set(false); this.sendDocsError.set(err.error?.message ?? this.lang.t('error_generic')); },
+    });
+  }
+
+  protected submitMessage(): void {
+    if (this.msgLoading() || !this.msgText().trim()) return;
+    this.msgLoading.set(true); this.msgError.set('');
+    this.api.postDisputeMessage(this.dispute()!.id, {
+      message: this.msgText().trim(),
+      isInternalNote: this.msgInternal(),
+    }).subscribe({
+      next: (res) => {
+        this.msgLoading.set(false);
+        if (res.success) { this.msgText.set(''); this.msgInternal.set(false); this.load(); }
+        else this.msgError.set(res.message ?? this.lang.t('error_generic'));
+      },
+      error: (err: HttpErrorResponse) => { this.msgLoading.set(false); this.msgError.set(err.error?.message ?? this.lang.t('error_generic')); },
     });
   }
 

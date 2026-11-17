@@ -748,13 +748,12 @@ export interface DealItem {
                   }
                   @if (deal.availableActions.includes('dispute')) {
                     <div class="deal-actions-row">
-                      <button
-                        (click)="openDisputePanel(deal.id)"
+                      <a
+                        [routerLink]="['/deals', deal.id, 'dispute', 'open']"
                         class="btn btn-outline-coral btn-deal-decline"
-                        [disabled]="isProcessingDeal() === deal.id"
                       >
                         {{ lang.t('home_deal_dispute') }}
-                      </button>
+                      </a>
                     </div>
                   }
                   @if (deal.rawStatus === 'disputed') {
@@ -808,24 +807,6 @@ export interface DealItem {
                         <input formControlName="note" class="modal-input" maxlength="200" [placeholder]="lang.t('home_deal_reject_note')" />
                         <div class="deal-actions-row">
                           <button type="submit" class="btn btn-black btn-deal-accept" [disabled]="isProcessingDeal() === deal.id">{{ lang.t('home_deal_decline') }}</button>
-                          <button type="button" class="btn btn-outline-coral btn-deal-decline" (click)="closePanels()">{{ lang.t('profile_cancel') }}</button>
-                        </div>
-                      </form>
-                    </div>
-                  }
-                  @if (activeDisputeDealId() === deal.id) {
-                    <div class="deal-inline-panel">
-                      <form [formGroup]="disputeForm" (ngSubmit)="submitDispute(deal.id)">
-                        <label>{{ lang.t('home_deal_dispute_reason') }}</label>
-                        <select formControlName="reasonId" class="modal-input">
-                          <option [ngValue]="null">{{ lang.t('home_deal_choose_reason') }}</option>
-                          @for (reason of disputeReasons(); track reason.id) {
-                            <option [ngValue]="reason.id">{{ reason.name }}</option>
-                          }
-                        </select>
-                        <textarea formControlName="details" class="modal-input" rows="3" maxlength="1000" [placeholder]="lang.t('home_deal_dispute_details')"></textarea>
-                        <div class="deal-actions-row">
-                          <button type="submit" class="btn btn-black btn-deal-accept" [disabled]="isProcessingDeal() === deal.id">{{ lang.t('home_deal_dispute') }}</button>
                           <button type="button" class="btn btn-outline-coral btn-deal-decline" (click)="closePanels()">{{ lang.t('profile_cancel') }}</button>
                         </div>
                       </form>
@@ -1832,21 +1813,14 @@ export class HomeComponent {
   readonly fakePaymentDealId = signal<string | null>(null);
   readonly dealActionError = signal<string | null>(null);
   readonly activeRejectDealId = signal<string | null>(null);
-  readonly activeDisputeDealId = signal<string | null>(null);
   readonly activeRateDealId = signal<string | null>(null);
   readonly activeEditDealId = signal<string | null>(null);
   readonly rejectReasons = signal<LookupItem[]>([]);
-  readonly disputeReasons = signal<LookupItem[]>([]);
   readonly editPanelError = signal<string | null>(null);
 
   readonly rejectForm = this.fb.group({
     reasonId: [null as number | null, Validators.required],
     note: [''],
-  });
-
-  readonly disputeForm = this.fb.group({
-    reasonId: [null as number | null, Validators.required],
-    details: ['', [Validators.required, Validators.maxLength(1000)]],
   });
 
   readonly rateForm = this.fb.group({
@@ -2531,7 +2505,6 @@ export class HomeComponent {
 
   closePanels(): void {
     this.activeRejectDealId.set(null);
-    this.activeDisputeDealId.set(null);
     this.activeRateDealId.set(null);
     this.activeEditDealId.set(null);
     this.editPanelError.set(null);
@@ -2681,44 +2654,6 @@ export class HomeComponent {
         run(response.data.pendingEdit.id);
       },
       error: () => this.dealActionError.set('home_deal_action_error'),
-    });
-  }
-
-  openDisputePanel(id: string): void {
-    this.closePanels();
-    this.disputeForm.reset({ reasonId: null, details: '' });
-    this.activeDisputeDealId.set(id);
-    if (!this.disputeReasons().length) {
-      this.dealsApi.getLookups('dispute-reasons').subscribe({
-        next: (response) => this.disputeReasons.set(response.success ? response.data ?? [] : []),
-        error: () => {},
-      });
-    }
-  }
-
-  submitDispute(id: string): void {
-    if (this.isProcessingDeal() || this.disputeForm.invalid) {
-      this.disputeForm.markAllAsTouched();
-      return;
-    }
-    const value = this.disputeForm.getRawValue();
-    if (value.reasonId === null || !value.details?.trim()) return;
-    this.isProcessingDeal.set(id);
-    this.dealActionError.set(null);
-    this.dealsApi.openDispute(Number(id), value.reasonId, value.details.trim()).subscribe({
-      next: (response) => {
-        this.isProcessingDeal.set(null);
-        if (!response.success) {
-          this.dealActionError.set('home_deal_action_error');
-          return;
-        }
-        this.closePanels();
-        this.loadDeals();
-      },
-      error: () => {
-        this.isProcessingDeal.set(null);
-        this.dealActionError.set('home_deal_action_error');
-      },
     });
   }
 

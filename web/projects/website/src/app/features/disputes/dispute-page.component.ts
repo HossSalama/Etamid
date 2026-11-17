@@ -37,6 +37,23 @@ import { BottomNavComponent } from '../../core/components/bottom-nav/bottom-nav.
             <p>{{ lang.t('dispute_not_found') }}</p>
             <a routerLink="/home" class="btn btn-outline-coral" style="margin-top: 1rem;">{{ lang.t('back') }}</a>
           </div>
+        } @else if (dispute()!.role === 'seller') {
+          <!-- Seller: the notice + what the dispute is about (reason + details).
+               No thread, no composer, no attachments, no actions. -->
+          <section class="app-card dispute-card">
+            <h2 class="card-title">💬 {{ lang.t('dispute_title') }}</h2>
+            <p class="dispute-text">{{ lang.t('dispute_seller_notice') }}</p>
+            <div class="dispute-meta-grid">
+              <div class="meta-item">
+                <span class="meta-label">{{ lang.t('dispute_reason') }}</span>
+                <strong class="meta-value">{{ lang.isAr() ? dispute()!.reasonNameAr : dispute()!.reasonNameEn }}</strong>
+              </div>
+            </div>
+            <div class="dispute-details-box">
+              <span class="meta-label">{{ lang.t('dispute_details') }}:</span>
+              <p class="dispute-text">{{ dispute()!.details }}</p>
+            </div>
+          </section>
         } @else {
           <!-- Dispute Overview Card -->
           <section class="app-card dispute-card">
@@ -81,9 +98,10 @@ import { BottomNavComponent } from '../../core/components/bottom-nav/bottom-nav.
             }
           </section>
 
-          <!-- Messages Thread -->
+          <!-- Messages Thread: with the admin only (16 Nov 2026) -->
           <section class="app-card dispute-card">
             <h2 class="card-title">💬 {{ lang.t('dispute_messages') }}</h2>
+            <p style="color: #6b7280; font-size: 0.9rem;">{{ lang.t('dispute_admin_only_hint') }}</p>
             @if (!dispute()!.messages.length) {
               <p style="color: #6b7280; font-size: 0.9rem;">{{ lang.t('dispute_no_messages') }}</p>
             }
@@ -137,102 +155,6 @@ import { BottomNavComponent } from '../../core/components/bottom-nav/bottom-nav.
                   </button>
                 </div>
               </div>
-            }
-          </section>
-
-          <!-- Attachments -->
-          <section class="app-card dispute-card">
-            <h2 class="card-title">📁 {{ lang.t('dispute_attachments') }}</h2>
-            @if (!dispute()!.attachments.length) {
-              <p style="color: #6b7280; font-size: 0.9rem;">{{ lang.t('dispute_no_attachments') }}</p>
-            }
-            <div class="attachments-list">
-              @for (attachment of dispute()!.attachments; track attachment.id) {
-                <div class="attachment-item">
-                  <span>📄</span>
-                  <a [href]="attachment.fileUrl ?? undefined" target="_blank" rel="noopener" class="attachment-link">
-                    {{ attachment.fileName }} ↗
-                  </a>
-                  <small class="attachment-uploader">({{ attachment.uploadedByName ?? '' }})</small>
-                </div>
-              }
-            </div>
-            @if (dispute()!.availableActions.includes('send_message')) {
-              <label class="btn btn-sm btn-outline-coral file-attach-label" style="margin-top: 0.75rem; width: fit-content;">
-                + {{ lang.t('dispute_upload') }}
-                <input type="file" class="visually-hidden" (change)="onStandaloneFile($event)" />
-              </label>
-            }
-          </section>
-
-          <!-- Settlement -->
-          <section class="app-card dispute-card">
-            <h2 class="card-title">🤝 {{ lang.t('dispute_settlement') }}</h2>
-            @if (dispute()!.openProposal) {
-              <div class="proposal-box">
-                <p>
-                  <strong>{{ lang.t('dispute_proposed_by') }}:</strong>
-                  {{ dispute()!.openProposal!.proposedByName }}
-                </p>
-                <p>
-                  <strong>{{ lang.t('dispute_decision') }}:</strong>
-                  {{ lang.t('dispute_resolution_' + dispute()!.openProposal!.resolution) }}
-                  @if (dispute()!.openProposal!.sellerPercent !== null) {
-                    · {{ dispute()!.openProposal!.sellerPercent }}%
-                  }
-                </p>
-                @if (canDecideProposal()) {
-                  <div class="dispute-actions-row">
-                    <button
-                      type="button"
-                      class="btn btn-coral"
-                      (click)="respondToProposal('accept')"
-                      [disabled]="isProcessing()"
-                    >
-                      {{ lang.t('dispute_accept') }}
-                    </button>
-                    <button
-                      type="button"
-                      class="btn btn-outline-coral"
-                      style="color: #b91c1c !important; border-color: #fecaca;"
-                      (click)="respondToProposal('reject')"
-                      [disabled]="isProcessing()"
-                    >
-                      {{ lang.t('dispute_reject') }}
-                    </button>
-                  </div>
-                }
-              </div>
-            } @else if (dispute()!.availableActions.includes('propose_settlement')) {
-              <div class="propose-form">
-                <label class="form-label">{{ lang.t('dispute_propose_resolution') }}</label>
-                <select [(ngModel)]="proposalResolution" class="form-select">
-                  <option value="ReleaseSeller">{{ lang.t('dispute_resolution_release_seller') }}</option>
-                  <option value="RefundBuyer">{{ lang.t('dispute_resolution_refund_buyer') }}</option>
-                  <option value="Partial">{{ lang.t('dispute_resolution_partial') }}</option>
-                </select>
-                @if (proposalResolution === 'Partial') {
-                  <label class="form-label" style="margin-top: 0.5rem;">{{ lang.t('dispute_seller_percent') }} (%)</label>
-                  <input
-                    type="number"
-                    [(ngModel)]="proposalPercent"
-                    min="1"
-                    max="99"
-                    class="form-input"
-                  />
-                }
-                <button
-                  type="button"
-                  class="btn btn-black"
-                  style="margin-top: 0.75rem;"
-                  (click)="proposeSettlement()"
-                  [disabled]="isProcessing()"
-                >
-                  {{ lang.t('dispute_propose') }}
-                </button>
-              </div>
-            } @else {
-              <p style="color: #6b7280; font-size: 0.9rem;">{{ lang.t('dispute_no_proposal') }}</p>
             }
           </section>
 
@@ -390,32 +312,6 @@ import { BottomNavComponent } from '../../core/components/bottom-nav/bottom-nav.
       clip: rect(0, 0, 0, 0);
       border: 0;
     }
-    .attachments-list {
-      display: flex;
-      flex-direction: column;
-      gap: 0.5rem;
-    }
-    .attachment-item {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      font-size: 0.9rem;
-    }
-    .attachment-link {
-      color: #eb5757;
-      font-weight: 700;
-      &:hover { text-decoration: underline; }
-    }
-    .attachment-uploader {
-      color: #9ca3af;
-      font-size: 0.8rem;
-    }
-    .proposal-box {
-      background: #f9fafb;
-      border: 1px solid #e5e7eb;
-      border-radius: 12px;
-      padding: 1rem;
-    }
     .dispute-actions-row {
       display: flex;
       gap: 0.65rem;
@@ -441,14 +337,11 @@ export class DisputePageComponent implements OnInit {
   readonly dispute = signal<DisputeDetail | null>(null);
   readonly isLoading = signal(true);
   readonly isSending = signal(false);
-  readonly isProcessing = signal(false);
   readonly error = signal<string | null>(null);
   readonly messageFileName = signal<string | null>(null);
 
   messageText = '';
   messageFile: File | null = null;
-  proposalResolution: 'ReleaseSeller' | 'RefundBuyer' | 'Partial' = 'ReleaseSeller';
-  proposalPercent: number | null = null;
 
   private dealId = 0;
 
@@ -490,23 +383,6 @@ export class DisputePageComponent implements OnInit {
     this.messageFileName.set(file?.name ?? null);
   }
 
-  onStandaloneFile(event: Event): void {
-    const target = event.target as HTMLInputElement;
-    const file = target.files?.[0] ?? null;
-    if (!file) return;
-    this.dealsApi.uploadDisputeFile(file).subscribe({
-      next: (uploadRes) => {
-        const fileId = uploadRes.data?.fileId;
-        if (!fileId) return;
-        this.dealsApi.addDisputeAttachment(this.dealId, fileId).subscribe({
-          next: () => this.load(),
-          error: (err: unknown) => this.error.set(this.errorKey(err)),
-        });
-      },
-      error: (err: unknown) => this.error.set(this.errorKey(err)),
-    });
-  }
-
   sendMessage(): void {
     const text = this.messageText.trim();
     if (!text && !this.messageFile) return;
@@ -544,58 +420,6 @@ export class DisputePageComponent implements OnInit {
     } else {
       sendWithFileId(null);
     }
-  }
-
-  canDecideProposal(): boolean {
-    const proposal = this.dispute()?.openProposal;
-    if (!proposal) return false;
-    const myId = this.auth.currentUser()?.id;
-    return myId !== undefined && proposal.proposedById !== myId;
-  }
-
-  respondToProposal(decision: 'accept' | 'reject'): void {
-    const proposal = this.dispute()?.openProposal;
-    if (!proposal) return;
-    this.isProcessing.set(true);
-    this.error.set(null);
-    const call = decision === 'accept'
-      ? this.dealsApi.acceptSettlement(this.dealId, proposal.id)
-      : this.dealsApi.rejectSettlement(this.dealId, proposal.id);
-
-    call.subscribe({
-      next: (response) => {
-        this.isProcessing.set(false);
-        if (!response.success) {
-          this.error.set(this.errorKey(response));
-          return;
-        }
-        this.load();
-      },
-      error: (err: unknown) => {
-        this.isProcessing.set(false);
-        this.error.set(this.errorKey(err));
-      },
-    });
-  }
-
-  proposeSettlement(): void {
-    this.isProcessing.set(true);
-    this.error.set(null);
-    const percent = this.proposalResolution === 'Partial' ? (this.proposalPercent ?? undefined) : undefined;
-    this.dealsApi.proposeSettlement(this.dealId, this.proposalResolution, percent).subscribe({
-      next: (response) => {
-        this.isProcessing.set(false);
-        if (!response.success) {
-          this.error.set(this.errorKey(response));
-          return;
-        }
-        this.load();
-      },
-      error: (err: unknown) => {
-        this.isProcessing.set(false);
-        this.error.set(this.errorKey(err));
-      },
-    });
   }
 
   formatDate(isoString: string | null | undefined): string {

@@ -252,7 +252,12 @@ public sealed class DeliverDealHandler(IApplicationDbContext db, ICurrentUser cu
 }
 
 // ======================================================================= Dispute
-public sealed record OpenDisputeCommand(long DealId, long ReasonId, string Details) : IRequest<Result<DisputeDto>>;
+// Only the buyer opens a dispute (design decision, 16 Nov 2026): the seller
+// never opens one, and the two parties never message each other — each side
+// talks to the admin only. The buyer may attach up to 5 files when opening.
+public sealed record OpenDisputeCommand(
+    long DealId, long ReasonId, string Details, IReadOnlyList<string>? FilePublicIds = null)
+    : IRequest<Result<DisputeDto>>;
 
 public sealed class OpenDisputeValidator : AbstractValidator<OpenDisputeCommand>
 {
@@ -260,6 +265,8 @@ public sealed class OpenDisputeValidator : AbstractValidator<OpenDisputeCommand>
     {
         RuleFor(x => x.ReasonId).GreaterThan(0).WithErrorCode("REQUIRED");
         RuleFor(x => x.Details).MustBeRequired(200);
+        RuleFor(x => x.FilePublicIds)
+            .Must(ids => ids is null || ids.Count <= 5).WithErrorCode("INVALID_VALUE");
     }
 }
 
@@ -273,8 +280,31 @@ public sealed class OpenDisputeHandler(IApplicationDbContext db, ICurrentUser cu
         var deal = await db.Deals.FirstOrDefaultAsync(d => d.Id == r.DealId, ct);
         if (deal is null || !deal.IsParticipant(userId)) return DealErrors.NotFound;
 
+        // Only the buyer opens a dispute (design decision, 16 Nov 2026).
+        if (userId != deal.BuyerId) return DealErrors.NotAllowed;
+
         if (!await db.Lookups.AnyAsync(l => l.Id == r.ReasonId && l.Type == "dispute_reason" && l.IsActive, ct))
             return Error.Validation("INVALID_VALUE", "reasonId");
+
+        // Attachments uploaded for this dispute (purpose "dispute", still unattached):
+        // every id must parse, exist, and belong to the buyer, otherwise nothing opens.
+        var publicIds = new List<Guid>();
+        foreach (var raw in r.FilePublicIds ?? [])
+        {
+            if (string.IsNullOrWhiteSpace(raw) || !Guid.TryParse(raw.Trim(), out var parsed))
+                return Error.Validation("INVALID_VALUE", "filePublicIds");
+            if (!publicIds.Contains(parsed)) publicIds.Add(parsed);
+        }
+
+        var files = new List<StoredFile>();
+        if (publicIds.Count > 0)
+        {
+            files = await db.Files.Where(f => publicIds.Contains(f.PublicId)).ToListAsync(ct);
+            if (files.Count != publicIds.Count
+                || files.Any(f => f.OwnerUserId != userId || f.Purpose != FilePurpose.Dispute
+                    || f.Status != FileStatus.Uploaded))
+                return Error.Validation("INVALID_VALUE", "filePublicIds");
+        }
 
         var hold = await db.EscrowHolds.FirstOrDefaultAsync(h => h.DealId == deal.Id, ct);
         var now = clock.UtcNow;
@@ -290,13 +320,30 @@ public sealed class OpenDisputeHandler(IApplicationDbContext db, ICurrentUser cu
             Number = $"DSP-{deal.Id:D6}",
             DealId = deal.Id,
             OpenedById = userId,
-            AgainstUserId = userId == deal.BuyerId ? deal.SellerId : deal.BuyerId,
+            AgainstUserId = deal.SellerId,
             ReasonId = r.ReasonId,
             Details = r.Details.Trim(),
             Status = DisputeStatus.UnderReview,
             Resolution = DisputeResolution.None
         };
         db.Disputes.Add(dispute);
+
+        // Files attached at opening (standalone attachments, no message).
+        // Attached through the dispute's navigation, so EF sets DisputeId from the
+        // tracked dispute — never a temporary key value (setting DisputeId to the
+        // temporary id broke the save on real SQL Server: open-with-file returned
+        // INTERNAL_ERROR while open-without-file worked).
+        foreach (var file in files)
+        {
+            file.Status = FileStatus.Attached;
+            dispute.Attachments.Add(new DisputeAttachment
+            {
+                MessageId = null,
+                FileId = file.Id,
+                UploadedByUserId = userId
+            });
+        }
+
         // The dispute's id is a temporary EF value until the save below;
         // the notification's DisputeId is fixed up to the real id with it.
         notifications.Create(dispute.AgainstUserId, NotificationType.DisputeUpdate,

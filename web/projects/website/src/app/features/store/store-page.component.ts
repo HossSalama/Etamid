@@ -20,7 +20,7 @@ import { BottomNavComponent } from '../../core/components/bottom-nav/bottom-nav.
       <app-header
         [title]="store() ? (store()!.storeName ?? store()!.sellerName) : lang.t('product_store_title')"
         [subtitle]="store()?.category ?? ''"
-        backUrl="/shop"
+        backUrl="/home"
       />
 
       <main class="app-page-shell" style="max-width: 920px;">
@@ -31,7 +31,7 @@ import { BottomNavComponent } from '../../core/components/bottom-nav/bottom-nav.
         } @else if (notFound()) {
           <div class="app-card text-center" style="padding: 2.5rem; text-align: center;">
             <p class="profile-message profile-error" role="alert">{{ lang.t('store_not_found') }}</p>
-            <a routerLink="/shop" class="btn btn-outline-coral" style="margin-top: 1rem;">{{ lang.t('back') }}</a>
+            <a routerLink="/home" class="btn btn-outline-coral" style="margin-top: 1rem;">{{ lang.t('back') }}</a>
           </div>
         } @else if (store(); as s) {
           <!-- Store Hero Card -->
@@ -125,7 +125,7 @@ import { BottomNavComponent } from '../../core/components/bottom-nav/bottom-nav.
         }
       </main>
 
-      <app-bottom-nav activeNav="shop" />
+      <app-bottom-nav activeNav="home" />
     </div>
   `,
   styles: [`

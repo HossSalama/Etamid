@@ -133,6 +133,13 @@ export const routes: Routes = [
       ),
   },
   {
+    path: 'deals/:id/dispute/open',
+    loadComponent: () =>
+      import('./features/disputes/open-dispute-page.component').then(
+        (m) => m.OpenDisputePageComponent,
+      ),
+  },
+  {
     path: 'notifications',
     loadComponent: () =>
       import('./features/notifications/notifications-page.component').then(
@@ -151,13 +158,6 @@ export const routes: Routes = [
     loadComponent: () =>
       import('./features/store/store-page.component').then(
         (m) => m.StorePageComponent
-      ),
-  },
-  {
-    path: 'shop',
-    loadComponent: () =>
-      import('./features/shop/shop-page.component').then(
-        (m) => m.ShopPageComponent
       ),
   },
   {

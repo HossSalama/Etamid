@@ -375,8 +375,13 @@ public class DealsCycle3Tests(EtamidFactory factory) : IClassFixture<EtamidFacto
         sellerReleases.StatusCode.Should().Be(HttpStatusCode.OK, "the seller can never confirm receipt for the buyer");
         (await ErrorCode(sellerReleases)).Should().Be("DEAL_ACTION_NOT_ALLOWED");
 
-        (await Post(seller.Client, $"/api/v1/deals/{id}/dispute", new { reasonId = DisputeReason, details = "x" }))
-            .StatusCode.Should().Be(HttpStatusCode.Created, "either party may open a dispute during inspection");
+        // Only the buyer opens a dispute (design decision, 16 Nov 2026): the seller is refused.
+        var sellerDispute = await Post(seller.Client, $"/api/v1/deals/{id}/dispute", new { reasonId = DisputeReason, details = "x" });
+        sellerDispute.StatusCode.Should().Be(HttpStatusCode.OK, "only the buyer may open a dispute");
+        (await ErrorCode(sellerDispute)).Should().Be("DEAL_ACTION_NOT_ALLOWED");
+
+        (await Post(buyer.Client, $"/api/v1/deals/{id}/dispute", new { reasonId = DisputeReason, details = "x" }))
+            .StatusCode.Should().Be(HttpStatusCode.Created, "the buyer may open a dispute during inspection");
 
         (await StatusOf(buyer, id)).Should().Be("disputed");
         (await LedgerOf(id)).Transactions.Should().ContainSingle(t => t.Type == LedgerTransactionType.EscrowFunding);

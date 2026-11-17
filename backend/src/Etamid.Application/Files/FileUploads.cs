@@ -44,7 +44,7 @@ public sealed class FileUploadService(IApplicationDbContext db, IFileStorage sto
     public const int MaxBytes = 10 * 1024 * 1024;
 
     public async Task<Result<StoredFile>> StoreAsync(
-        Stream content, long ownerUserId, FilePurpose purpose, string? originalName, bool imagesOnly, CancellationToken ct)
+        Stream content, long? ownerUserId, FilePurpose purpose, string? originalName, bool imagesOnly, CancellationToken ct)
     {
         using var buffer = new MemoryStream();
         var chunk = new byte[81920];
