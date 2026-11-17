@@ -1861,6 +1861,12 @@ export class HomeComponent {
       } else if (tab === 'wallet') {
         this.onNavWallet();
       } else if (tab === 'deals') {
+        // Optional sub-tab for the deals list (e.g. ?tab=deals&dealsTab=completed
+        // after releasing from the deal detail page, so the released deal is visible).
+        const dealsTab = params.get('dealsTab');
+        if (dealsTab === 'new' || dealsTab === 'in_progress' || dealsTab === 'completed' || dealsTab === 'declined') {
+          this.selectedTab.set(dealsTab);
+        }
         this.onNavDeals();
       } else if (tab === 'home') {
         this.onNavHome();

@@ -33,8 +33,11 @@ public sealed class CreateDealValidator : AbstractValidator<CreateDealCommand>
         RuleFor(x => x.Title).MustBeRequired(150);
         RuleFor(x => x.BuyerPhoneOrCode).MustBeRequired(50);
         RuleFor(x => x.Description).MustBeRequired(200);
+        // Minimum is the platform fee (platform_fee_amount, default 50 SAR): the
+        // seller's net is Amount - fee, and Deal.Accept already rejects Amount <= fee
+        // with DEAL_AMOUNT_TOO_LOW, so a deal at or below the fee could never be accepted.
         RuleFor(x => x.Amount)
-            .GreaterThan(0m).WithErrorCode("DEAL_AMOUNT_INVALID")
+            .GreaterThan(50m).WithErrorCode("DEAL_AMOUNT_INVALID")
             .LessThanOrEqualTo(10_000_000m).WithErrorCode("DEAL_AMOUNT_INVALID")
             .Must(a => decimal.Round(a, 2) == a).WithErrorCode("DEAL_AMOUNT_INVALID");
         RuleFor(x => x.DurationValue).InclusiveBetween(1, 365).WithErrorCode("INVALID_VALUE");

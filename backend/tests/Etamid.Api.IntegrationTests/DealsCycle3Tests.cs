@@ -475,6 +475,38 @@ public class DealsCycle3Tests(EtamidFactory factory) : IClassFixture<EtamidFacto
         (await ErrorCode(unknownBuyer)).Should().Be("BUYER_NOT_FOUND");
     }
 
+    // The platform fee is 50 SAR (platform_fee_amount, default 50): the seller's net
+    // is Amount - fee, and Deal.Accept rejects Amount <= fee with DEAL_AMOUNT_TOO_LOW,
+    // so a deal at or below the fee could never be accepted.
+    [Theory]
+    [InlineData("0")]
+    [InlineData("49.99")]
+    [InlineData("50")]
+    public async Task Create_rejects_amount_at_or_below_platform_fee(string amountText)
+    {
+        var amount = decimal.Parse(amountText, System.Globalization.CultureInfo.InvariantCulture);
+        var buyer = await NewUser();
+        var seller = await NewUser();
+
+        var r = await Post(seller.Client, "/api/v1/deals", new
+        {
+            title = "t", buyerPhoneOrCode = buyer.Phone, description = "d", amount,
+            durationValue = 1, durationUnit = "day", needShipping = false, acceptTerms = true
+        });
+        r.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await ErrorCode(r)).Should().Be("DEAL_AMOUNT_INVALID");
+    }
+
+    [Fact]
+    public async Task Create_accepts_amount_just_above_platform_fee()
+    {
+        var buyer = await NewUser();
+        var seller = await NewUser();
+
+        var id = await CreateDeal(buyer, seller, 50.01m);
+        (await StatusOf(buyer, id)).Should().Be("pending_acceptance");
+    }
+
     [Fact]
     public async Task Create_with_shipping_uses_an_active_company_and_persists_the_selection()
     {

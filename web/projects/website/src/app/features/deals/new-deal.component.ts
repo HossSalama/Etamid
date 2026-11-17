@@ -68,7 +68,7 @@ export class NewDealComponent implements OnInit {
     buyerPhoneOrCode: ['', [Validators.required, Validators.maxLength(50)]],
     title: ['', [Validators.required, Validators.maxLength(150)]],
     description: ['', [Validators.required, Validators.maxLength(200)]],
-    amount: [null as number | null, [Validators.required, Validators.min(0.01), Validators.max(10_000_000), twoDecimalPlaces]],
+    amount: [null as number | null, [Validators.required, Validators.min(50.01), Validators.max(10_000_000), twoDecimalPlaces]],
     durationValue: [1, [Validators.required, Validators.min(1), Validators.max(365)]],
     durationUnit: ['day' as 'hour' | 'day', Validators.required],
     needShipping: [false],

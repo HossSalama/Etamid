@@ -1036,7 +1036,10 @@ export class DealDetailComponent {
           this.actionError.set('home_deal_action_error');
           return;
         }
-        this.load();
+        // Released: leave the detail page and land on the transactions list,
+        // on the completed tab where this deal now lives (same as releasing
+        // from a Home card, which switches the tab to 'completed').
+        void this.router.navigate(['/home'], { queryParams: { tab: 'deals', dealsTab: 'completed' } });
       },
       error: () => {
         this.isProcessing.set(false);
