@@ -69,7 +69,9 @@ public sealed class VerifyEmailHandler(
     }
 }
 
-/// <summary>Sends a fresh code to an account that is still waiting for activation.</summary>
+/// <summary>Sends a fresh code to any existing account, verified or not, with no resend cooldown
+/// (owner decision 2026-11-17). Unknown numbers still get a silent success: there is no email
+/// address to send a code to, and answering differently would let callers enumerate registered phones.</summary>
 public sealed record ResendEmailCodeCommand(string Phone) : IRequest<Result>;
 
 public sealed class ResendEmailCodeValidator : AbstractValidator<ResendEmailCodeCommand>
@@ -82,17 +84,16 @@ public sealed class ResendEmailCodeHandler(IApplicationDbContext db, EmailOtpSer
 {
     public async Task<Result> Handle(ResendEmailCodeCommand r, CancellationToken ct)
     {
-        // Unknown or already-active numbers get the same answer as a successful send.
+        // Unknown numbers get the same answer as a successful send: there is no email
+        // address to send a code to, and answering differently would let callers
+        // enumerate registered phones.
         if (!PhoneNumber.TryParse(r.Phone, out var phone)) return Result.Success();
 
         var user = await db.Users.FirstOrDefaultAsync(
-            u => u.PhoneNormalized == phone.E164 && u.DeletedAt == null
-                && u.EmailVerifiedAt == null
-                && (u.Status == AccountStatus.PendingVerification || u.Status == AccountStatus.Active), ct);
+            u => u.PhoneNormalized == phone.E164 && u.DeletedAt == null, ct);
         if (user is null) return Result.Success();
 
-        var issued = await otps.IssueAsync(user, OtpPurpose.Registration, ct);
-        // Keep the public response identical during cooldown; otherwise callers can enumerate registered phones.
-        return issued.IsFailure && issued.Error.Code == "OTP_COOLDOWN" ? Result.Success() : issued;
+        // Always send a fresh code, verified or not, with no cooldown (owner decision 2026-11-17).
+        return await otps.IssueAsync(user, OtpPurpose.Registration, ct, skipCooldown: true);
     }
 }

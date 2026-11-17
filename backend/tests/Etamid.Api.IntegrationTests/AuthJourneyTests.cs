@@ -115,14 +115,17 @@ public class AuthJourneyTests(EtamidFactory factory) : IClassFixture<EtamidFacto
     }
 
     [Fact]
-    public async Task Resending_during_cooldown_returns_generic_success_without_sending()
+    public async Task Resending_during_cooldown_sends_a_fresh_code()
     {
         await Register("0501110009", "i1@example.com");
         var before = factory.Emails.SentCount;
 
         var resend = await Post("/api/v1/auth/otp/resend", new { phone = "0501110009" });
         resend.StatusCode.Should().Be(HttpStatusCode.OK);
-        factory.Emails.SentCount.Should().Be(before);
+        factory.Emails.SentCount.Should().Be(before + 1);
+
+        var fresh = factory.Emails.CodeFor("i1@example.com");
+        (await VerifyEmail("0501110009", fresh)).StatusCode.Should().Be(HttpStatusCode.OK);
     }
 
     [Fact]

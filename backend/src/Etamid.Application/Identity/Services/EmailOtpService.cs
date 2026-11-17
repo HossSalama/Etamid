@@ -28,11 +28,14 @@ public sealed class EmailOtpService(
     }
 
     /// <summary>Invalidates prior open codes, persists a new hash and sends the code by email.</summary>
-    public async Task<Result> IssueAsync(User user, OtpPurpose purpose, CancellationToken ct)
+    public async Task<Result> IssueAsync(User user, OtpPurpose purpose, CancellationToken ct, bool skipCooldown = false)
     {
         var now = clock.UtcNow;
-        var cooldown = await CooldownSecondsAsync(user.Id, purpose, ct);
-        if (cooldown > 0) return IdentityErrors.OtpCooldown(cooldown);
+        if (!skipCooldown)
+        {
+            var cooldown = await CooldownSecondsAsync(user.Id, purpose, ct);
+            if (cooldown > 0) return IdentityErrors.OtpCooldown(cooldown);
+        }
 
         var open = await db.EmailOtps
             .Where(o => o.UserId == user.Id && o.Purpose == purpose && o.ConsumedAt == null)
