@@ -11,7 +11,7 @@ import {
   RegisterIndividualRequest,
   RegisterResponse,
   ResetPasswordRequest,
-  ResetTokenResponse,
+  VerifyResetCodeResponse,
   UpdateProfileRequest,
   UpdateProfileResponse,
   VerifyResetCodeRequest,
@@ -57,8 +57,8 @@ export class AuthService {
     return this.http.post<ApiResponse<null>>(`${this.baseUrl}/password/forgot`, req);
   }
 
-  verifyResetCode(req: VerifyResetCodeRequest): Observable<ApiResponse<ResetTokenResponse>> {
-    return this.http.post<ApiResponse<ResetTokenResponse>>(`${this.baseUrl}/password/verify-otp`, req);
+  verifyResetCode(req: VerifyResetCodeRequest): Observable<ApiResponse<VerifyResetCodeResponse>> {
+    return this.http.post<ApiResponse<VerifyResetCodeResponse>>(`${this.baseUrl}/password/verify-otp`, req);
   }
 
   resetPassword(req: ResetPasswordRequest): Observable<ApiResponse<null>> {

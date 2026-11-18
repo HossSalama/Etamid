@@ -5,7 +5,7 @@ namespace Etamid.Application.Identity.Dtos;
 /// <summary>Registration creates the account; it is activated after the code sent to <paramref name="Email"/> is verified.</summary>
 public sealed record RegisterResultDto(string Phone, string Email, string VerificationMethod, bool VerificationRequired);
 
-public sealed record ResetTokenDto(string ResetToken, int ExpiresInSeconds);
+public sealed record ResetVerifiedDto(int ExpiresInSeconds);
 
 public sealed record BankAccountDto(string HolderName, string IbanMasked, string BankName, string? BankLogoUrl);
 

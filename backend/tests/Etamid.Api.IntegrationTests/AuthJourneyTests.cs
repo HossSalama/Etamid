@@ -197,10 +197,12 @@ public class AuthJourneyTests(EtamidFactory factory) : IClassFixture<EtamidFacto
 
         var verified = await Post("/api/v1/auth/password/verify-otp", new { phone = "0501110006", code });
         verified.StatusCode.Should().Be(HttpStatusCode.OK);
-        var token = (await Json(verified)).GetProperty("data").GetProperty("resetToken").GetString()!;
+        var data = (await Json(verified)).GetProperty("data");
+        data.TryGetProperty("resetToken", out _).Should().BeFalse();
+        data.GetProperty("expiresInSeconds").GetInt32().Should().Be(600);
 
         var reset = await Post("/api/v1/auth/password/reset",
-            new { resetToken = token, newPassword = "New#4567", confirmPassword = "New#4567" });
+            new { phone = "0501110006", newPassword = "New#4567", confirmPassword = "New#4567" });
         reset.StatusCode.Should().Be(HttpStatusCode.OK);
 
         (await Post("/api/v1/auth/login", new { phone = "0501110006", password = "New#4567" })).StatusCode.Should().Be(HttpStatusCode.OK);
@@ -210,9 +212,9 @@ public class AuthJourneyTests(EtamidFactory factory) : IClassFixture<EtamidFacto
         oldPassword.StatusCode.Should().Be(HttpStatusCode.OK);
         Code(await Json(oldPassword)).Should().Be("WRONG_PASSWORD");
 
-        // The token is single-use.
+        // The reset session is single-use.
         var again = await Post("/api/v1/auth/password/reset",
-            new { resetToken = token, newPassword = "Other#4567", confirmPassword = "Other#4567" });
+            new { phone = "0501110006", newPassword = "Other#4567", confirmPassword = "Other#4567" });
         again.StatusCode.Should().Be(HttpStatusCode.OK);
         Code(await Json(again)).Should().Be("RESET_TOKEN_INVALID");
     }
@@ -228,10 +230,10 @@ public class AuthJourneyTests(EtamidFactory factory) : IClassFixture<EtamidFacto
 
         var verified = await Post("/api/v1/auth/password/verify-otp", new { phone = "0501110014", code });
         verified.StatusCode.Should().Be(HttpStatusCode.OK);
-        var token = (await Json(verified)).GetProperty("data").GetProperty("resetToken").GetString()!;
+        (await Json(verified)).GetProperty("data").TryGetProperty("resetToken", out _).Should().BeFalse();
 
         var reset = await Post("/api/v1/auth/password/reset",
-            new { resetToken = token, newPassword = "New#4567", confirmPassword = "New#4567" });
+            new { phone = "0501110014", newPassword = "New#4567", confirmPassword = "New#4567" });
         reset.StatusCode.Should().Be(HttpStatusCode.OK);
 
         (await Post("/api/v1/auth/login", new { phone = "0501110014", password = "New#4567" })).StatusCode.Should().Be(HttpStatusCode.OK);
@@ -247,10 +249,10 @@ public class AuthJourneyTests(EtamidFactory factory) : IClassFixture<EtamidFacto
     }
 
     [Fact]
-    public async Task Reset_with_a_made_up_token_is_rejected()
+    public async Task Reset_without_a_verified_code_is_rejected()
     {
         var r = await Post("/api/v1/auth/password/reset",
-            new { resetToken = "not-a-real-token", newPassword = "New#4567", confirmPassword = "New#4567" });
+            new { phone = "0501110015", newPassword = "New#4567", confirmPassword = "New#4567" });
         r.StatusCode.Should().Be(HttpStatusCode.OK);
         Code(await Json(r)).Should().Be("RESET_TOKEN_INVALID");
     }

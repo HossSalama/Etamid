@@ -49,7 +49,7 @@ public sealed class ForgotPasswordHandler(IApplicationDbContext db, EmailOtpServ
     }
 }
 
-public sealed record VerifyResetCodeCommand(string Phone, string Code) : IRequest<Result<ResetTokenDto>>;
+public sealed record VerifyResetCodeCommand(string Phone, string Code) : IRequest<Result<ResetVerifiedDto>>;
 
 public sealed class VerifyResetCodeValidator : AbstractValidator<VerifyResetCodeCommand>
 {
@@ -64,9 +64,9 @@ public sealed class VerifyResetCodeValidator : AbstractValidator<VerifyResetCode
 
 public sealed class VerifyResetCodeHandler(
     IApplicationDbContext db, EmailOtpService otps, IClock clock, AuthAuditService audit)
-    : IRequestHandler<VerifyResetCodeCommand, Result<ResetTokenDto>>
+    : IRequestHandler<VerifyResetCodeCommand, Result<ResetVerifiedDto>>
 {
-    public async Task<Result<ResetTokenDto>> Handle(VerifyResetCodeCommand r, CancellationToken ct)
+    public async Task<Result<ResetVerifiedDto>> Handle(VerifyResetCodeCommand r, CancellationToken ct)
     {
         // Like login, the failure names the actual problem instead of
         // blaming the code (owner decision 2026-11-09).
@@ -81,8 +81,9 @@ public sealed class VerifyResetCodeHandler(
         {
             // Fallback (owner decision 2026-11-18): a fresh code from /otp/resend
             // (Registration purpose) is also accepted here, so the resend works
-            // for the password flow too. The reset token is still issued on a
-            // PasswordReset row, so /password/reset needs no change.
+            // for the password flow too. The reset session is still recorded on a
+            // PasswordReset row; the token itself is an internal-only marker and
+            // is never returned to the client.
             var fallback = await otps.CheckAsync(user, OtpPurpose.Registration, r.Code, ct);
             if (fallback.IsFailure)
             {
@@ -97,7 +98,7 @@ public sealed class VerifyResetCodeHandler(
             var registrationOtp = fallback.Value;
             registrationOtp.ConsumedAt = fallbackNow;
 
-            // Token carrier: a consumed PasswordReset row, so the reset step
+            // Session marker: a consumed PasswordReset row, so the reset step
             // (which only accepts PasswordReset rows) works unchanged.
             db.EmailOtps.Add(new EmailOtp
             {
@@ -111,7 +112,7 @@ public sealed class VerifyResetCodeHandler(
             });
             await db.SaveChangesAsync(ct);
 
-            return new ResetTokenDto(fallbackToken, (int)EmailOtpPolicy.ResetTokenLifetime.TotalSeconds);
+            return new ResetVerifiedDto((int)EmailOtpPolicy.ResetTokenLifetime.TotalSeconds);
         }
 
         var now = clock.UtcNow;
@@ -123,17 +124,17 @@ public sealed class VerifyResetCodeHandler(
         otp.ResetTokenExpiresAt = now + EmailOtpPolicy.ResetTokenLifetime;
         await db.SaveChangesAsync(ct);
 
-        return new ResetTokenDto(token, (int)EmailOtpPolicy.ResetTokenLifetime.TotalSeconds);
+        return new ResetVerifiedDto((int)EmailOtpPolicy.ResetTokenLifetime.TotalSeconds);
     }
 }
 
-public sealed record ResetPasswordCommand(string ResetToken, string NewPassword, string ConfirmPassword) : IRequest<Result>;
+public sealed record ResetPasswordCommand(string Phone, string NewPassword, string ConfirmPassword) : IRequest<Result>;
 
 public sealed class ResetPasswordValidator : AbstractValidator<ResetPasswordCommand>
 {
     public ResetPasswordValidator()
     {
-        RuleFor(x => x.ResetToken).NotEmpty().WithErrorCode("REQUIRED");
+        RuleFor(x => x.Phone).MustBeSaudiPhone();
         RuleFor(x => x.NewPassword).MustBeStrongPassword();
         RuleFor(x => x.ConfirmPassword).Equal(x => x.NewPassword).WithErrorCode("PASSWORD_MISMATCH");
     }
@@ -149,19 +150,23 @@ public sealed class ResetPasswordHandler(
     public async Task<Result> Handle(ResetPasswordCommand r, CancellationToken ct)
     {
         var now = clock.UtcNow;
-        var tokenHash = TokenHasher.Hash(r.ResetToken.Trim());
+        if (!PhoneNumber.TryParse(r.Phone, out var phone)) return IdentityErrors.InvalidPhone;
 
-        var otp = await db.EmailOtps.FirstOrDefaultAsync(
-            o => o.ResetTokenHash == tokenHash && o.Purpose == OtpPurpose.PasswordReset && o.ResetTokenUsedAt == null, ct);
+        var user = await db.Users.FirstOrDefaultAsync(
+            u => u.PhoneNormalized == phone.E164 && u.DeletedAt == null && u.Status == AccountStatus.Active, ct);
+        if (user is null) return IdentityErrors.ResetTokenInvalid;
+
+        // No reset token in the request (owner decision 2026-11-18): the reset
+        // uses the latest verified-but-unused reset session for this phone.
+        var otp = await db.EmailOtps
+            .Where(o => o.UserId == user.Id && o.Purpose == OtpPurpose.PasswordReset
+                && o.ResetTokenHash != null && o.ResetTokenUsedAt == null)
+            .OrderByDescending(o => o.Id)
+            .FirstOrDefaultAsync(ct);
         if (otp is null)
             return IdentityErrors.ResetTokenInvalid;
         if (otp.ResetTokenExpiresAt is null || otp.ResetTokenExpiresAt <= now)
             return IdentityErrors.ResetTokenExpired;
-
-        var user = await db.Users.FirstOrDefaultAsync(
-            u => u.Id == otp.UserId && u.DeletedAt == null && u.Status == AccountStatus.Active, ct);
-        if (user is null)
-            return IdentityErrors.ResetTokenInvalid;
 
         otp.ResetTokenUsedAt = now;
         user.ChangePassword(hasher.Hash(r.NewPassword));
