@@ -1,20 +1,28 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
-import { AddressInput, DealsService, UserAddress } from '../../core/services/deals.service';
+import { DealsService, UserAddress } from '../../core/services/deals.service';
 import { LanguageService } from '../../core/services/language.service';
 import { AppHeaderComponent } from '../../core/components/app-header/app-header.component';
 import { BottomNavComponent } from '../../core/components/bottom-nav/bottom-nav.component';
+import { AddressFormComponent } from '../../core/components/address-form/address-form.component';
 
 /**
  * Saved delivery addresses, used by the profile section and the standalone
  * /addresses route.
+ *
+ * The add/edit form itself lives in the shared AddressFormComponent (same
+ * form, fields, validation and map pin as the accept-deal page uses): the
+ * user drops a pin on the map (or uses their current location), the pin's
+ * coordinates are reverse-geocoded via Nominatim to fill
+ * city/district/street, and the user then types the building/apartment
+ * details. The coordinates are saved with the address (the backend already
+ * accepts latitude/longitude).
  */
 @Component({
   selector: 'app-my-addresses',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, AppHeaderComponent, BottomNavComponent],
+  imports: [CommonModule, AppHeaderComponent, BottomNavComponent, AddressFormComponent],
   template: `
     @if (isStandalone()) {
       <div class="app-screen">
@@ -88,64 +96,11 @@ import { BottomNavComponent } from '../../core/components/bottom-nav/bottom-nav.
         </div>
 
         @if (isEditing()) {
-          <form class="address-form" [formGroup]="addressForm" (ngSubmit)="save()" novalidate>
-            <h3>{{ editingId() ? lang.t('addresses_edit_title') : lang.t('addresses_new_title') }}</h3>
-            <div class="address-form-grid">
-              <label class="profile-form-field">
-                <span>{{ lang.t('addresses_label') }}</span>
-                <input type="text" formControlName="label" maxlength="50" [placeholder]="lang.t('addresses_label_placeholder')" />
-              </label>
-              <label class="profile-form-field">
-                <span>{{ lang.t('addresses_recipient_name') }} *</span>
-                <input type="text" formControlName="recipientName" maxlength="150" />
-                @if (addressForm.controls.recipientName.touched && addressForm.controls.recipientName.invalid) {
-                  <small class="profile-field-error">{{ lang.t('addresses_required') }}</small>
-                }
-              </label>
-              <label class="profile-form-field">
-                <span>{{ lang.t('addresses_recipient_phone') }} *</span>
-                <input type="tel" formControlName="recipientPhone" dir="ltr" maxlength="10" placeholder="05XXXXXXXX" />
-                @if (addressForm.controls.recipientPhone.touched && addressForm.controls.recipientPhone.invalid) {
-                  <small class="profile-field-error">{{ lang.t('addresses_phone_error') }}</small>
-                }
-              </label>
-              <label class="profile-form-field">
-                <span>{{ lang.t('addresses_city') }} *</span>
-                <input type="text" formControlName="city" maxlength="80" />
-                @if (addressForm.controls.city.touched && addressForm.controls.city.invalid) {
-                  <small class="profile-field-error">{{ lang.t('addresses_required') }}</small>
-                }
-              </label>
-              <label class="profile-form-field">
-                <span>{{ lang.t('addresses_district') }}</span>
-                <input type="text" formControlName="district" maxlength="80" />
-              </label>
-              <label class="profile-form-field">
-                <span>{{ lang.t('addresses_street') }}</span>
-                <input type="text" formControlName="street" maxlength="150" />
-              </label>
-              <label class="profile-form-field">
-                <span>{{ lang.t('addresses_building') }}</span>
-                <input type="text" formControlName="buildingNo" maxlength="20" />
-              </label>
-              <label class="profile-form-field">
-                <span>{{ lang.t('addresses_postal') }}</span>
-                <input type="text" formControlName="postalCode" maxlength="10" />
-              </label>
-              <label class="profile-form-field">
-                <span>{{ lang.t('addresses_additional') }}</span>
-                <input type="text" formControlName="additionalNo" maxlength="10" />
-              </label>
-            </div>
-            <div class="profile-button-row">
-              <button type="submit" class="btn btn-black" [disabled]="isSaving()">
-                {{ isSaving() ? lang.t('addresses_saving') : lang.t('addresses_save') }}
-              </button>
-              <button type="button" class="btn btn-outline-coral" [disabled]="isSaving()" (click)="cancelEdit()">
-                {{ lang.t('addresses_cancel') }}
-              </button>
-            </div>
-          </form>
+          <app-address-form
+            [address]="editingAddress()"
+            (saved)="onAddressSaved($event)"
+            (cancelled)="onAddressCancelled()"
+          />
         }
       </section>
     </ng-template>
@@ -158,12 +113,9 @@ import { BottomNavComponent } from '../../core/components/bottom-nav/bottom-nav.
     .address-card { display: flex; flex-wrap: wrap; gap: 0.75rem; justify-content: space-between; align-items: center; border: 1px solid #e5e7eb; border-radius: 14px; padding: 1rem; background: #fff; }
     .address-card-main { display: flex; flex-direction: column; gap: 0.25rem; }
     .address-card-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
-    .address-form { margin-top: 1rem; }
-    .address-form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.9rem; margin: 0.75rem 0 1rem; }
   `],
 })
 export class MyAddressesComponent implements OnInit {
-  private readonly fb = inject(FormBuilder);
   private readonly dealsApi = inject(DealsService);
   private readonly router = inject(Router);
   readonly lang = inject(LanguageService);
@@ -174,22 +126,9 @@ export class MyAddressesComponent implements OnInit {
   readonly isLoading = signal(false);
   readonly loadError = signal(false);
   readonly isEditing = signal(false);
-  readonly editingId = signal<number | null>(null);
-  readonly isSaving = signal(false);
+  readonly editingAddress = signal<UserAddress | null>(null);
   readonly formError = signal<string | null>(null);
   readonly message = signal<string | null>(null);
-
-  readonly addressForm = this.fb.group({
-    label: ['', Validators.maxLength(50)],
-    recipientName: ['', [Validators.required, Validators.maxLength(150)]],
-    recipientPhone: ['', [Validators.required, Validators.pattern(/^05\d{8}$/)]],
-    city: ['', [Validators.required, Validators.maxLength(80)]],
-    district: ['', Validators.maxLength(80)],
-    street: ['', Validators.maxLength(150)],
-    buildingNo: ['', Validators.maxLength(20)],
-    postalCode: ['', Validators.maxLength(10)],
-    additionalNo: ['', Validators.maxLength(10)],
-  });
 
   ngOnInit(): void {
     this.load();
@@ -216,78 +155,30 @@ export class MyAddressesComponent implements OnInit {
 
   startAdd(): void {
     if (this.addresses().length >= 10) return;
-    this.editingId.set(null);
-    this.addressForm.reset();
+    this.editingAddress.set(null);
     this.formError.set(null);
     this.message.set(null);
     this.isEditing.set(true);
   }
 
   startEdit(address: UserAddress): void {
-    this.editingId.set(address.id);
-    this.addressForm.reset({
-      label: address.label ?? '',
-      recipientName: address.recipientName,
-      recipientPhone: address.recipientPhone,
-      city: address.city,
-      district: address.district ?? '',
-      street: address.street ?? '',
-      buildingNo: address.buildingNo ?? '',
-      postalCode: address.postalCode ?? '',
-      additionalNo: address.additionalNo ?? '',
-    });
+    this.editingAddress.set(address);
     this.formError.set(null);
     this.message.set(null);
     this.isEditing.set(true);
   }
 
-  cancelEdit(): void {
-    if (this.isSaving()) return;
+  onAddressSaved(_saved: UserAddress): void {
     this.isEditing.set(false);
-    this.editingId.set(null);
-    this.formError.set(null);
+    this.editingAddress.set(null);
+    this.message.set('addresses_saved');
+    this.load();
   }
 
-  save(): void {
-    if (this.isSaving()) return;
-    if (this.addressForm.invalid) {
-      this.addressForm.markAllAsTouched();
-      return;
-    }
-    const v = this.addressForm.getRawValue();
-    const input: AddressInput = {
-      label: this.orNull(v.label),
-      recipientName: v.recipientName!.trim(),
-      recipientPhone: v.recipientPhone!.trim(),
-      city: v.city!.trim(),
-      district: this.orNull(v.district),
-      street: this.orNull(v.street),
-      buildingNo: this.orNull(v.buildingNo),
-      postalCode: this.orNull(v.postalCode),
-      additionalNo: this.orNull(v.additionalNo),
-    };
-    this.isSaving.set(true);
+  onAddressCancelled(): void {
+    this.isEditing.set(false);
+    this.editingAddress.set(null);
     this.formError.set(null);
-    this.message.set(null);
-    const id = this.editingId();
-    const call = id === null ? this.dealsApi.addAddress(input) : this.dealsApi.updateAddress(id, input);
-    call.subscribe({
-      next: (response) => {
-        this.isSaving.set(false);
-        if (!response.success) {
-          this.formError.set(this.errorKey(response));
-          return;
-        }
-        this.isEditing.set(false);
-        this.editingId.set(null);
-        this.message.set('addresses_saved');
-        this.load();
-      },
-      error: (error: unknown) => {
-        this.isSaving.set(false);
-        this.formError.set(this.errorKey(error));
-      },
-    });
   }
 
   setDefault(id: number): void {
@@ -321,11 +212,6 @@ export class MyAddressesComponent implements OnInit {
       },
       error: (error: unknown) => this.formError.set(this.errorKey(error)),
     });
-  }
-
-  private orNull(value: string | null | undefined): string | null {
-    const trimmed = (value ?? '').trim();
-    return trimmed ? trimmed : null;
   }
 
   private errorKey(error: unknown): string {

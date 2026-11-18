@@ -284,6 +284,8 @@ export interface UserAddress {
   postalCode: string | null;
   additionalNo: string | null;
   fullText: string;
+  latitude: number | null;
+  longitude: number | null;
   isDefault: boolean;
 }
 
@@ -297,6 +299,8 @@ export interface AddressInput {
   buildingNo: string | null;
   postalCode: string | null;
   additionalNo: string | null;
+  latitude: number | null;
+  longitude: number | null;
 }
 
 export interface CompanyInstallmentInput {

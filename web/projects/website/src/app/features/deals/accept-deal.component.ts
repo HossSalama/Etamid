@@ -1,13 +1,15 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, OnDestroy, OnInit, ViewChild, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import * as L from 'leaflet';
 import { AuthService } from '../../core/services/auth.service';
 import { DealDetail, DealsService, UserAddress } from '../../core/services/deals.service';
 import { LanguageService } from '../../core/services/language.service';
+import { AddressFormComponent } from '../../core/components/address-form/address-form.component';
 
 @Component({
   selector: 'app-accept-deal',
   standalone: true,
-  imports: [RouterLink],
+  imports: [RouterLink, AddressFormComponent],
   template: `
     <div class="accept-deal-screen" [attr.dir]="lang.isAr() ? 'rtl' : 'ltr'">
       <!-- Minimalist Clean White Header with Coral Title matching Figma -->
@@ -24,42 +26,23 @@ import { LanguageService } from '../../core/services/language.service';
       <main class="accept-content">
         <!-- 1. Map & Delivery Address Card -->
         <section class="map-address-card">
-          <!-- Stylized Map Graphic Preview with Red Pin -->
-          <div class="map-graphic-box">
-            <svg class="map-svg" viewBox="0 0 400 180" preserveAspectRatio="xMidYMid slice" fill="none">
-              <!-- Background / Land -->
-              <rect width="400" height="180" fill="#f4f3f0" />
-              <!-- Green areas / parks -->
-              <path d="M-10 140 Q 60 110 100 170 L -10 190 Z" fill="#d8ecd5" />
-              <path d="M280 -10 Q 340 30 380 0 L 410 -10 Z" fill="#d8ecd5" />
-              <!-- Water feature / subtle river -->
-              <path d="M-20 40 Q 80 80 180 50 T 420 70" stroke="#c4e1f6" stroke-width="14" fill="none" opacity="0.6" />
-              <!-- City street grid -->
-              <path d="M30 -10 V190 M90 -10 V190 M150 -10 V190 M210 -10 V190 M270 -10 V190 M330 -10 V190 M390 -10 V190" stroke="#ffffff" stroke-width="4.5" />
-              <path d="M-10 30 H410 M-10 85 H410 M-10 135 H410" stroke="#ffffff" stroke-width="4.5" />
-              <!-- Secondary lanes -->
-              <path d="M60 -10 V190 M180 -10 V190 M300 -10 V190" stroke="#fcfcfc" stroke-width="2.5" />
-              <path d="M-10 60 H410 M-10 110 H410 M-10 160 H410" stroke="#fcfcfc" stroke-width="2.5" />
-              <!-- Main yellow road / arterial street -->
-              <path d="M-10 100 Q 120 70 240 110 T 420 90" stroke="#fed7aa" stroke-width="6" fill="none" />
-              <path d="M130 -10 L 130 190" stroke="#fed7aa" stroke-width="5" />
-              <!-- Subtle points of interest dots -->
-              <circle cx="85" cy="50" r="4" fill="#60a5fa" opacity="0.6" />
-              <circle cx="295" cy="95" r="4" fill="#f59e0b" opacity="0.6" />
-              <circle cx="190" cy="140" r="4" fill="#a855f7" opacity="0.6" />
-              <!-- Center Red Location Pin -->
-              <g transform="translate(190, 60)">
-                <!-- Pin shadow -->
-                <ellipse cx="10" cy="30" rx="6" ry="2.5" fill="#000000" opacity="0.2" />
-                <!-- Pin body -->
-                <path d="M10 2 C 5.58 2 2 5.58 2 10 C 2 16 10 28 10 28 C 10 28 18 16 18 10 C 18 5.58 14.42 2 10 2 Z" fill="#eb5757" />
-                <circle cx="10" cy="9.5" r="3" fill="#ffffff" />
-              </g>
-            </svg>
+          <!-- Live Leaflet map in the exact spot the decorative picture used
+               to take: it shows the selected address's pin, and tapping it
+               picks the location for a new address (the form below opens
+               prefilled with that location). -->
+          <div class="accept-map-box">
+            <div #acceptMapEl [id]="acceptMapId" class="accept-map"></div>
+            <button type="button" class="accept-map-locate-btn" (click)="locateOnAcceptMap()" [disabled]="isLocating()">
+              {{ isLocating() ? lang.t('addresses_locating') : lang.t('addresses_my_location') }}
+            </button>
           </div>
 
           <!-- Address Details row matching Figma -->
           <div class="address-details-box">
+            <p class="accept-map-hint">{{ lang.t('addresses_accept_map_hint') }}</p>
+            @if (acceptMapStatus()) {
+              <p class="accept-map-status" role="status">{{ lang.t(acceptMapStatus()!) }}</p>
+            }
             <div class="address-main-info">
               <div class="address-text-col">
                 <p class="address-primary-text">{{ currentAddressText() }}</p>
@@ -88,10 +71,30 @@ import { LanguageService } from '../../core/services/language.service';
                     <small>{{ addr.fullText }}</small>
                   </button>
                 }
+                @if (addresses().length < 10) {
+                  <button type="button" class="addr-add-item" (click)="openAddAddress()">
+                    {{ lang.t('addresses_add') }}
+                  </button>
+                }
               </div>
             }
           </div>
         </section>
+
+        <!-- Add address inline (same form and fields as /addresses, but
+             without its own map — the live map on top is the picker). -->
+        @if (showAddAddress()) {
+          <section class="add-address-card">
+            <app-address-form
+              [address]="null"
+              [initialLocation]="pendingLocation()"
+              [showMap]="false"
+              (saved)="onAddressSaved($event)"
+              (cancelled)="onAddressCancelled()"
+              (pinCleared)="onPinCleared()"
+            />
+          </section>
+        }
 
         <!-- 2. Payment Method Section ("طريقة الدفع") -->
         <section class="payment-methods-section">
@@ -250,7 +253,8 @@ import { LanguageService } from '../../core/services/language.service';
       box-shadow: 0 6px 20px rgba(17, 24, 39, 0.04);
     }
 
-    .map-graphic-box {
+    /* Live map (same 160px spot the decorative picture used to take). */
+    .accept-map-box {
       width: 100%;
       height: 160px;
       position: relative;
@@ -258,10 +262,46 @@ import { LanguageService } from '../../core/services/language.service';
       overflow: hidden;
     }
 
-    .map-svg {
+    .accept-map {
       width: 100%;
       height: 100%;
-      display: block;
+      z-index: 0;
+    }
+
+    .accept-map-locate-btn {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      z-index: 10;
+      background: #ffffff;
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      padding: 0.45rem 0.7rem;
+      font-family: inherit;
+      font-size: 0.8rem;
+      font-weight: 800;
+      color: #111827;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(17, 24, 39, 0.12);
+
+      &:disabled {
+        opacity: 0.6;
+        cursor: default;
+      }
+    }
+
+    .accept-map-hint {
+      margin: 0;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #6b7280;
+    }
+
+    .accept-map-status {
+      margin: 0;
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: #b91c1c;
     }
 
     .address-details-box {
@@ -359,6 +399,30 @@ import { LanguageService } from '../../core/services/language.service';
         border-color: #eb5757;
         background: #fff5f5;
       }
+    }
+
+    .addr-add-item {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.6rem 0.75rem;
+      border: 1px dashed #eb5757;
+      border-radius: 10px;
+      background: #fff;
+      color: #eb5757;
+      font-size: 0.85rem;
+      font-weight: 800;
+      font-family: inherit;
+      cursor: pointer;
+    }
+
+    /* Inline add-address form (same shared form as /addresses). */
+    .add-address-card {
+      background: #ffffff;
+      border-radius: 22px;
+      border: 1px solid #e5e7eb;
+      box-shadow: 0 6px 20px rgba(17, 24, 39, 0.04);
+      padding: 1.15rem 1.25rem;
     }
 
     /* 2. Payment Methods Section */
@@ -460,21 +524,44 @@ import { LanguageService } from '../../core/services/language.service';
     }
   `],
 })
-export class AcceptDealComponent implements OnInit {
+export class AcceptDealComponent implements OnInit, AfterViewInit, OnDestroy {
   private readonly dealsApi = inject(DealsService);
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
   protected readonly lang = inject(LanguageService);
 
+  @ViewChild(AddressFormComponent) addressForm?: AddressFormComponent;
+  @ViewChild('acceptMapEl') acceptMapEl?: ElementRef<HTMLDivElement>;
+
+  // Unique map element id, so this map can never collide with the form's
+  // map on the same page (two Leaflet instances, two ids).
+  readonly acceptMapId = 'accept-map-' + Math.random().toString(36).slice(2, 9);
+
   protected dealId = 0;
   protected readonly deal = signal<DealDetail | null>(null);
   protected readonly addresses = signal<UserAddress[]>([]);
   protected readonly selectedAddressId = signal<number | null>(null);
   protected readonly showAddressList = signal(false);
+  protected readonly showAddAddress = signal(false);
   protected readonly selectedMethod = signal<'apple_pay' | 'mada' | 'wallet'>('apple_pay');
   protected readonly isProcessing = signal(false);
   protected readonly actionError = signal<string | null>(null);
+
+  /** Location tapped on the top map (or from "my location"), to prefill the form with. */
+  protected readonly pendingLocation = signal<{ latitude: number; longitude: number } | null>(null);
+  protected readonly isLocating = signal(false);
+  protected readonly acceptMapStatus = signal<string | null>(null);
+
+  private acceptMap: L.Map | null = null;
+  private acceptMarker: L.Marker | null = null;
+  private acceptMapTimer: ReturnType<typeof setTimeout> | null = null;
+  private destroyed = false;
+
+  // Same 6-decimal rounding as the address form (database decimal(9,6)).
+  private static readonly coordScale = 1e6;
+  // Default map center (Jeddah) when the selected address has no pin yet.
+  private static readonly defaultCenter: L.LatLngExpression = [21.4858, 39.1925];
 
   ngOnInit(): void {
     if (!this.auth.isAuthenticated()) {
@@ -485,6 +572,15 @@ export class AcceptDealComponent implements OnInit {
     this.dealId = Number(this.route.snapshot.paramMap.get('id'));
     this.loadDeal();
     this.loadAddresses();
+  }
+
+  ngAfterViewInit(): void {
+    this.openAcceptMap();
+  }
+
+  ngOnDestroy(): void {
+    this.destroyed = true;
+    this.destroyAcceptMap();
   }
 
   protected goBack(): void {
@@ -502,6 +598,214 @@ export class AcceptDealComponent implements OnInit {
   protected selectAddress(addr: UserAddress): void {
     this.selectedAddressId.set(addr.id);
     this.showAddressList.set(false);
+    this.syncAcceptMap();
+  }
+
+  /** Open the inline add-address form (same form and map pin as /addresses). */
+  protected openAddAddress(): void {
+    if (this.addresses().length >= 10) return;
+    this.showAddressList.set(false);
+    this.showAddAddress.set(true);
+  }
+
+  /**
+   * The new address is saved by the form (POST /me/addresses), so it is
+   * already one of the saved addresses — add it to the list and select it
+   * for this deal.
+   */
+  protected onAddressSaved(saved: UserAddress): void {
+    this.addresses.update((list) => [...list, saved]);
+    this.selectedAddressId.set(saved.id);
+    this.showAddAddress.set(false);
+    this.pendingLocation.set(null);
+    this.syncAcceptMap();
+  }
+
+  protected onAddressCancelled(): void {
+    this.showAddAddress.set(false);
+    this.pendingLocation.set(null);
+    // A tap moved the preview pin — put it back on the selected address.
+    this.syncAcceptMap();
+  }
+
+  /** The form's "remove pin" button: clear the top map's pin too. */
+  protected onPinCleared(): void {
+    if (this.acceptMarker && this.acceptMap) {
+      this.acceptMap.removeLayer(this.acceptMarker);
+      this.acceptMarker = null;
+    }
+  }
+
+  /**
+   * Tap on the top map: drop the preview pin there and open the add-address
+   * form with that location prefilled (the form reverse-geocodes it into
+   * city/district/street). Saving creates a normal saved address and selects
+   * it for this deal. Tapping never changes a saved address in place.
+   * If the form is already open, the tap moves its pin instead.
+   */
+  protected onAcceptMapClick(e: L.LeafletMouseEvent): void {
+    if (this.addresses().length >= 10) {
+      this.acceptMapStatus.set('addresses_limit');
+      return;
+    }
+    this.acceptMapStatus.set(null);
+    const lat = Math.round(e.latlng.lat * AcceptDealComponent.coordScale) / AcceptDealComponent.coordScale;
+    const lng = Math.round(e.latlng.lng * AcceptDealComponent.coordScale) / AcceptDealComponent.coordScale;
+    this.placeAcceptPin(lat, lng);
+    this.openFormAt(lat, lng);
+  }
+
+  /** "My current location" on the top map: same flow as tapping the map. */
+  protected locateOnAcceptMap(): void {
+    if (this.addresses().length >= 10) {
+      this.acceptMapStatus.set('addresses_limit');
+      return;
+    }
+    if (!('geolocation' in navigator)) {
+      this.acceptMapStatus.set('addresses_location_failed');
+      return;
+    }
+    this.isLocating.set(true);
+    this.acceptMapStatus.set('addresses_locating');
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        if (this.destroyed) return;
+        this.isLocating.set(false);
+        this.acceptMapStatus.set(null);
+        const lat = Math.round(pos.coords.latitude * AcceptDealComponent.coordScale) / AcceptDealComponent.coordScale;
+        const lng = Math.round(pos.coords.longitude * AcceptDealComponent.coordScale) / AcceptDealComponent.coordScale;
+        this.placeAcceptPin(lat, lng, true);
+        this.openFormAt(lat, lng);
+      },
+      () => {
+        if (this.destroyed) return;
+        this.isLocating.set(false);
+        this.acceptMapStatus.set('addresses_location_failed');
+      },
+      { enableHighAccuracy: true, timeout: 10000 },
+    );
+  }
+
+  /**
+   * Open the add-address form at a location — or move the pin of the form
+   * that is already open. Either way the location ends up as a saved address
+   * selected for this deal.
+   */
+  private openFormAt(lat: number, lng: number): void {
+    const form = this.addressForm;
+    if (this.showAddAddress() && form) {
+      form.setLocation(lat, lng);
+    } else {
+      this.pendingLocation.set({ latitude: lat, longitude: lng });
+      this.showAddAddress.set(true);
+    }
+    this.scrollToAddForm();
+  }
+
+  /** Bring the (just opened) form into view — it sits below the map card. */
+  private scrollToAddForm(): void {
+    globalThis.setTimeout(() => {
+      if (this.destroyed) return;
+      globalThis.document.querySelector('.add-address-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 50);
+  }
+
+  private selectedAddress(): UserAddress | undefined {
+    const id = this.selectedAddressId();
+    return this.addresses().find((a) => a.id === id);
+  }
+
+  /** Re-centre the top map on the selected address (or clear its pin). */
+  private syncAcceptMap(): void {
+    const map = this.acceptMap;
+    if (!map) return;
+    const sel = this.selectedAddress();
+    const lat = sel?.latitude ?? null;
+    const lng = sel?.longitude ?? null;
+    if (lat !== null && lng !== null) {
+      map.setView([lat, lng], 16);
+      this.placeAcceptPin(lat, lng);
+    } else if (this.acceptMarker) {
+      map.removeLayer(this.acceptMarker);
+      this.acceptMarker = null;
+    }
+  }
+
+  /**
+   * The map container renders with the page, so wait a tick for Angular to
+   * render it before creating the Leaflet map. The timer is tracked so it
+   * can be cancelled if the page closes first.
+   */
+  private openAcceptMap(): void {
+    if (this.acceptMapTimer !== null) globalThis.clearTimeout(this.acceptMapTimer);
+    this.acceptMapTimer = globalThis.setTimeout(() => {
+      this.acceptMapTimer = null;
+      this.initAcceptMap();
+    }, 0);
+  }
+
+  private initAcceptMap(): void {
+    // The page may have been closed before the timer fired — never create a
+    // map for a closed page.
+    if (this.destroyed) return;
+    const el = this.acceptMapEl?.nativeElement ?? globalThis.document.getElementById(this.acceptMapId);
+    if (!el || this.acceptMap) return;
+    const sel = this.selectedAddress();
+    const lat = sel?.latitude ?? null;
+    const lng = sel?.longitude ?? null;
+    const hasPin = lat !== null && lng !== null;
+    // scrollWheelZoom is off: the map sits at the top of a scrolling page,
+    // and a wheel over it must scroll the page, not zoom the map. The +/-
+    // buttons and touch pinch still zoom.
+    const map = L.map(el, { scrollWheelZoom: false }).setView(
+      hasPin ? [lat, lng] : AcceptDealComponent.defaultCenter,
+      hasPin ? 16 : 12,
+    );
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '© OpenStreetMap contributors',
+    }).addTo(map);
+    map.on('click', (e: L.LeafletMouseEvent) => this.onAcceptMapClick(e));
+    this.acceptMap = map;
+    if (hasPin) this.placeAcceptPin(lat, lng);
+    map.invalidateSize();
+  }
+
+  private destroyAcceptMap(): void {
+    if (this.acceptMapTimer !== null) {
+      globalThis.clearTimeout(this.acceptMapTimer);
+      this.acceptMapTimer = null;
+    }
+    if (this.acceptMap) {
+      this.acceptMap.remove();
+      this.acceptMap = null;
+    }
+    this.acceptMarker = null;
+  }
+
+  private placeAcceptPin(lat: number, lng: number, center = false): void {
+    const map = this.acceptMap;
+    if (!map) return;
+    if (!this.acceptMarker) {
+      // Same CSS-only pin as the address form (no image file to break).
+      this.acceptMarker = L.marker([lat, lng], { icon: this.pinIcon() }).addTo(map);
+    } else {
+      this.acceptMarker.setLatLng([lat, lng]);
+    }
+    if (center) map.setView([lat, lng], 16);
+  }
+
+  /**
+   * A CSS-only pin (no image file), so there is no marker-icon path to break
+   * in the Angular build. Same pin as the address form.
+   */
+  private pinIcon(): L.DivIcon {
+    return L.divIcon({
+      className: 'etamid-pin',
+      html: '<div style="width:28px;height:28px;background:#e11d48;border:3px solid #fff;border-radius:50% 50% 50% 0;transform:rotate(-45deg);box-shadow:0 2px 6px rgba(0,0,0,.35);"></div>',
+      iconSize: [28, 28],
+      iconAnchor: [14, 28],
+    });
   }
 
   protected currentAddressText(): string {
@@ -526,6 +830,7 @@ export class AcceptDealComponent implements OnInit {
         this.addresses.set(list);
         const def = list.find((a) => a.isDefault) ?? list[0];
         if (def) this.selectedAddressId.set(def.id);
+        this.syncAcceptMap();
       },
       error: () => {},
     });

@@ -30,7 +30,9 @@
                 "input": "projects/admin/public"
               }
             ],
-            "styles": ["projects/admin/src/styles.scss"]
+            "styles": [
+              "projects/admin/src/styles.scss"
+            ]
           },
           "configurations": {
             "production": {
@@ -99,7 +101,13 @@
                 "input": "projects/website/public"
               }
             ],
-            "styles": ["projects/website/src/styles.scss"]
+            "styles": [
+              "node_modules/leaflet/dist/leaflet.css",
+              "projects/website/src/styles.scss"
+            ],
+            "allowedCommonJsDependencies": [
+              "leaflet"
+            ]
           },
           "configurations": {
             "production": {
