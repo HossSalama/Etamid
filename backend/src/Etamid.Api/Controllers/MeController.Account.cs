@@ -85,6 +85,10 @@ public sealed partial class MeController
     public async Task<IActionResult> ListAddresses(CancellationToken ct)
         => Respond(await Sender.Send(new ListMyAddressesQuery(), ct));
 
+    [HttpGet("addresses/default")]
+    public async Task<IActionResult> GetDefaultAddress(CancellationToken ct)
+        => Respond(await Sender.Send(new GetDefaultAddressQuery(), ct));
+
     [HttpPost("addresses")]
     public async Task<IActionResult> AddAddress(AddAddressCommand command, CancellationToken ct)
         => Respond(await Sender.Send(command, ct), "ADDRESS_SAVED", StatusCodes.Status201Created);
