@@ -50,6 +50,12 @@ public sealed class GetMyDealsHandler(IApplicationDbContext db, ICurrentUser cur
             .Select(u => new { u.Id, u.Name, u.Code })
             .ToDictionaryAsync(u => u.Id, ct);
 
+        var stores = otherIds.Count == 0
+            ? new Dictionary<long, Domain.Identity.StoreProfile>()
+            : await db.StoreProfiles.AsNoTracking()
+                .Where(s => otherIds.Contains(s.UserId))
+                .ToDictionaryAsync(s => s.UserId, ct);
+
         var now = clock.UtcNow;
         var dealIds = deals.Select(d => d.Id).ToList();
         var pendingEdits = await db.DealEditRequests.AsNoTracking()
@@ -80,6 +86,7 @@ public sealed class GetMyDealsHandler(IApplicationDbContext db, ICurrentUser cur
         {
             var otherId = d.BuyerId == userId ? d.SellerId : d.BuyerId;
             others.TryGetValue(otherId, out var other);
+            stores.TryGetValue(otherId, out var store);
             pendingEdits.TryGetValue(d.Id, out var pendingEdit);
             string? imageUrl = null;
             if (d.ImageFileId is { } imageFileId && imageFiles.TryGetValue(imageFileId, out var imageFile))
@@ -95,7 +102,8 @@ public sealed class GetMyDealsHandler(IApplicationDbContext db, ICurrentUser cur
                 d.CreatedAt, DealActions.For(d, userId, now, pendingEdit, ratedDealIds.Contains(d.Id)), imageUrl,
                 d.NeedShipping, company?.NameAr, company?.NameEn, addressText,
                 otherId,
-                DealBadge.For(d.Status, d.RespondDeadlineAt, d.ExpiresAt, d.InspectionEndsAt, now));
+                DealBadge.For(d.Status, d.RespondDeadlineAt, d.ExpiresAt, d.InspectionEndsAt, now),
+                store?.StoreName);
         }).ToList();
 
         return new PagedResult<DealSummaryDto>(items, page, pageSize, total);

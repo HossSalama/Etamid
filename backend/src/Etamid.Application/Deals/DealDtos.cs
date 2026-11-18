@@ -8,7 +8,7 @@ public sealed record DealSummaryDto(
     IReadOnlyList<string> AvailableActions, string? ImageUrl = null,
     bool NeedShipping = false, string? ShippingCompanyNameAr = null, string? ShippingCompanyNameEn = null,
     string? ShippingAddressText = null,
-    long? CounterpartyId = null, DealBadgeDto? Badge = null);
+    long? CounterpartyId = null, DealBadgeDto? Badge = null, string? CounterpartyStoreName = null);
 
 public sealed record DealTimelineItemDto(string? From, string To, string ActorType, DateTime At, string? Note);
 
