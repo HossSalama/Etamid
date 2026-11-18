@@ -71,6 +71,25 @@ public sealed class ListMyAddressesHandler(IApplicationDbContext db, ICurrentUse
     }
 }
 
+// ---------- Default (single)
+public sealed record GetDefaultAddressQuery : IRequest<Result<AddressDto?>>;
+
+public sealed class GetDefaultAddressHandler(IApplicationDbContext db, ICurrentUser currentUser)
+    : IRequestHandler<GetDefaultAddressQuery, Result<AddressDto?>>
+{
+    public async Task<Result<AddressDto?>> Handle(GetDefaultAddressQuery request, CancellationToken ct)
+    {
+        if (currentUser.UserId is not { } userId) return CommonErrors.Unauthorized;
+
+        var address = await db.Addresses.AsNoTracking()
+            .Where(a => a.UserId == userId && a.IsDefault)
+            .OrderByDescending(a => a.Id)
+            .FirstOrDefaultAsync(ct);
+
+        return Result.Success(address is null ? null : AddressMapper.ToDto(address));
+    }
+}
+
 // ---------- Add
 public sealed record AddAddressCommand(string? Label, string RecipientName, string RecipientPhone, string City, string? District, string? Street, string? BuildingNo, string? PostalCode, string? AdditionalNo, decimal? Latitude, decimal? Longitude) : IRequest<Result<AddressDto>>;
 
