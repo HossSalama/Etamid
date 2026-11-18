@@ -79,9 +79,39 @@ public sealed class VerifyResetCodeHandler(
         var check = await otps.CheckAsync(user, OtpPurpose.PasswordReset, r.Code, ct);
         if (check.IsFailure)
         {
-            audit.Record(AuthEvent.EmailVerificationFailed, user.Id, user.PhoneNormalized);
+            // Fallback (owner decision 2026-11-18): a fresh code from /otp/resend
+            // (Registration purpose) is also accepted here, so the resend works
+            // for the password flow too. The reset token is still issued on a
+            // PasswordReset row, so /password/reset needs no change.
+            var fallback = await otps.CheckAsync(user, OtpPurpose.Registration, r.Code, ct);
+            if (fallback.IsFailure)
+            {
+                audit.Record(AuthEvent.EmailVerificationFailed, user.Id, user.PhoneNormalized);
+                await db.SaveChangesAsync(ct);
+                return check.Error;
+            }
+
+            var fallbackNow = clock.UtcNow;
+            var fallbackToken = TokenHasher.NewToken();
+
+            var registrationOtp = fallback.Value;
+            registrationOtp.ConsumedAt = fallbackNow;
+
+            // Token carrier: a consumed PasswordReset row, so the reset step
+            // (which only accepts PasswordReset rows) works unchanged.
+            db.EmailOtps.Add(new EmailOtp
+            {
+                UserId = user.Id,
+                Purpose = OtpPurpose.PasswordReset,
+                CodeHash = TokenHasher.Hash(Guid.NewGuid().ToString("N")),
+                ExpiresAt = fallbackNow,
+                ConsumedAt = fallbackNow,
+                ResetTokenHash = TokenHasher.Hash(fallbackToken),
+                ResetTokenExpiresAt = fallbackNow + EmailOtpPolicy.ResetTokenLifetime
+            });
             await db.SaveChangesAsync(ct);
-            return check.Error;
+
+            return new ResetTokenDto(fallbackToken, (int)EmailOtpPolicy.ResetTokenLifetime.TotalSeconds);
         }
 
         var now = clock.UtcNow;

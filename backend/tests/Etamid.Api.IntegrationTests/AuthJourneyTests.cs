@@ -218,6 +218,26 @@ public class AuthJourneyTests(EtamidFactory factory) : IClassFixture<EtamidFacto
     }
 
     [Fact]
+    public async Task Resend_code_is_accepted_at_password_verify_otp()
+    {
+        await RegisterAndVerify("0501110014", "pw1@example.com");
+
+        // The resend code (Registration purpose) verifies the password flow too.
+        (await Post("/api/v1/auth/otp/resend", new { phone = "0501110014" })).StatusCode.Should().Be(HttpStatusCode.OK);
+        var code = factory.Emails.CodeFor("pw1@example.com");
+
+        var verified = await Post("/api/v1/auth/password/verify-otp", new { phone = "0501110014", code });
+        verified.StatusCode.Should().Be(HttpStatusCode.OK);
+        var token = (await Json(verified)).GetProperty("data").GetProperty("resetToken").GetString()!;
+
+        var reset = await Post("/api/v1/auth/password/reset",
+            new { resetToken = token, newPassword = "New#4567", confirmPassword = "New#4567" });
+        reset.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        (await Post("/api/v1/auth/login", new { phone = "0501110014", password = "New#4567" })).StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
     public async Task Forgot_password_never_reveals_whether_the_phone_exists()
     {
         var before = factory.Emails.SentCount;
