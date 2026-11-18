@@ -994,7 +994,11 @@ export class DealDetailComponent {
           this.actionError.set('home_deal_action_error');
           return;
         }
-        this.load();
+        // Funded: leave the detail page and land on the transactions list,
+        // where this deal now shows with its payment initiated (AwaitingFunding
+        // lives in the 'new' tab), so the user sees the deal clearly instead
+        // of staying on the same page with the fund button still visible.
+        void this.router.navigate(['/home'], { queryParams: { tab: 'deals' } });
       },
       error: () => {
         this.isProcessing.set(false);
