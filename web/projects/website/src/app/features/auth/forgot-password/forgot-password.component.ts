@@ -731,7 +731,6 @@ export class ForgotPasswordComponent implements OnInit, OnDestroy {
   readonly errorMessage = signal<string | null>(null);
   readonly isSuccess = signal(false);
   readonly showPass = signal(false);
-  private readonly resetToken = signal<string | null>(null);
 
   // OTP 6 digits
   readonly digits = signal<string[]>(['', '', '', '', '', '']);
@@ -810,14 +809,8 @@ export class ForgotPasswordComponent implements OnInit, OnDestroy {
     this.isLoading.set(true);
     this.errorMessage.set(null);
     this.authService.verifyResetCode({ phone, code: this.digits().join('') }).subscribe({
-      next: (res) => {
+      next: () => {
         this.isLoading.set(false);
-        const token = res.data?.resetToken;
-        if (!token) {
-          this.errorMessage.set(this.lang.t('forgot_api_error'));
-          return;
-        }
-        this.resetToken.set(token);
         this.currentStep.set(3);
         this.clearCountdown();
       },
@@ -831,9 +824,9 @@ export class ForgotPasswordComponent implements OnInit, OnDestroy {
   onStep3Submit(): void {
     if (this.passwordForm.invalid) return;
 
-    const resetToken = this.resetToken();
+    const phone = this.phoneForm.get('phone')?.value;
     const values = this.passwordForm.getRawValue();
-    if (!resetToken || !values.newPassword || !values.confirmPassword) {
+    if (!phone || !values.newPassword || !values.confirmPassword) {
       this.errorMessage.set(this.lang.t('forgot_api_error'));
       return;
     }
@@ -841,7 +834,7 @@ export class ForgotPasswordComponent implements OnInit, OnDestroy {
     this.isLoading.set(true);
     this.errorMessage.set(null);
     this.authService.resetPassword({
-      resetToken,
+      phone,
       newPassword: values.newPassword,
       confirmPassword: values.confirmPassword,
     }).subscribe({

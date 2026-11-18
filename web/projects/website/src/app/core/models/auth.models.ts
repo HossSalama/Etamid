@@ -42,13 +42,12 @@ export interface VerifyResetCodeRequest {
 }
 
 export interface ResetPasswordRequest {
-  resetToken: string;
+  phone: string;
   newPassword: string;
   confirmPassword: string;
 }
 
-export interface ResetTokenResponse {
-  resetToken: string;
+export interface VerifyResetCodeResponse {
   expiresInSeconds: number;
 }
 
