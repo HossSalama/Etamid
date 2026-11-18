@@ -42,7 +42,7 @@ const SAMPLE_DEAL: DealDetail = {
   imageUrl: null,
   shippingCompanyNameAr: 'أرامكس',
   shippingCompanyNameEn: 'Aramex',
-  shippingAddressText: '3161-3203 Aram, Riyadh 12582, Saudi Arabia',
+  shippingAddressText: '',
   badge: { text: 'مبلغ محجوز', color: 'green', remainingSeconds: 0 },
 };
 
@@ -170,7 +170,7 @@ const SAMPLE_DEAL: DealDetail = {
         <section class="figma-card">
           <h3 class="card-section-title">عنوان الشحن</h3>
           <p class="shipping-address-body">
-            {{ currentDeal().shippingAddressText || '3161-3203 Aram, Riyadh 12582, Saudi Arabia' }}
+            {{ currentDeal().shippingAddressText || lang.t('addresses_empty') }}
           </p>
         </section>
 

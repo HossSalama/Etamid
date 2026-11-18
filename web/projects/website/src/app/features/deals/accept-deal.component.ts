@@ -811,7 +811,10 @@ export class AcceptDealComponent implements OnInit, AfterViewInit, OnDestroy {
   protected currentAddressText(): string {
     const selected = this.addresses().find((a) => a.id === this.selectedAddressId());
     if (selected) return selected.fullText || `${selected.city}, ${selected.district || ''}`;
-    return '3161-3203 Aram, Riyadh 12582, 3161-3203 Aram, Riyadh 12582, Saudi Arabia';
+    // No address is selected: never show the old hardcoded sample text
+    // ("3161-3203 Aram, Riyadh...") — it looked like a real saved address
+    // while the list was actually empty. Say plainly that there is none.
+    return this.deal()?.needShipping ? this.lang.t('addresses_none_for_deal') : this.lang.t('addresses_empty');
   }
 
   private loadDeal(): void {
@@ -838,10 +841,23 @@ export class AcceptDealComponent implements OnInit, AfterViewInit, OnDestroy {
 
   protected confirmAccept(): void {
     if (this.isProcessing()) return;
+    const d = this.deal();
+    // Shipping deal with no address selected: the backend would reject the
+    // accept (REQUIRED / shippingAddressId), so don't send a request that
+    // is guaranteed to fail — ask for the address instead, and open the
+    // add-address form for it right away.
+    if (d?.needShipping && this.selectedAddressId() === null) {
+      this.actionError.set('addresses_needed_for_deal');
+      this.showAddressList.set(false);
+      if (this.addresses().length < 10) {
+        this.showAddAddress.set(true);
+        this.scrollToAddForm();
+      }
+      return;
+    }
     this.isProcessing.set(true);
     this.actionError.set(null);
 
-    const d = this.deal();
     const addressId = d?.needShipping ? this.selectedAddressId() : (this.selectedAddressId() ?? null);
 
     this.dealsApi.acceptDeal(this.dealId, addressId).subscribe({
