@@ -1,6 +1,7 @@
 import { Component, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { LanguageService } from '../../../core/services/language.service';
+import { SupportService } from '../../../core/services/support.service';
 import { MarketingShellComponent } from '../marketing-shell.component';
 
 @Component({
@@ -38,8 +39,9 @@ import { MarketingShellComponent } from '../marketing-shell.component';
           @if (sent()) {
             <p class="marketing-success" role="status">{{ lang.t('page_contact_sent') }}</p>
           } @else {
-            <!-- TODO: wire this form to a support endpoint or support mailbox
-                 before launch; today it only validates and confirms locally. -->
+            @if (error()) {
+              <p class="marketing-error" role="alert">{{ error() }}</p>
+            }
             <form class="marketing-form" (submit)="onSubmit($event)">
               <label>
                 <span>{{ lang.t('page_contact_name') }}</span>
@@ -57,7 +59,7 @@ import { MarketingShellComponent } from '../marketing-shell.component';
                 <span>{{ lang.t('page_contact_message') }}</span>
                 <textarea name="message" rows="5" required maxlength="2000"></textarea>
               </label>
-              <button type="submit" class="marketing-submit">{{ lang.t('page_contact_submit') }}</button>
+              <button type="submit" class="marketing-submit" [disabled]="sending()">{{ lang.t('page_contact_submit') }}</button>
             </form>
           }
         </section>
@@ -67,15 +69,41 @@ import { MarketingShellComponent } from '../marketing-shell.component';
 })
 export class ContactComponent {
   protected readonly lang = inject(LanguageService);
+  private readonly support = inject(SupportService);
   protected readonly sent = signal(false);
+  protected readonly sending = signal(false);
+  protected readonly error = signal<string | null>(null);
 
   protected onSubmit(event: Event): void {
     event.preventDefault();
     const form = event.target as HTMLFormElement;
-    if (form.checkValidity()) {
-      this.sent.set(true);
-    } else {
+    if (!form.checkValidity()) {
       form.reportValidity();
+      return;
     }
+    const data = new FormData(form);
+    this.error.set(null);
+    this.sending.set(true);
+    this.support
+      .sendGuestContact({
+        name: String(data.get('name') ?? ''),
+        channel: String(data.get('channel') ?? ''),
+        subject: String(data.get('subject') ?? ''),
+        message: String(data.get('message') ?? ''),
+      })
+      .subscribe({
+        next: (res) => {
+          this.sending.set(false);
+          if (res.success) {
+            this.sent.set(true);
+          } else {
+            this.error.set(res.message || this.lang.t('page_contact_error'));
+          }
+        },
+        error: (err) => {
+          this.sending.set(false);
+          this.error.set(err?.error?.message || this.lang.t('page_contact_error'));
+        },
+      });
   }
 }

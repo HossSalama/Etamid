@@ -19,6 +19,7 @@ public static class SupportErrors
 {
     public static readonly Error NotFound = Error.NotFound("SUPPORT_TICKET_NOT_FOUND");
     public static readonly Error InvalidState = Error.Conflict("SUPPORT_TICKET_INVALID_STATE");
+    public static readonly Error GuestContactNotFound = Error.NotFound("GUEST_CONTACT_NOT_FOUND");
 }
 
 // ---------- DTOs ----------

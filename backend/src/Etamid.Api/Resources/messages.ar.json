@@ -195,6 +195,7 @@
   "DISPUTE_INVALID_STATE": "لا يمكن تنفيذ هذا الإجراء على النزاع في حالته الحالية.",
   "SUPPORT_TICKET_NOT_FOUND": "طلب الدعم غير موجود.",
   "SUPPORT_TICKET_INVALID_STATE": "لا يمكن تنفيذ هذا الإجراء على الطلب في حالته الحالية.",
+  "GUEST_CONTACT_NOT_FOUND": "رسالة التواصل غير موجودة.",
   "DISPUTE_ACTION_NOT_ALLOWED": "لا يمكنك تنفيذ هذا الإجراء على هذا النزاع.",
   "DISPUTE_NOT_OPERATOR": "هذا الإجراء مخصص لمشغّلي النزاعات فقط.",
   "DISPUTE_ALREADY_RESOLVED": "تم حسم هذا النزاع بالفعل.",

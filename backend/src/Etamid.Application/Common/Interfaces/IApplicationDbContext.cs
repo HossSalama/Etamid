@@ -57,6 +57,7 @@ public interface IApplicationDbContext
     DbSet<DisputeSettlementProposal> DisputeSettlementProposals { get; }
     DbSet<SupportTicket> SupportTickets { get; }
     DbSet<SupportTicketMessage> SupportTicketMessages { get; }
+    DbSet<GuestContactMessage> GuestContactMessages { get; }
     DbSet<Rating> Ratings { get; }
     // The Shipments table already exists (Initial migration); only the interface
     // exposure was missing, so no new migration is needed for tracking.

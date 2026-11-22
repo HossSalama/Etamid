@@ -145,7 +145,7 @@ public sealed class PostAdminSupportTicketMessageValidator : AbstractValidator<P
 
 public sealed class PostAdminSupportTicketMessageHandler(
     IApplicationDbContext db, AdminAccessService access, AdminAuditService audit,
-    NotificationService notifications, IFileUrlResolver files)
+    NotificationService notifications)
     : IRequestHandler<PostAdminSupportTicketMessageCommand, Result<SupportTicketMessageDto>>
 {
     public async Task<Result<SupportTicketMessageDto>> Handle(
