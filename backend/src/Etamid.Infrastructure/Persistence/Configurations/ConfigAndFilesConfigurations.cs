@@ -67,7 +67,12 @@ public sealed class LookupConfiguration : IEntityTypeConfiguration<Lookup>
             L(22, "store_category", "fashion", "أزياء وإكسسوارات", "Fashion and accessories", 2),
             L(23, "store_category", "home", "المنزل والأثاث", "Home and furniture", 3),
             L(24, "store_category", "vehicles", "مركبات وقطع غيار", "Vehicles and parts", 4),
-            L(25, "store_category", "other", "أخرى", "Other", 5));
+            L(25, "store_category", "other", "أخرى", "Other", 5),
+            L(26, "ticket_subject", "payment", "الدفع والتحويلات", "Payments and transfers", 1),
+            L(27, "ticket_subject", "deal", "صفقة", "A deal", 2),
+            L(28, "ticket_subject", "account", "الحساب والتحقق", "Account and verification", 3),
+            L(29, "ticket_subject", "technical", "مشكلة تقنية", "Technical issue", 4),
+            L(30, "ticket_subject", "other", "موضوع آخر", "Other", 5));
     }
 }
 
@@ -98,12 +103,15 @@ public sealed class FaqConfiguration : IEntityTypeConfiguration<Faq>
         b.Property(x => x.AnswerAr).HasColumnType("nvarchar(max)");
         b.Property(x => x.AnswerEn).HasColumnType("nvarchar(max)");
 
-        // Placeholder content until the client supplies the final FAQ texts.
+        // FAQ content matches the mobile FAQ screen (6 questions). Draft wording until
+        // the client confirms the final texts; edit here and in etamid-faqs-seed.sql together.
         b.HasData(
-            new { Id = 1L, QuestionAr = "ما هي منصة اعتمد؟", QuestionEn = "What is Etamid?", AnswerAr = "منصة وساطة مالية تحفظ أموال الصفقة بين المشتري والبائع حتى يتم التسليم والموافقة.", AnswerEn = "A financial escrow platform that holds the deal amount between buyer and seller until delivery is confirmed.", SortOrder = 1, IsActive = true, UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc) },
-            new { Id = 2L, QuestionAr = "كم رسوم المنصة؟", QuestionEn = "What are the platform fees?", AnswerAr = "رسوم ثابتة قدرها 50 ريال على البائع لكل صفقة.", AnswerEn = "A fixed fee of 50 SAR per deal, paid by the seller.", SortOrder = 2, IsActive = true, UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc) },
-            new { Id = 3L, QuestionAr = "كيف أدفع قيمة الصفقة؟", QuestionEn = "How do I pay for a deal?", AnswerAr = "الدفع عن طريق التحويل البنكي إلى حساب المنصة وسيتم تأكيده بعد التحقق.", AnswerEn = "Payment is by bank transfer to the platform account and is confirmed after verification.", SortOrder = 3, IsActive = true, UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc) },
-            new { Id = 4L, QuestionAr = "ماذا أفعل إذا لم أستلم المنتج؟", QuestionEn = "What if I do not receive the product?", AnswerAr = "يمكنك فتح نزاع من صفحة الصفقة وسيتم تجميد المبلغ حتى صدور القرار.", AnswerEn = "You can open a dispute from the deal page and the amount stays frozen until a decision is made.", SortOrder = 4, IsActive = true, UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc) });
+            new { Id = 1L, QuestionAr = "ما هي منصة اعتمد؟", QuestionEn = "What is Etamid?", AnswerAr = "منصة اعتمد هي منصة وساطة مالية تحفظ أموال الصفقة بين المشتري والبائع حتى يتم التسليم والموافقة على المنتج.", AnswerEn = "Etamid is a financial escrow platform that holds the deal amount between the buyer and the seller until the product is delivered and approved.", SortOrder = 1, IsActive = true, UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc) },
+            new { Id = 2L, QuestionAr = "كيف يمكنني إنشاء حساب جديد؟", QuestionEn = "How do I create a new account?", AnswerAr = "سجّل برقم جوالك وكلمة مرور، ثم أدخل رمز التحقق المرسل إلى بريدك الإلكتروني. بعدها يمكنك إكمال بيانات حسابك، وإذا كنت بائعاً أنشئ متجرك من صفحة حسابي.", AnswerEn = "Register with your phone number and a password, then enter the verification code sent to your email. After that you can complete your profile, and if you are a seller, create your store from your account page.", SortOrder = 2, IsActive = true, UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc) },
+            new { Id = 3L, QuestionAr = "كيف يمكنني الدفع في المنصة؟", QuestionEn = "How do I pay on the platform?", AnswerAr = "ادفع من صفحة الصفقة بعد قبولها؛ يتم حجز المبلغ في حساب الضمان ولا يصل إلى البائع إلا بعد استلامك المنتج وموافقتك عليه.", AnswerEn = "Pay from the deal page after it is accepted; the amount is held in the escrow account and reaches the seller only after you receive the product and approve it.", SortOrder = 3, IsActive = true, UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc) },
+            new { Id = 4L, QuestionAr = "هل بياناتي الشخصية والمالية آمنة؟", QuestionEn = "Is my personal and financial data safe?", AnswerAr = "نعم، بياناتك محمية ولا تُشارك مع الطرف الآخر إلا ما يلزم لإتمام الصفقة، وأموال الصفقات محفوظة في حساب الضمان.", AnswerEn = "Yes, your data is protected and is only shared with the other party as needed to complete the deal, and deal funds are held in the escrow account.", SortOrder = 4, IsActive = true, UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc) },
+            new { Id = 5L, QuestionAr = "هل توجد رسوم لاستخدام المنصة؟", QuestionEn = "Are there fees for using the platform?", AnswerAr = "رسوم المنصة ثابتة قدرها 50 ريال على البائع لكل صفقة، ولا توجد رسوم على المشتري.", AnswerEn = "The platform fee is a fixed 50 SAR per deal, paid by the seller. There is no fee for the buyer.", SortOrder = 5, IsActive = true, UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc) },
+            new { Id = 6L, QuestionAr = "كيف يمكنني متابعة طلباتي؟", QuestionEn = "How do I track my requests?", AnswerAr = "من صفحة صفقاتي تتابع حالة كل صفقة خطوة بخطوة، ومن صفحة طلبات الدعم تتابع ردود فريق الدعم على طلباتك.", AnswerEn = "From the My Deals page you can follow each deal step by step, and from the Support Requests page you can follow the support team's replies to your requests.", SortOrder = 6, IsActive = true, UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc) });
     }
 }
 
