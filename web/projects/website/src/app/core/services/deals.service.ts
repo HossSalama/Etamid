@@ -474,9 +474,18 @@ export class DealsService {
     });
   }
 
-  acceptDeal(id: number, shippingAddressId?: number | null): Observable<ApiResponse<unknown>> {
+  // acceptTerms is the buyer's REAL checkbox value from the accept page.
+  // It must never be hardcoded true: the backend validates it
+  // (TERMS_NOT_ACCEPTED) and records it as the buyer's consent to the deal.
+  // The default is false on purpose — a caller that forgets to pass it fails
+  // closed instead of recording consent nobody gave.
+  acceptDeal(
+    id: number,
+    shippingAddressId?: number | null,
+    acceptTerms = false,
+  ): Observable<ApiResponse<unknown>> {
     return this.http.post<ApiResponse<unknown>>(`${this.baseUrl}/deals/${id}/accept`, {
-      acceptTerms: true,
+      acceptTerms,
       ...(shippingAddressId ? { shippingAddressId } : {}),
     });
   }
