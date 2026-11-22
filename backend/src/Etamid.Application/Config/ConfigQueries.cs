@@ -62,7 +62,8 @@ public sealed class GetLookupsHandler(IApplicationDbContext db, IFileUrlResolver
         ["company-reject-reasons"] = "company_reject_reason",
         ["duration-units"] = "duration_unit",
         ["payment-methods"] = "payment_method",
-        ["store-categories"] = "store_category"
+        ["store-categories"] = "store_category",
+        ["ticket-subjects"] = "ticket_subject"
     };
 
     public async Task<Result<IReadOnlyList<LookupItemDto>>> Handle(GetLookupsQuery r, CancellationToken ct)

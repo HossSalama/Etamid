@@ -6,7 +6,7 @@ namespace Etamid.Domain.Notifications;
 public enum NotificationType
 {
     DealRequest, DealAccepted, DealRejected, DealEdit, DealFunded, DealShipped,
-    DealDelivered, DisputeUpdate, PaymentApproval, PaymentDue, Penalty, Wallet, System
+    DealDelivered, DisputeUpdate, SupportTicket, PaymentApproval, PaymentDue, Penalty, Wallet, System
 }
 public enum NotificationChannel { Push, Sms, InApp }
 public enum CampaignStatus { Draft, Scheduled, Sending, Sent, Cancelled }

@@ -7,6 +7,7 @@ using Etamid.Domain.Files;
 using Etamid.Domain.Identity;
 using Etamid.Domain.Money;
 using Etamid.Domain.Notifications;
+using Etamid.Domain.Support;
 using Microsoft.EntityFrameworkCore;
 
 namespace Etamid.Application.Common.Interfaces;
@@ -54,6 +55,8 @@ public interface IApplicationDbContext
     DbSet<DisputeMessage> DisputeMessages { get; }
     DbSet<DisputeAttachment> DisputeAttachments { get; }
     DbSet<DisputeSettlementProposal> DisputeSettlementProposals { get; }
+    DbSet<SupportTicket> SupportTickets { get; }
+    DbSet<SupportTicketMessage> SupportTicketMessages { get; }
     DbSet<Rating> Ratings { get; }
     // The Shipments table already exists (Initial migration); only the interface
     // exposure was missing, so no new migration is needed for tracking.
