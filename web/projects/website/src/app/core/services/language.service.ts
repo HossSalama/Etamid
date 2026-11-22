@@ -574,7 +574,7 @@ export class LanguageService {
       deal_accept_terms_title: 'شروط وأحكام المعاملة',
       deal_terms_1: 'يتم حجز مبلغ المعاملة في الضمان ولا يُفرج عنه للبائع إلا بعد تأكيد استلامك.',
       deal_terms_2: 'لك فترة معاينة بعد التسليم، وخلالها يمكنك فتح نزاع.',
-      deal_terms_3: 'في حال النزاع يتم الاتفاق أولًا، وإن لم يتم يُحسم بقرار من الإدارة.',
+      deal_terms_3: 'في حال النزاع يتم الاتفاق بين الطرفين أولًا، وإن لم يتم الاتفاق تُرسَل المستندات إليك لعرضها على المحكمة.',
       deal_terms_4: 'عند استرداد كامل المبلغ يعود إليك دون أي رسوم.',
       deal_terms_5: 'رسوم المنصة 50 ريال تُخصم من مستحقات البائع.',
       deal_terms_6: 'عنوان التسليم يتجمّد لحظة القبول ولا يتغير بعدها.',
@@ -804,6 +804,7 @@ export class LanguageService {
       page_contact_message: 'رسالتك',
       page_contact_submit: 'إرسال الرسالة',
       page_contact_sent: 'تم إرسال رسالتك بنجاح، سنرد عليك قريبًا.',
+      page_contact_error: 'تعذّر إرسال رسالتك. حاول مرة أخرى.',
 
       // Terms & Privacy
       page_terms_nav: 'الشروط والأحكام',
@@ -1401,7 +1402,7 @@ export class LanguageService {
       deal_accept_terms_title: 'Deal terms and conditions',
       deal_terms_1: 'The deal amount is held in escrow and released to the seller only after you confirm receipt.',
       deal_terms_2: 'You have an inspection period after delivery, during which you can open a dispute.',
-      deal_terms_3: 'In a dispute, settlement comes first; if no agreement is reached, management decides.',
+      deal_terms_3: 'In a dispute, the parties agree first; if no agreement is reached, the documents are sent to you to take to court.',
       deal_terms_4: 'A full refund returns the whole amount to you with no fee.',
       deal_terms_5: 'The platform fee is 50 SAR, deducted from the seller\u2019s proceeds.',
       deal_terms_6: 'The delivery address is frozen at acceptance and cannot change afterwards.',
@@ -1631,6 +1632,7 @@ export class LanguageService {
       page_contact_message: 'Your message',
       page_contact_submit: 'Send message',
       page_contact_sent: 'Your message was sent successfully, we will reply soon.',
+      page_contact_error: 'Could not send your message. Please try again.',
 
       // Terms & Privacy
       page_terms_nav: 'Terms',

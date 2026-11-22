@@ -24,6 +24,64 @@ import { AddressFormComponent } from '../../core/components/address-form/address
       </header>
 
       <main class="accept-content">
+        @if (isLoadingDeal()) {
+          <!-- Loading: no deal yet, so nothing to accept — show this instead
+               of the address map and the confirm button. -->
+          <div class="accept-state-card" role="status">
+            <p>{{ lang.t('home_deals_loading') }}</p>
+          </div>
+        } @else if (dealLoadError()) {
+          <!-- Load failed (or the link has no id): never render the deal
+               screens, and never let the buyer accept something unseen. -->
+          <div class="accept-state-card accept-error-card" role="alert">
+            <p>{{ lang.t(dealLoadError()!) }}</p>
+            <button type="button" class="btn-state-retry" (click)="loadDeal()">{{ lang.t('home_deals_refresh') }}</button>
+            <a routerLink="/home" class="state-back-link">{{ lang.t('back') }}</a>
+          </div>
+        } @else if (deal()) {
+        <!-- 0. Deal summary — the buyer sees exactly what they are about to
+             accept BEFORE the address, the payment method and the button.
+             This card did not exist before: the page loaded the deal but
+             rendered none of it, so acceptance was blind. -->
+        <section class="deal-summary-card">
+          <div class="summary-top-row">
+            <span class="summary-number">#{{ deal()!.number }}</span>
+            <h2 class="summary-title">{{ deal()!.title }}</h2>
+          </div>
+          @if (deal()!.imageUrl) {
+            <img [src]="deal()!.imageUrl" [alt]="deal()!.title" class="summary-thumb" />
+          }
+          <div class="summary-amount-row">
+            <span class="summary-amount">{{ deal()!.amount.toLocaleString() }}</span>
+            <span class="summary-currency">{{ lang.t('home_sar') }}</span>
+          </div>
+          <dl class="summary-rows">
+            <div class="summary-row">
+              <dt>{{ lang.t('open_dispute_seller') }}</dt>
+              <dd>{{ deal()!.counterpartyName }} @if (deal()!.counterpartyCode) { <span class="summary-code">({{ deal()!.counterpartyCode }})</span> }</dd>
+            </div>
+            <div class="summary-row">
+              <dt>{{ lang.t('deal_detail_duration') }}</dt>
+              <dd>{{ deal()!.durationValue }} {{ deal()!.durationUnit === 'hour' ? lang.t('deal_detail_unit_hour') : lang.t('deal_detail_unit_day') }}</dd>
+            </div>
+            @if (deal()!.feeAmount !== null && deal()!.feeAmount !== undefined) {
+              <div class="summary-row">
+                <dt>{{ lang.t('deal_detail_fee') }}</dt>
+                <dd>{{ (deal()!.feeAmount ?? 0).toLocaleString() }} {{ lang.t('home_sar') }}</dd>
+              </div>
+            }
+            @if (deal()!.sellerNetAmount !== null && deal()!.sellerNetAmount !== undefined) {
+              <div class="summary-row">
+                <dt>{{ lang.t('deal_detail_seller_receives') }}</dt>
+                <dd>{{ (deal()!.sellerNetAmount ?? 0).toLocaleString() }} {{ lang.t('home_sar') }}</dd>
+              </div>
+            }
+          </dl>
+          @if (deal()!.description) {
+            <p class="summary-desc">{{ deal()!.description }}</p>
+          }
+        </section>
+
         <!-- 1. Map & Delivery Address Card -->
         <section class="map-address-card">
           <!-- Live Leaflet map in the exact spot the decorative picture used
@@ -158,22 +216,56 @@ import { AddressFormComponent } from '../../core/components/address-form/address
           </div>
         </section>
 
+        <!-- 2b. Deal terms — real consent. ONE checkbox for all 6 terms.
+             The terms start collapsed: the buyer taps the header to read
+             them, then ticks the box. The box gates the confirm button and
+             its value is what gets sent to the backend (before this,
+             acceptTerms was hardcoded true). -->
+        <section class="terms-card">
+          <button type="button" class="terms-toggle" (click)="showTerms.update((v) => !v)" [attr.aria-expanded]="showTerms()">
+            <span class="terms-title">{{ lang.t('deal_accept_terms_title') }}</span>
+            <svg class="terms-chevron" [class.expanded]="showTerms()" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#eb5757" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+          </button>
+          @if (showTerms()) {
+            <ul class="terms-list">
+              <li>{{ lang.t('deal_terms_1') }}</li>
+              <li>{{ lang.t('deal_terms_2') }}</li>
+              <li>{{ lang.t('deal_terms_3') }}</li>
+              <li>{{ lang.t('deal_terms_4') }}</li>
+              <li>{{ lang.t('deal_terms_5') }}</li>
+              <li>{{ lang.t('deal_terms_6') }}</li>
+            </ul>
+            <a routerLink="/terms" class="terms-link">{{ lang.t('deal_detail_terms_link') }}</a>
+          }
+          <label class="terms-agree-row">
+            <input type="checkbox" [checked]="acceptedTerms()" (change)="acceptedTerms.set($any($event.target).checked)" />
+            <span>{{ lang.t('deal_accept_agree') }}</span>
+          </label>
+        </section>
+
         <!-- 3. Bottom Black Action Button: "أعتمد" -->
         <div class="bottom-action-container">
           <button
             type="button"
             class="btn-figma-confirm"
-            [disabled]="isProcessing()"
+            [disabled]="isProcessing() || !acceptedTerms()"
             (click)="confirmAccept()"
           >
             {{ isProcessing() ? (lang.isAr() ? 'جاري الاعتماد...' : 'Processing...') : (lang.isAr() ? 'أعتمد' : 'Confirm') }}
           </button>
         </div>
 
+        @if (!acceptedTerms()) {
+          <p class="terms-hint" role="note">{{ lang.t('register_terms_error') }}</p>
+        }
+
         @if (actionError()) {
           <div class="error-toast" role="alert">
             ⚠️ {{ lang.t(actionError()!) }}
           </div>
+        }
         }
       </main>
     </div>
@@ -522,6 +614,254 @@ import { AddressFormComponent } from '../../core/components/address-form/address
       font-weight: 700;
       text-align: center;
     }
+
+    /* 0. Deal summary card (new) */
+    .deal-summary-card {
+      background: #ffffff;
+      border-radius: 22px;
+      border: 1px solid #e5e7eb;
+      box-shadow: 0 6px 20px rgba(17, 24, 39, 0.04);
+      padding: 1.15rem 1.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .summary-top-row {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.35rem;
+    }
+
+    .summary-number {
+      display: inline-flex;
+      background: #ffe4e6;
+      color: #eb5757;
+      padding: 0.2rem 0.65rem;
+      border-radius: 999px;
+      font-weight: 800;
+      font-size: 0.8rem;
+      direction: ltr;
+    }
+
+    .summary-title {
+      font-size: 1.15rem;
+      font-weight: 850;
+      color: #111827;
+      margin: 0;
+      line-height: 1.35;
+    }
+
+    .summary-thumb {
+      width: 100%;
+      max-height: 180px;
+      object-fit: cover;
+      border-radius: 14px;
+    }
+
+    .summary-amount-row {
+      display: inline-flex;
+      align-items: baseline;
+      gap: 0.25rem;
+      color: #eb5757;
+      font-weight: 850;
+      font-size: 1.35rem;
+    }
+
+    .summary-amount {
+      direction: ltr;
+    }
+
+    .summary-currency {
+      font-size: 0.95rem;
+      font-weight: 750;
+    }
+
+    .summary-rows {
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .summary-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 1rem;
+      padding: 0.45rem 0;
+
+      &:not(:last-child) {
+        border-bottom: 1px solid #f8fafc;
+      }
+
+      dt {
+        color: #9ca3af;
+        font-size: 0.86rem;
+        font-weight: 600;
+        flex-shrink: 0;
+      }
+
+      dd {
+        margin: 0;
+        font-size: 0.92rem;
+        font-weight: 800;
+        color: #111827;
+        text-align: end;
+      }
+    }
+
+    .summary-code {
+      color: #6b7280;
+      font-weight: 600;
+    }
+
+    .summary-desc {
+      color: #6b7280;
+      font-size: 0.86rem;
+      line-height: 1.7;
+      font-weight: 500;
+      margin: 0;
+    }
+
+    /* Loading / error state card */
+    .accept-state-card {
+      background: #ffffff;
+      border-radius: 22px;
+      border: 1px solid #e5e7eb;
+      box-shadow: 0 6px 20px rgba(17, 24, 39, 0.04);
+      padding: 2rem 1.25rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1rem;
+      text-align: center;
+
+      p {
+        margin: 0;
+        font-size: 0.95rem;
+        font-weight: 700;
+        color: #111827;
+        line-height: 1.6;
+      }
+    }
+
+    .accept-error-card p {
+      color: #b91c1c;
+    }
+
+    .btn-state-retry {
+      background: #eb5757;
+      color: #ffffff;
+      border: none;
+      border-radius: 12px;
+      padding: 0.65rem 1.5rem;
+      font-size: 0.9rem;
+      font-weight: 800;
+      font-family: inherit;
+      cursor: pointer;
+    }
+
+    .state-back-link {
+      color: #eb5757;
+      font-size: 0.88rem;
+      font-weight: 800;
+      text-decoration: none;
+    }
+
+    /* 2b. Terms card (new) */
+    .terms-card {
+      background: #ffffff;
+      border-radius: 22px;
+      border: 1px solid #e5e7eb;
+      box-shadow: 0 6px 20px rgba(17, 24, 39, 0.04);
+      padding: 1.15rem 1.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.85rem;
+    }
+
+    .terms-title {
+      font-size: 1.05rem;
+      font-weight: 850;
+      color: #111827;
+      margin: 0;
+    }
+
+    /* Tap the header to read the terms (they start collapsed). */
+    .terms-toggle {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      width: 100%;
+      background: none;
+      border: none;
+      padding: 0;
+      font-family: inherit;
+      cursor: pointer;
+      text-align: start;
+    }
+
+    .terms-chevron {
+      flex-shrink: 0;
+      transition: transform 0.2s ease;
+
+      &.expanded {
+        transform: rotate(180deg);
+      }
+    }
+
+    .terms-list {
+      margin: 0;
+      padding-inline-start: 1.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+
+      li {
+        color: #4b5563;
+        font-size: 0.86rem;
+        line-height: 1.6;
+        font-weight: 600;
+      }
+    }
+
+    .terms-agree-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.6rem;
+      cursor: pointer;
+      font-size: 0.92rem;
+      font-weight: 800;
+      color: #111827;
+      line-height: 1.5;
+
+      input[type='checkbox'] {
+        width: 20px;
+        height: 20px;
+        flex-shrink: 0;
+        margin-top: 0.1rem;
+        accent-color: #eb5757;
+        cursor: pointer;
+      }
+    }
+
+    .terms-link {
+      color: #eb5757;
+      font-size: 0.85rem;
+      font-weight: 800;
+      text-decoration: none;
+      align-self: flex-start;
+    }
+
+    .terms-hint {
+      margin: 0;
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: #6b7280;
+      text-align: center;
+    }
   `],
 })
 export class AcceptDealComponent implements OnInit, AfterViewInit, OnDestroy {
@@ -547,6 +887,15 @@ export class AcceptDealComponent implements OnInit, AfterViewInit, OnDestroy {
   protected readonly selectedMethod = signal<'apple_pay' | 'mada' | 'wallet'>('apple_pay');
   protected readonly isProcessing = signal(false);
   protected readonly actionError = signal<string | null>(null);
+  /** Deal still loading from the API (summary, map and button wait for it). */
+  protected readonly isLoadingDeal = signal(false);
+  /** Set when the deal cannot be loaded — the page shows an error, not the deal screens. */
+  protected readonly dealLoadError = signal<string | null>(null);
+  /** Real terms consent. Starts unchecked; the confirm button is gated on it
+      and its value is what is sent to the backend. */
+  protected readonly acceptedTerms = signal(false);
+  /** Terms list collapsed until the buyer taps the header to read them. */
+  protected readonly showTerms = signal(false);
 
   /** Location tapped on the top map (or from "my location"), to prefill the form with. */
   protected readonly pendingLocation = signal<{ latitude: number; longitude: number } | null>(null);
@@ -817,12 +1166,34 @@ export class AcceptDealComponent implements OnInit, AfterViewInit, OnDestroy {
     return this.deal()?.needShipping ? this.lang.t('addresses_none_for_deal') : this.lang.t('addresses_empty');
   }
 
-  private loadDeal(): void {
+  protected loadDeal(): void {
+    // No id in the URL (or an invalid one): there is no deal to show.
+    if (!this.dealId) {
+      this.isLoadingDeal.set(false);
+      this.dealLoadError.set('deal_detail_not_found');
+      return;
+    }
+    this.isLoadingDeal.set(true);
+    this.dealLoadError.set(null);
     this.dealsApi.getDealDetail(this.dealId).subscribe({
       next: (res: any) => {
-        if (res.data) this.deal.set(res.data);
+        this.isLoadingDeal.set(false);
+        if (res?.success && res.data) {
+          this.deal.set(res.data);
+          // The map card only renders once the deal is loaded, so the map
+          // has to be created after the deal arrives (ngAfterViewInit runs
+          // while the loading card is still showing).
+          this.openAcceptMap();
+        } else {
+          // Backend answered but without a deal (e.g. not found / not yours):
+          // error card, never a half-empty accept screen.
+          this.dealLoadError.set('deal_detail_load_error');
+        }
       },
-      error: () => {},
+      error: () => {
+        this.isLoadingDeal.set(false);
+        this.dealLoadError.set('deal_detail_load_error');
+      },
     });
   }
 
@@ -842,6 +1213,19 @@ export class AcceptDealComponent implements OnInit, AfterViewInit, OnDestroy {
   protected confirmAccept(): void {
     if (this.isProcessing()) return;
     const d = this.deal();
+    // No deal loaded (still loading, or the load failed): there is nothing
+    // to accept. The error card is the way back, not this button.
+    if (!d) {
+      this.actionError.set('deal_detail_load_error');
+      return;
+    }
+    // Real consent: the checkbox value is what the backend records.
+    // Before this, acceptTerms was hardcoded true in the service, so the
+    // backend recorded consent the buyer never gave.
+    if (!this.acceptedTerms()) {
+      this.actionError.set('register_terms_error');
+      return;
+    }
     // Shipping deal with no address selected: the backend would reject the
     // accept (REQUIRED / shippingAddressId), so don't send a request that
     // is guaranteed to fail — ask for the address instead, and open the
@@ -860,7 +1244,7 @@ export class AcceptDealComponent implements OnInit, AfterViewInit, OnDestroy {
 
     const addressId = d?.needShipping ? this.selectedAddressId() : (this.selectedAddressId() ?? null);
 
-    this.dealsApi.acceptDeal(this.dealId, addressId).subscribe({
+    this.dealsApi.acceptDeal(this.dealId, addressId, this.acceptedTerms()).subscribe({
       next: (res) => {
         this.isProcessing.set(false);
         if (!res.success) {
