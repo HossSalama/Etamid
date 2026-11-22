@@ -108,6 +108,22 @@ public sealed class User : AuditableEntity<long>
         LockedUntil = null;
     }
 
+    /// <summary>
+    /// Changes the login phone. The new number starts unverified, exactly like a changed email:
+    /// it must never inherit the old number's verification.
+    /// </summary>
+    /// <returns>false when the number is unchanged.</returns>
+    public bool ChangePhone(PhoneNumber phone)
+    {
+        if (string.Equals(phone.E164, PhoneNormalized, StringComparison.Ordinal)) return false;
+
+        Phone = phone.Local;
+        PhoneNormalized = phone.E164;
+        PhoneVerifiedAt = null;
+        LastPhoneAuthAt = null;
+        return true;
+    }
+
     public void UpdateProfile(string? name, string? email)
     {
         if (!string.IsNullOrWhiteSpace(name)) Name = name.Trim();

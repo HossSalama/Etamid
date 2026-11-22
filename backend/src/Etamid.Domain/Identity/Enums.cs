@@ -6,7 +6,7 @@ public enum Language { Ar, En }
 public enum DevicePlatform { Android, Ios }
 public enum NafathStatus { Pending, Verified, Rejected, Expired }
 public enum TermsType { Platform, Deal, Company }
-public enum RefreshRevokeReason { Logout, LogoutAll, Rotated, ReuseDetected, PasswordChanged, PasswordReset }
+public enum RefreshRevokeReason { Logout, LogoutAll, Rotated, ReuseDetected, PasswordChanged, PasswordReset, AccountDeleted }
 
 public enum AuthEvent
 {
@@ -23,5 +23,7 @@ public enum AuthEvent
     PasswordChanged,
     TokenReuseDetected,
     Logout,
-    LogoutAll
+    LogoutAll,
+    PhoneChanged,
+    AccountDeleted
 }
