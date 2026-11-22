@@ -33,6 +33,11 @@ public static class IdentityErrors
 
     public static readonly Error UserNotFound = Error.NotFound("USER_NOT_FOUND");
     public static readonly Error WrongCurrentPassword = Error.Validation("WRONG_PASSWORD", "currentPassword");
+    public static readonly Error WrongPassword = Error.Validation("WRONG_PASSWORD", "password");
+    public static readonly Error AccountHasActiveDeals = Error.Conflict("ACCOUNT_HAS_ACTIVE_DEALS");
+    public static readonly Error AccountHasActiveCompanyDeals = Error.Conflict("ACCOUNT_HAS_ACTIVE_COMPANY_DEALS");
+    public static readonly Error AccountHasBalance = Error.Conflict("ACCOUNT_HAS_BALANCE");
+    public static readonly Error AccountHasPendingWithdrawals = Error.Conflict("ACCOUNT_HAS_PENDING_WITHDRAWALS");
     public static readonly Error TermsNotFound = Error.NotFound("TERMS_NOT_FOUND");
     public static readonly Error InvalidTermsType = Error.Validation("INVALID_VALUE", "type");
 
