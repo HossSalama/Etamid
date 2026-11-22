@@ -31,4 +31,15 @@ public sealed partial class AdminController
     [HttpPost("support/tickets/{ticketId:long}/close")]
     public async Task<IActionResult> CloseSupportTicket(long ticketId, CancellationToken ct)
         => Respond(await Sender.Send(new CloseAdminSupportTicketCommand(ticketId), ct), "SUPPORT_TICKET_CLOSED");
+
+    // ---------- Guest contact messages (operator only, admin.support.manage) ----------
+
+    [HttpGet("support/contact-messages")]
+    public async Task<IActionResult> ListGuestContactMessages(
+        [FromQuery] int page = 1, [FromQuery] int pageSize = 20, CancellationToken ct = default)
+        => RespondPaged(await Sender.Send(new ListGuestContactMessagesQuery(page, pageSize), ct));
+
+    [HttpGet("support/contact-messages/{messageId:long}")]
+    public async Task<IActionResult> GetGuestContactMessage(long messageId, CancellationToken ct = default)
+        => Respond(await Sender.Send(new GetGuestContactMessageDetailQuery(messageId), ct));
 }

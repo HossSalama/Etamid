@@ -28,3 +28,13 @@ public sealed class SupportTicketMessage : CreatedEntity<long>
     public string Message { get; set; } = string.Empty;
     public long? FileId { get; set; }
 }
+
+/// <summary>A message from the public website contact form. No login, so it is NOT a
+/// SupportTicket (whose UserId is non-nullable) — the admin reads it from its own list.</summary>
+public sealed class GuestContactMessage : CreatedEntity<long>
+{
+    public string Name { get; set; } = string.Empty;
+    public string Channel { get; set; } = string.Empty;
+    public string Subject { get; set; } = string.Empty;
+    public string Message { get; set; } = string.Empty;
+}

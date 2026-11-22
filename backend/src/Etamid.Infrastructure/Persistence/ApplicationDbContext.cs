@@ -67,6 +67,7 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
     public DbSet<DisputeSettlementProposal> DisputeSettlementProposals => Set<DisputeSettlementProposal>();
     public DbSet<SupportTicket> SupportTickets => Set<SupportTicket>();
     public DbSet<SupportTicketMessage> SupportTicketMessages => Set<SupportTicketMessage>();
+    public DbSet<GuestContactMessage> GuestContactMessages => Set<GuestContactMessage>();
 
     // G: Company deals
     public DbSet<CompanyDeal> CompanyDeals => Set<CompanyDeal>();

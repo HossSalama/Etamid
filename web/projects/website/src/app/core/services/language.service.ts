@@ -804,6 +804,7 @@ export class LanguageService {
       page_contact_message: 'رسالتك',
       page_contact_submit: 'إرسال الرسالة',
       page_contact_sent: 'تم إرسال رسالتك بنجاح، سنرد عليك قريبًا.',
+      page_contact_error: 'تعذّر إرسال رسالتك. حاول مرة أخرى.',
 
       // Terms & Privacy
       page_terms_nav: 'الشروط والأحكام',
@@ -1631,6 +1632,7 @@ export class LanguageService {
       page_contact_message: 'Your message',
       page_contact_submit: 'Send message',
       page_contact_sent: 'Your message was sent successfully, we will reply soon.',
+      page_contact_error: 'Could not send your message. Please try again.',
 
       // Terms & Privacy
       page_terms_nav: 'Terms',

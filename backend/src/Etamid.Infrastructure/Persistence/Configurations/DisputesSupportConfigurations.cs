@@ -102,3 +102,15 @@ public sealed class SupportTicketMessageConfiguration : IEntityTypeConfiguration
         b.ForeignKey<SupportTicketMessage, StoredFile>(x => x.FileId);
     }
 }
+
+public sealed class GuestContactMessageConfiguration : IEntityTypeConfiguration<GuestContactMessage>
+{
+    public void Configure(EntityTypeBuilder<GuestContactMessage> b)
+    {
+        b.Property(x => x.Name).HasMaxLength(150);
+        b.Property(x => x.Channel).HasMaxLength(254);
+        b.Property(x => x.Subject).HasMaxLength(150);
+        b.Property(x => x.Message).HasColumnType("nvarchar(max)");
+        b.HasIndex(x => x.CreatedAt);
+    }
+}

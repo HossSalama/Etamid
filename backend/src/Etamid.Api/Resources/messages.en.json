@@ -195,6 +195,7 @@
   "DISPUTE_INVALID_STATE": "This action cannot be performed on the dispute in its current state.",
   "SUPPORT_TICKET_NOT_FOUND": "Support ticket not found.",
   "SUPPORT_TICKET_INVALID_STATE": "This action cannot be performed on the ticket in its current state.",
+  "GUEST_CONTACT_NOT_FOUND": "Contact message not found.",
   "DISPUTE_ACTION_NOT_ALLOWED": "You cannot perform this action on this dispute.",
   "DISPUTE_NOT_OPERATOR": "This action is for dispute operators only.",
   "DISPUTE_ALREADY_RESOLVED": "This dispute has already been resolved.",

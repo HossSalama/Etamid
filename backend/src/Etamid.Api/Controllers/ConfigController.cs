@@ -35,6 +35,12 @@ public sealed class SupportController : BaseApiController
     public async Task<IActionResult> Contact(CreateContactMessageCommand command, CancellationToken ct)
         => Respond(await Sender.Send(command, ct), "SUPPORT_CONTACT_SENT", StatusCodes.Status201Created);
 
+    // The public website contact form: no login, stored as a guest message (not a ticket).
+    [AllowAnonymous]
+    [HttpPost("contact-public")]
+    public async Task<IActionResult> ContactPublic(CreateGuestContactMessageCommand command, CancellationToken ct)
+        => Respond(await Sender.Send(command, ct), "SUPPORT_CONTACT_SENT", StatusCodes.Status201Created);
+
     [HttpPost("tickets")]
     public async Task<IActionResult> CreateTicket(CreateSupportTicketCommand command, CancellationToken ct)
         => Respond(await Sender.Send(command, ct), "SUPPORT_TICKET_CREATED", StatusCodes.Status201Created);
