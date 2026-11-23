@@ -4,48 +4,6 @@ import { AuthService } from '../../core/services/auth.service';
 import { DealDetail, DealsService, LookupItem, UserAddress } from '../../core/services/deals.service';
 import { LanguageService } from '../../core/services/language.service';
 
-/** Platform fee in SAR — fixed by AppSettings (platform_fee_amount). */
-const PLATFORM_FEE_SAR = 50;
-
-/** Default mockup deal matching Figma design if no active backend deal loaded */
-const SAMPLE_DEAL: DealDetail = {
-  id: 45872,
-  number: 45872,
-  title: 'iPhone 18 Pro Max 1T',
-  description: 'شراء جهاز iPhone 18 Pro Max جديد وأصلي، على أن يكون الجهاز مطابقاً للمواصفات المتفق عليها، وغير مستخدم أو مفتوح مسبقاً، مع تسليم المنتج بالحالة المتفق عليها كاملة.',
-  amount: 6200,
-  currency: 'SAR',
-  status: 'funded',
-  role: 'buyer',
-  counterpartyName: 'Mobile Shop',
-  counterpartyCode: 'MOB-994',
-  durationValue: 5,
-  durationUnit: 'day',
-  needShipping: true,
-  shippingCompanyId: null,
-  shippingAddressId: null,
-  feeAmount: 50,
-  sellerNetAmount: 6150,
-  isDisputed: false,
-  createdAt: '2026-09-20T11:45:00Z',
-  respondDeadlineAt: '2026-09-25T11:45:00Z',
-  acceptedAt: '2026-09-20T12:00:00Z',
-  fundedAt: '2026-09-20T12:05:00Z',
-  deliveredAt: null,
-  inspectionEndsAt: null,
-  completedAt: null,
-  expiresAt: null,
-  contractHash: 'e8f7a19c4b2203d987e35b710246a81c5d9f03e2',
-  pendingEdit: null,
-  availableActions: ['release', 'dispute'],
-  timeline: [],
-  imageUrl: null,
-  shippingCompanyNameAr: 'أرامكس',
-  shippingCompanyNameEn: 'Aramex',
-  shippingAddressText: '',
-  badge: { text: 'مبلغ محجوز', color: 'green', remainingSeconds: 0 },
-};
-
 @Component({
   selector: 'app-deal-detail',
   standalone: true,
@@ -64,13 +22,22 @@ const SAMPLE_DEAL: DealDetail = {
       </header>
 
       <main class="figma-content">
+        @if (isLoading()) {
+          <p class="detail-loading" role="status">{{ lang.t('home_deals_loading') }}</p>
+        } @else if (loadError()) {
+          <section class="figma-card detail-error-card">
+            <p class="detail-error-text">{{ lang.t(loadError()!) }}</p>
+            <button type="button" class="btn-action-coral" (click)="load()">{{ lang.t('home_deals_refresh') }}</button>
+            <button type="button" class="btn-action-outline" (click)="goBack()">{{ lang.t('back') }}</button>
+          </section>
+        } @else if (deal(); as d) {
         <!-- 1. Main Deal Product & Seller Card -->
         <section class="figma-card deal-main-card">
           <!-- Top Row: Thumbnail on left (or right in LTR), Title & Price on right -->
           <div class="deal-top-row">
             <div class="product-thumb-container">
-              @if (currentDeal().imageUrl) {
-                <img [src]="currentDeal().imageUrl" [alt]="currentDeal().title" class="product-thumb-img" />
+              @if (d.imageUrl) {
+                <img [src]="d.imageUrl" [alt]="d.title" class="product-thumb-img" />
               } @else {
                 <!-- High-fidelity Phone Mockup matching the Figma purple iPhone -->
                 <div class="phone-mockup-thumb" aria-hidden="true">
@@ -87,12 +54,12 @@ const SAMPLE_DEAL: DealDetail = {
 
             <div class="deal-header-info">
               <div class="deal-code-pill">
-                <span class="code-number">#{{ currentDeal().number }}</span>
+                <span class="code-number">#{{ d.number }}</span>
                 <span class="code-icon" aria-hidden="true">📄</span>
               </div>
-              <h2 class="deal-title">{{ currentDeal().title }}</h2>
+              <h2 class="deal-title">{{ d.title }}</h2>
               <div class="deal-price-row">
-                <span class="deal-price-amount">{{ (currentDeal().amount).toLocaleString() }}</span>
+                <span class="deal-price-amount">{{ (d.amount).toLocaleString() }}</span>
                 <span class="deal-price-currency">ريال</span>
               </div>
             </div>
@@ -111,7 +78,7 @@ const SAMPLE_DEAL: DealDetail = {
               </div>
               <div class="seller-texts">
                 <span class="seller-label">البائع</span>
-                <strong class="seller-name">{{ currentDeal().counterpartyName || 'Mobile Shop' }}</strong>
+                <strong class="seller-name">{{ d.counterpartyName }}</strong>
               </div>
             </div>
 
@@ -134,7 +101,7 @@ const SAMPLE_DEAL: DealDetail = {
               </svg>
             </span>
             <span class="escrow-text">
-              تم حجز المبلغ لحين انتهاء الصفقة ({{ (currentDeal().amount).toLocaleString() }} ريال).
+              تم حجز المبلغ لحين انتهاء الصفقة ({{ (d.amount).toLocaleString() }} ريال).
             </span>
           </div>
         </section>
@@ -148,7 +115,7 @@ const SAMPLE_DEAL: DealDetail = {
           </div>
           <div class="info-data-row">
             <span class="info-label">مدة التنفيذ:</span>
-            <span class="info-val">{{ currentDeal().durationValue || 5 }} {{ currentDeal().durationUnit === 'hour' ? 'ساعات' : 'ايام عمل' }}</span>
+            <span class="info-val">{{ d.durationValue }} {{ d.durationUnit === 'hour' ? 'ساعات' : 'ايام عمل' }}</span>
           </div>
           <div class="info-data-row">
             <span class="info-label">طريقة الدفع:</span>
@@ -162,7 +129,7 @@ const SAMPLE_DEAL: DealDetail = {
         <section class="figma-card">
           <h3 class="card-section-title">تفاصيل الاتفاق</h3>
           <p class="agreement-text-body">
-            {{ currentDeal().description || 'شراء جهاز iPhone 18 Pro Max جديد وأصلي، على أن يكون الجهاز مطابقاً للمواصفات المتفق عليها، وغير مستخدم أو مفتوح مسبقاً، مع تسليم المنتج بالحالة المتفق عليها كاملة.' }}
+            {{ d.description }}
           </p>
         </section>
 
@@ -170,48 +137,52 @@ const SAMPLE_DEAL: DealDetail = {
         <section class="figma-card">
           <h3 class="card-section-title">عنوان الشحن</h3>
           <p class="shipping-address-body">
-            {{ currentDeal().shippingAddressText || lang.t('addresses_empty') }}
+            {{ d.shippingAddressText || lang.t('addresses_empty') }}
           </p>
         </section>
 
         <!-- Contextual Action Buttons if action is needed (Accept, Deliver, Release, Dispute, etc.) -->
-        @if (currentDeal().availableActions.includes('accept')) {
+        @if (d.availableActions.includes('accept')) {
           <button type="button" class="btn-action-coral" (click)="startAccept()" [disabled]="isProcessing()">
             قبول المعاملة
           </button>
         }
-        @if (currentDeal().availableActions.includes('fund') && !showFakePay()) {
+        @if (d.availableActions.includes('fund') && !showFakePay()) {
           <button type="button" class="btn-action-coral" (click)="fund()" [disabled]="isProcessing()">
             دفع وحجز المبلغ في الضمان
           </button>
         }
-        @if (currentDeal().availableActions.includes('deliver')) {
+        @if (d.availableActions.includes('deliver')) {
           <button type="button" class="btn-action-coral" (click)="deliver()" [disabled]="isProcessing()">
             تأكيد تسليم الطلب
           </button>
         }
-        @if (currentDeal().availableActions.includes('release')) {
+        @if (d.availableActions.includes('release')) {
           <button type="button" class="btn-action-coral" (click)="release()" [disabled]="isProcessing()">
             تأكيد استلام الطلب وتحرير المبلغ
           </button>
         }
-        @if (currentDeal().availableActions.includes('dispute')) {
-          <a class="btn-action-outline" [routerLink]="['/deals', currentDeal().id, 'dispute']">
+        @if (d.availableActions.includes('dispute')) {
+          <a class="btn-action-outline" [routerLink]="['/deals', d.id, 'dispute']">
             فتح نزاع
           </a>
         }
 
         <!-- 5. Bottom Solid Black Button: تحميل العقد الالكتروني -->
-        <button type="button" class="btn-figma-primary" (click)="downloadContract()">
-          تحميل العقد الالكتروني
-        </button>
+        @if (d.contractHash) {
+          <button type="button" class="btn-figma-primary" (click)="downloadContract()">
+            تحميل العقد الالكتروني
+          </button>
+        }
 
         @if (actionError()) {
           <p class="detail-error" role="alert">{{ lang.t(actionError()!) }}</p>
         }
+        }
       </main>
 
       <!-- Electronic Contract Modal -->
+      @if (deal(); as d) {
       @if (showContractModal()) {
         <div class="contract-modal-backdrop" (click)="closeContractModal()">
           <div class="contract-modal-box" (click)="$event.stopPropagation()">
@@ -225,33 +196,31 @@ const SAMPLE_DEAL: DealDetail = {
                 <span class="seal-verified">✔ عقد موثق ومحمي برقم ضمان</span>
               </div>
               <div class="contract-meta-grid">
-                <div><strong>رقم المعاملة:</strong> #{{ currentDeal().number }}</div>
+                <div><strong>رقم المعاملة:</strong> #{{ d.number }}</div>
                 <div><strong>التاريخ:</strong> {{ formattedOrderDate() }}</div>
-                <div><strong>البائع:</strong> {{ currentDeal().counterpartyName || 'Mobile Shop' }}</div>
-                <div><strong>المبلغ:</strong> {{ (currentDeal().amount).toLocaleString() }} ريال سعودي</div>
+                <div><strong>البائع:</strong> {{ d.counterpartyName }}</div>
+                <div><strong>المبلغ:</strong> {{ (d.amount).toLocaleString() }} ريال سعودي</div>
               </div>
               <div class="contract-clause">
                 <h4>شروط وضمانات المعاملة:</h4>
-                <p>{{ currentDeal().description || 'شراء جهاز iPhone 18 Pro Max جديد وأصلي، على أن يكون الجهاز مطابقاً للمواصفات المتفق عليها، وغير مستخدم أو مفتوح مسبقاً، مع تسليم المنتج بالحالة المتفق عليها كاملة.' }}</p>
+                <p>{{ d.description }}</p>
                 <p class="escrow-clause-note">
                   يتم حجز كامل المبلغ في حساب الضمان التابع لمنصة اعْتَمِدْ ولا يتم تحريره للبائع إلا بعد تأكيد استلام المشتري للمنتج ومعاينته والتأكد من مطابقته لكافة المواصفات والشروط المتفق عليها.
                 </p>
               </div>
               <div class="contract-hash-box">
                 <small>رمز التوثيق الإلكتروني المشفر (SHA-256):</small>
-                <code>{{ currentDeal().contractHash || 'e8f7a19c4b2203d987e35b710246a81c5d9f03e2' }}</code>
+                <code>{{ d.contractHash }}</code>
               </div>
             </div>
             <div class="contract-modal-actions">
-              <button type="button" class="btn-figma-primary" (click)="printContract()">
-                طباعة / حفظ PDF
-              </button>
               <button type="button" class="btn-action-outline" (click)="closeContractModal()">
                 إغلاق
               </button>
             </div>
           </div>
         </div>
+      }
       }
     </div>
   `,
@@ -721,6 +690,29 @@ const SAMPLE_DEAL: DealDetail = {
       text-align: center;
     }
 
+    /* Loading & load-error states (no fake deal is ever shown) */
+    .detail-loading {
+      color: #6b7280;
+      font-weight: 700;
+      font-size: 0.9rem;
+      text-align: center;
+      margin: 2rem 0;
+    }
+
+    .detail-error-card {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      text-align: center;
+    }
+
+    .detail-error-text {
+      color: #b91c1c;
+      font-weight: 700;
+      font-size: 0.9rem;
+      margin: 0;
+    }
+
     /* Contract Modal */
     .contract-modal-backdrop {
       position: fixed;
@@ -854,20 +846,6 @@ const SAMPLE_DEAL: DealDetail = {
       gap: 0.5rem;
     }
 
-    @media print {
-      body * {
-        visibility: hidden;
-      }
-      #printable-contract, #printable-contract * {
-        visibility: visible;
-      }
-      #printable-contract {
-        position: absolute;
-        left: 0;
-        top: 0;
-        width: 100%;
-      }
-    }
   `],
 })
 export class DealDetailComponent {
@@ -886,18 +864,12 @@ export class DealDetailComponent {
   readonly showFakePay = signal(false);
   readonly showContractModal = signal(false);
 
-  readonly currentDeal = computed<DealDetail>(() => {
-    return this.deal() ?? SAMPLE_DEAL;
-  });
-
-  readonly fee = computed(() => this.currentDeal().feeAmount ?? PLATFORM_FEE_SAR);
-
   readonly formattedOrderDate = computed(() => {
-    const raw = this.currentDeal().createdAt;
-    if (!raw) return '2026-9-20 / 11:45 ص';
+    const raw = this.deal()?.createdAt;
+    if (!raw) return '—';
     try {
       const d = new Date(raw);
-      if (isNaN(d.getTime())) return '2026-9-20 / 11:45 ص';
+      if (isNaN(d.getTime())) return '—';
       const year = d.getFullYear();
       const month = d.getMonth() + 1;
       const day = d.getDate();
@@ -907,7 +879,7 @@ export class DealDetailComponent {
       hours = hours % 12 || 12;
       return `${year}-${month}-${day} / ${hours}:${mins} ${ampm}`;
     } catch {
-      return '2026-9-20 / 11:45 ص';
+      return '—';
     }
   });
 
@@ -918,15 +890,16 @@ export class DealDetailComponent {
   load(): void {
     const id = Number(this.route.snapshot.paramMap.get('id'));
     if (!id) {
+      // No id in the URL: a bad link, not a deal to show.
       this.isLoading.set(false);
-      this.deal.set(SAMPLE_DEAL);
+      this.loadError.set('deal_detail_not_found');
       return;
     }
 
     if (!this.authService.isAuthenticated()) {
-      // Allow viewing sample deal even when not authenticated
-      this.isLoading.set(false);
-      this.deal.set({ ...SAMPLE_DEAL, id, number: id });
+      // Deal details are for logged-in users only (senior decision, 22 Nov
+      // 2026): guests go to login instead of seeing a sample deal.
+      void this.router.navigate(['/auth/login']);
       return;
     }
 
@@ -938,14 +911,13 @@ export class DealDetailComponent {
         if (response.success && response.data) {
           this.deal.set(response.data);
         } else {
-          // Graceful fallback to Figma mock data with requested id
-          this.deal.set({ ...SAMPLE_DEAL, id, number: id });
+          // No fallback: a failed load shows the error card, never fake data.
+          this.loadError.set('deal_detail_load_error');
         }
       },
       error: () => {
         this.isLoading.set(false);
-        // Fallback to sample mockup
-        this.deal.set({ ...SAMPLE_DEAL, id, number: id });
+        this.loadError.set('deal_detail_load_error');
       },
     });
   }
@@ -959,13 +931,17 @@ export class DealDetailComponent {
   }
 
   openWhatsApp(): void {
-    const d = this.currentDeal();
+    const d = this.deal();
+    if (!d) return;
     const phone = '+966501234567';
     const text = encodeURIComponent(`مرحباً، بخصوص المعاملة رقم #${d.number} (${d.title}) على منصة اعْتَمِدْ.`);
     globalThis.open(`https://wa.me/${phone}?text=${text}`, '_blank');
   }
 
   downloadContract(): void {
+    // The contract only exists once the deal is accepted (the hash is set by
+    // Deal.Accept); without a real hash there is nothing to show.
+    if (!this.deal()?.contractHash) return;
     this.showContractModal.set(true);
   }
 
@@ -973,12 +949,9 @@ export class DealDetailComponent {
     this.showContractModal.set(false);
   }
 
-  printContract(): void {
-    globalThis.print();
-  }
-
   startAccept(): void {
-    const d = this.currentDeal();
+    const d = this.deal();
+    if (!d) return;
     void this.router.navigate(['/deals', d.id, 'accept']);
   }
 
