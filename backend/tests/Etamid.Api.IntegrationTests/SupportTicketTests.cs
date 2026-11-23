@@ -53,7 +53,7 @@ public class SupportTicketTests(EtamidFactory factory) : IClassFixture<EtamidFac
     private async Task<long> TicketSubjectId(string code)
     {
         var body = await Data(await _anon.GetAsync("/api/v1/lookups/ticket-subjects"));
-        foreach (var item in body.EnumerateArray())
+        foreach (var item in body.GetProperty("subjects").EnumerateArray())
             if (item.GetProperty("code").GetString() == code)
                 return item.GetProperty("id").GetInt64();
         throw new InvalidOperationException($"Ticket subject '{code}' not seeded.");
@@ -103,12 +103,14 @@ public class SupportTicketTests(EtamidFactory factory) : IClassFixture<EtamidFac
     }
 
     [Fact]
-    public async Task Lookups_ticket_subjects_returns_five()
+    public async Task Lookups_ticket_subjects_returns_five_with_whatsapp()
     {
         var body = await Data(await _anon.GetAsync("/api/v1/lookups/ticket-subjects"));
 
-        body.GetArrayLength().Should().Be(5);
-        body.EnumerateArray().Select(i => i.GetProperty("code").GetString()).Should()
+        body.GetProperty("supportWhatsapp").GetString().Should().NotBeNull();
+        var subjects = body.GetProperty("subjects");
+        subjects.GetArrayLength().Should().Be(5);
+        subjects.EnumerateArray().Select(i => i.GetProperty("code").GetString()).Should()
             .BeEquivalentTo(["payment", "deal", "account", "technical", "other"]);
     }
 

@@ -7,7 +7,7 @@ public sealed record RegisterResultDto(string Phone, string Email, string Verifi
 
 public sealed record ResetVerifiedDto(int ExpiresInSeconds);
 
-public sealed record BankAccountDto(string HolderName, string IbanMasked, string BankName, string? BankLogoUrl);
+public sealed record BankAccountDto(string HolderName, string IbanMasked, string BankName, string? BankLogoUrl, long BankId);
 
 public sealed record CompanyInfoDto(string CommercialRegNo, string? TaxNo);
 

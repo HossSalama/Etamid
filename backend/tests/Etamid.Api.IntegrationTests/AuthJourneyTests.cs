@@ -1,6 +1,8 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 
 namespace Etamid.Api.IntegrationTests;
@@ -79,6 +81,75 @@ public class AuthJourneyTests(EtamidFactory factory) : IClassFixture<EtamidFacto
 
         (await Post("/api/v1/auth/login", new { phone = "0501110001", password = Password })).StatusCode.Should().Be(HttpStatusCode.OK);
     }
+
+    [Fact]
+    public async Task Reused_refresh_token_returns_401()
+    {
+        var data = await RegisterAndVerify("0501110003", "reuse401@example.com");
+        var refresh = data.GetProperty("refreshToken").GetString()!;
+
+        (await Post("/api/v1/auth/refresh", new { refreshToken = refresh })).StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var reused = await Post("/api/v1/auth/refresh", new { refreshToken = refresh });
+        reused.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        Code(await Json(reused)).Should().Be("REFRESH_REUSED");
+    }
+
+    [Fact]
+    public async Task Expired_access_token_returns_401()
+    {
+        var req = new HttpRequestMessage(HttpMethod.Get, "/api/v1/me");
+        req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ExpiredAccessToken());
+        var res = await _client.SendAsync(req);
+        res.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        Code(await Json(res)).Should().Be("TOKEN_EXPIRED");
+    }
+
+    [Fact]
+    public async Task Expired_refresh_token_returns_401()
+    {
+        var data = await RegisterAndVerify("0501110016", "expired-refresh@example.com");
+        var refresh = data.GetProperty("refreshToken").GetString()!;
+
+        // Move past the 30-day refresh-token lifetime, then restore the clock.
+        factory.Clock.Advance(TimeSpan.FromDays(31));
+        try
+        {
+            var res = await Post("/api/v1/auth/refresh", new { refreshToken = refresh });
+            res.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+            Code(await Json(res)).Should().Be("TOKEN_INVALID");
+        }
+        finally
+        {
+            factory.Clock.Advance(TimeSpan.FromDays(-31));
+        }
+    }
+
+    /// <summary>Hand-built expired JWT: same secret the factory sets
+    /// (EtamidFactory), issuer/audience from the Jwt defaults.</summary>
+    private static string ExpiredAccessToken()
+    {
+        const string secret = "integration-tests-secret-0123456789-abcdef";
+        var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        var header = Base64Url("{\"alg\":\"HS256\",\"typ\":\"JWT\"}");
+        var payload = Base64Url(JsonSerializer.Serialize(new
+        {
+            iss = "etamid",
+            aud = "etamid-clients",
+            sub = "1",
+            exp = now - 300,
+            nbf = now - 600,
+            iat = now - 600
+        }));
+        var data = $"{header}.{payload}";
+        using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(secret));
+        var signature = Convert.ToBase64String(hmac.ComputeHash(Encoding.UTF8.GetBytes(data)))
+            .TrimEnd('=').Replace('+', '-').Replace('/', '_');
+        return $"{data}.{signature}";
+    }
+
+    private static string Base64Url(string text)
+        => Convert.ToBase64String(Encoding.UTF8.GetBytes(text)).TrimEnd('=').Replace('+', '-').Replace('/', '_');
 
     [Fact]
     public async Task A_code_works_once()
