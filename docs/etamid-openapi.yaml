@@ -2231,6 +2231,12 @@ paths:
       tags: [Support]
       summary: الأسئلة الشائعة
       security: []
+      parameters:
+        - name: search
+          in: query
+          required: false
+          schema: { type: string }
+          description: يصفّي حسب السؤال أو الإجابة، بالعربية أو الإنجليزية؛ فارغ = كل الأسئلة
       responses:
         "200":
           description: OK
@@ -2250,21 +2256,20 @@ paths:
                             question: { type: string }
                             answer: { type: string }
   /support/contact:
-    # [NOT IMPLEMENTED] غير منفذ في الكود الحالي — لا يستخدمه الموبايل
     post:
       tags: [Support]
-      summary: تواصل معنا (إنشاء تذكرة)
+      summary: تواصل معنا (إنشاء تذكرة) — للمستخدم المسجّل فقط
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [subject, message]
+              required: [message]
               properties:
-                subject: { type: string }
-                message: { type: string }
-                dealId: { type: integer, nullable: true }
+                subjectId: { type: integer, nullable: true, description: 'من /lookups/ticket-subjects' }
+                subject: { type: string, nullable: true, description: 'نص حر بديل عن subjectId' }
+                message: { type: string, maxLength: 200 }
       responses:
         "201": { $ref: '#/components/responses/Ok' }
   /support/tickets:

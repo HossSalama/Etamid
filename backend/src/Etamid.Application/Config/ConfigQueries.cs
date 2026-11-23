@@ -111,13 +111,31 @@ public sealed class GetLookupsHandler(IApplicationDbContext db, IFileUrlResolver
 }
 
 // ---------- FAQs
-public sealed record GetFaqsQuery : IRequest<Result<IReadOnlyList<FaqDto>>>;
+public sealed record GetFaqsQuery(string? Search = null) : IRequest<Result<IReadOnlyList<FaqDto>>>;
 
 public sealed class GetFaqsHandler(IApplicationDbContext db) : IRequestHandler<GetFaqsQuery, Result<IReadOnlyList<FaqDto>>>
 {
     public async Task<Result<IReadOnlyList<FaqDto>>> Handle(GetFaqsQuery request, CancellationToken ct)
     {
-        var faqs = await db.Faqs.AsNoTracking().Where(f => f.IsActive).OrderBy(f => f.SortOrder).ToListAsync(ct);
+        // Search matches the question or the answer, in either language, so the
+        // user can type Arabic while the UI is English and vice versa. Lowered
+        // on both sides: SQL Server LIKE is case-insensitive by collation, the
+        // in-memory test database is not, so normalizing keeps both identical.
+        var term = (request.Search ?? string.Empty).Trim();
+        if (term.Length > 100) term = term[..100];
+
+        var query = db.Faqs.AsNoTracking().Where(f => f.IsActive);
+        if (term.Length > 0)
+        {
+            var lowered = term.ToLowerInvariant();
+            query = query.Where(f =>
+                f.QuestionAr.ToLower().Contains(lowered) ||
+                f.QuestionEn.ToLower().Contains(lowered) ||
+                f.AnswerAr.ToLower().Contains(lowered) ||
+                f.AnswerEn.ToLower().Contains(lowered));
+        }
+
+        var faqs = await query.OrderBy(f => f.SortOrder).ToListAsync(ct);
 
         IReadOnlyList<FaqDto> result = faqs
             .Select(f => new FaqDto(f.Id, LanguageHelper.Pick(f.QuestionAr, f.QuestionEn), LanguageHelper.Pick(f.AnswerAr, f.AnswerEn)))

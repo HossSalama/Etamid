@@ -1048,8 +1048,8 @@ namespace Etamid.Infrastructure.Migrations
                         new
                         {
                             Id = 1L,
-                            AnswerAr = "منصة وساطة مالية تحفظ أموال الصفقة بين المشتري والبائع حتى يتم التسليم والموافقة.",
-                            AnswerEn = "A financial escrow platform that holds the deal amount between buyer and seller until delivery is confirmed.",
+                            AnswerAr = "منصة اعتمد هي منصة وساطة مالية تحفظ أموال الصفقة بين المشتري والبائع حتى يتم التسليم والموافقة على المنتج.",
+                            AnswerEn = "Etamid is a financial escrow platform that holds the deal amount between the buyer and the seller until the product is delivered and approved.",
                             IsActive = true,
                             QuestionAr = "ما هي منصة اعتمد؟",
                             QuestionEn = "What is Etamid?",
@@ -1059,34 +1059,56 @@ namespace Etamid.Infrastructure.Migrations
                         new
                         {
                             Id = 2L,
-                            AnswerAr = "رسوم ثابتة قدرها 50 ريال على البائع لكل صفقة.",
-                            AnswerEn = "A fixed fee of 50 SAR per deal, paid by the seller.",
+                            AnswerAr = "سجّل برقم جوالك وكلمة مرور، ثم أدخل رمز التحقق المرسل إلى بريدك الإلكتروني. بعدها يمكنك إكمال بيانات حسابك، وإذا كنت بائعاً أنشئ متجرك من صفحة حسابي.",
+                            AnswerEn = "Register with your phone number and a password, then enter the verification code sent to your email. After that you can complete your profile, and if you are a seller, create your store from your account page.",
                             IsActive = true,
-                            QuestionAr = "كم رسوم المنصة؟",
-                            QuestionEn = "What are the platform fees?",
+                            QuestionAr = "كيف يمكنني إنشاء حساب جديد؟",
+                            QuestionEn = "How do I create a new account?",
                             SortOrder = 2,
                             UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
                         },
                         new
                         {
                             Id = 3L,
-                            AnswerAr = "الدفع عن طريق التحويل البنكي إلى حساب المنصة وسيتم تأكيده بعد التحقق.",
-                            AnswerEn = "Payment is by bank transfer to the platform account and is confirmed after verification.",
+                            AnswerAr = "ادفع من صفحة الصفقة بعد قبولها؛ يتم حجز المبلغ في حساب الضمان ولا يصل إلى البائع إلا بعد استلامك المنتج وموافقتك عليه.",
+                            AnswerEn = "Pay from the deal page after it is accepted; the amount is held in the escrow account and reaches the seller only after you receive the product and approve it.",
                             IsActive = true,
-                            QuestionAr = "كيف أدفع قيمة الصفقة؟",
-                            QuestionEn = "How do I pay for a deal?",
+                            QuestionAr = "كيف يمكنني الدفع في المنصة؟",
+                            QuestionEn = "How do I pay on the platform?",
                             SortOrder = 3,
                             UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
                         },
                         new
                         {
                             Id = 4L,
-                            AnswerAr = "يمكنك فتح نزاع من صفحة الصفقة وسيتم تجميد المبلغ حتى صدور القرار.",
-                            AnswerEn = "You can open a dispute from the deal page and the amount stays frozen until a decision is made.",
+                            AnswerAr = "نعم، بياناتك محمية ولا تُشارك مع الطرف الآخر إلا ما يلزم لإتمام الصفقة، وأموال الصفقات محفوظة في حساب الضمان.",
+                            AnswerEn = "Yes, your data is protected and is only shared with the other party as needed to complete the deal, and deal funds are held in the escrow account.",
                             IsActive = true,
-                            QuestionAr = "ماذا أفعل إذا لم أستلم المنتج؟",
-                            QuestionEn = "What if I do not receive the product?",
+                            QuestionAr = "هل بياناتي الشخصية والمالية آمنة؟",
+                            QuestionEn = "Is my personal and financial data safe?",
                             SortOrder = 4,
+                            UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = 5L,
+                            AnswerAr = "رسوم المنصة ثابتة قدرها 50 ريال على البائع لكل صفقة، ولا توجد رسوم على المشتري.",
+                            AnswerEn = "The platform fee is a fixed 50 SAR per deal, paid by the seller. There is no fee for the buyer.",
+                            IsActive = true,
+                            QuestionAr = "هل توجد رسوم لاستخدام المنصة؟",
+                            QuestionEn = "Are there fees for using the platform?",
+                            SortOrder = 5,
+                            UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = 6L,
+                            AnswerAr = "من صفحة صفقاتي تتابع حالة كل صفقة خطوة بخطوة، ومن صفحة طلبات الدعم تتابع ردود فريق الدعم على طلباتك.",
+                            AnswerEn = "From the My Deals page you can follow each deal step by step, and from the Support Requests page you can follow the support team's replies to your requests.",
+                            IsActive = true,
+                            QuestionAr = "كيف يمكنني متابعة طلباتي؟",
+                            QuestionEn = "How do I track my requests?",
+                            SortOrder = 6,
                             UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
                         });
                 });
@@ -1387,6 +1409,56 @@ namespace Etamid.Infrastructure.Migrations
                             NameEn = "Other",
                             SortOrder = 5,
                             Type = "store_category"
+                        },
+                        new
+                        {
+                            Id = 26L,
+                            Code = "payment",
+                            IsActive = true,
+                            NameAr = "الدفع والتحويلات",
+                            NameEn = "Payments and transfers",
+                            SortOrder = 1,
+                            Type = "ticket_subject"
+                        },
+                        new
+                        {
+                            Id = 27L,
+                            Code = "deal",
+                            IsActive = true,
+                            NameAr = "صفقة",
+                            NameEn = "A deal",
+                            SortOrder = 2,
+                            Type = "ticket_subject"
+                        },
+                        new
+                        {
+                            Id = 28L,
+                            Code = "account",
+                            IsActive = true,
+                            NameAr = "الحساب والتحقق",
+                            NameEn = "Account and verification",
+                            SortOrder = 3,
+                            Type = "ticket_subject"
+                        },
+                        new
+                        {
+                            Id = 29L,
+                            Code = "technical",
+                            IsActive = true,
+                            NameAr = "مشكلة تقنية",
+                            NameEn = "Technical issue",
+                            SortOrder = 4,
+                            Type = "ticket_subject"
+                        },
+                        new
+                        {
+                            Id = 30L,
+                            Code = "other",
+                            IsActive = true,
+                            NameAr = "موضوع آخر",
+                            NameEn = "Other",
+                            SortOrder = 5,
+                            Type = "ticket_subject"
                         });
                 });
 
@@ -3749,6 +3821,44 @@ namespace Etamid.Infrastructure.Migrations
                     b.ToTable("NotificationTemplates");
                 });
 
+            modelBuilder.Entity("Etamid.Domain.Support.GuestContactMessage", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("Channel")
+                        .IsRequired()
+                        .HasMaxLength(254)
+                        .HasColumnType("nvarchar(254)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<string>("Subject")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedAt");
+
+                    b.ToTable("GuestContactMessages");
+                });
+
             modelBuilder.Entity("Etamid.Domain.Support.SupportTicket", b =>
                 {
                     b.Property<long>("Id")
@@ -4616,15 +4726,6 @@ namespace Etamid.Infrastructure.Migrations
                     b.Navigation("History");
                 });
 
-            modelBuilder.Entity("Etamid.Domain.Identity.User", b =>
-                {
-                    b.Navigation("CompanyProfile");
-                });
-
-            modelBuilder.Entity("Etamid.Domain.Money.LedgerTransaction", b =>
-                {
-                    b.Navigation("Entries");
-                });
             modelBuilder.Entity("Etamid.Domain.Disputes.Dispute", b =>
                 {
                     b.Navigation("Attachments");
@@ -4633,6 +4734,16 @@ namespace Etamid.Infrastructure.Migrations
             modelBuilder.Entity("Etamid.Domain.Disputes.DisputeMessage", b =>
                 {
                     b.Navigation("Attachments");
+                });
+
+            modelBuilder.Entity("Etamid.Domain.Identity.User", b =>
+                {
+                    b.Navigation("CompanyProfile");
+                });
+
+            modelBuilder.Entity("Etamid.Domain.Money.LedgerTransaction", b =>
+                {
+                    b.Navigation("Entries");
                 });
 #pragma warning restore 612, 618
         }

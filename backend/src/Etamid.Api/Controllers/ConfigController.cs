@@ -25,10 +25,11 @@ public sealed class LookupsController : BaseApiController
 [Authorize]
 public sealed class SupportController : BaseApiController
 {
+    // ?search= filters question + answer in both languages; empty = all FAQs.
     [AllowAnonymous]
     [HttpGet("faqs")]
-    public async Task<IActionResult> Faqs(CancellationToken ct)
-        => Respond(await Sender.Send(new GetFaqsQuery(), ct));
+    public async Task<IActionResult> Faqs([FromQuery] string? search, CancellationToken ct)
+        => Respond(await Sender.Send(new GetFaqsQuery(search), ct));
 
     // The contact form creates a ticket: subject (dropdown) + message (max 200 chars).
     [HttpPost("contact")]
