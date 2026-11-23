@@ -1,4 +1,6 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, DestroyRef, OnInit, inject, signal } from '@angular/core';
+import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
+import { skip } from 'rxjs';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import {
@@ -380,7 +382,13 @@ export class OpenDisputePageComponent implements OnInit {
   private readonly router = inject(Router);
   private readonly auth = inject(AuthService);
   private readonly dealsApi = inject(DealsService);
+  private readonly destroyRef = inject(DestroyRef);
   readonly lang = inject(LanguageService);
+  // toObservable() needs an injection context (constructor / field
+  // initializer) — calling it in ngOnInit throws at runtime (NG0203) and
+  // aborts the first render. Field initializers run in that context, so the
+  // observable is created here (after `lang`, initializers run in order).
+  private readonly langChanges$ = toObservable(this.lang.currentLang);
 
   readonly isLoading = signal(true);
   readonly canOpen = signal(false);
@@ -436,6 +444,17 @@ export class OpenDisputePageComponent implements OnInit {
       },
     });
 
+    this.loadReasons();
+    // Reasons come from the API localized by Accept-Language (same bug class
+    // as the FAQ page, 23 Nov 2026): reload them when the language changes.
+    // The selected reason and the typed details are plain fields, so a
+    // reload never resets them (option values are ids, names just re-render).
+    this.langChanges$
+      .pipe(skip(1), takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => this.loadReasons());
+  }
+
+  private loadReasons(): void {
     this.dealsApi.getLookups('dispute-reasons').subscribe({
       next: (response) => this.reasons.set(response.success ? response.data ?? [] : []),
       error: () => {},

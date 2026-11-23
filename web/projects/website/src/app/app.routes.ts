@@ -1,4 +1,5 @@
 import { Routes } from '@angular/router';
+import { authGuard } from './core/guards/auth.guard';
 
 export const routes: Routes = [
   {
@@ -81,6 +82,26 @@ export const routes: Routes = [
     loadComponent: () =>
       import('./features/marketing/contact/contact.component').then(
         (m) => m.ContactComponent
+      ),
+  },
+  {
+    // Registered-user Contact Us (design screen): creates a support ticket.
+    // The guest form above stays at /contact (guest message, no ticket).
+    path: 'support/contact',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./features/support/contact-us.component').then(
+        (m) => m.ContactUsComponent
+      ),
+  },
+  {
+    // Support Requests (design screen): the user's tickets + disputes.
+    // No new backend: GET /api/v1/support/tickets + GET /api/v1/me/disputes.
+    path: 'support/requests',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./features/support/support-requests.component').then(
+        (m) => m.SupportRequestsComponent
       ),
   },
   {

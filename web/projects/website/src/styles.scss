@@ -1017,6 +1017,10 @@ a {
 .marketing-faq details { padding: 1.25rem 1.5rem; border: 1px solid #e5e7eb; border-radius: 16px; margin-bottom: 0.75rem; }
 .marketing-faq summary { font-weight: 900; cursor: pointer; }
 .marketing-faq p { margin-top: 0.75rem; color: #5f6878; line-height: 1.8; }
+.faq-search { display: flex; align-items: center; gap: 0.75rem; max-width: 640px; margin: 0 auto 1.5rem; padding: 0.8rem 1.1rem; border: 1px solid #e5e7eb; border-radius: 999px; background: #fff; }
+.faq-search-icon { color: #eb5757; font-size: 1.4rem; line-height: 1; }
+.faq-search input { flex: 1; min-width: 0; border: 0; outline: none; background: transparent; font: inherit; }
+.faq-search input::-webkit-search-cancel-button { cursor: pointer; }
 .marketing-form { display: grid; gap: 1rem; max-width: 640px; }
 .marketing-form label { display: grid; gap: 0.4rem; font-weight: 800; }
 .marketing-form input, .marketing-form textarea { width: 100%; padding: 0.8rem 1rem; border: 1px solid #e5e7eb; border-radius: 12px; font: inherit; }

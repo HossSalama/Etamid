@@ -162,6 +162,18 @@ import { LanguageService } from '../../core/services/language.service';
             تأكيد استلام الطلب وتحرير المبلغ
           </button>
         }
+        <!-- Design (deal details-buyer-accept): the buyer in Inspection gets
+             "تواصل مع الدعم" next to the release button. Shown exactly when
+             release is available (buyer + Inspection) — the funded screen
+             (deal details 3) has no such button. The dispute link stays
+             below it: the design has no dispute button here, but the
+             failure screen (the design's dispute path) does not exist yet,
+             so removing it would leave disputes unreachable. -->
+        @if (d.availableActions.includes('release')) {
+          <a class="btn-action-outline" [routerLink]="['/support/contact']">
+            {{ lang.t('deal_detail_contact_support') }}
+          </a>
+        }
         @if (d.availableActions.includes('dispute')) {
           <a class="btn-action-outline" [routerLink]="['/deals', d.id, 'dispute']">
             فتح نزاع

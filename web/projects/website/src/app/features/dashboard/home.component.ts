@@ -237,6 +237,28 @@ export interface DealItem {
             </div>
             <app-my-addresses />
             <app-store-editor />
+            <!-- Support: the registered Contact Us page (creates a ticket) -->
+            <a routerLink="/support/contact" class="support-card">
+              <div class="support-content">
+                <span class="support-icon">💬</span>
+                <div>
+                  <h4>{{ lang.t('home_need_help') }}</h4>
+                  <p>{{ lang.t('home_need_help_desc') }}</p>
+                </div>
+              </div>
+              <span class="support-chevron">&gt;</span>
+            </a>
+            <!-- Support Requests: the user's tickets + disputes (design screen) -->
+            <a routerLink="/support/requests" class="support-card">
+              <div class="support-content">
+                <span class="support-icon">📋</span>
+                <div>
+                  <h4>{{ lang.t('home_my_requests') }}</h4>
+                  <p>{{ lang.t('home_my_requests_desc') }}</p>
+                </div>
+              </div>
+              <span class="support-chevron">&gt;</span>
+            </a>
           </section>
         } @else {
         @if (!authService.isAuthenticated()) {
