@@ -64,7 +64,8 @@ app.UseStaticFiles(new StaticFileOptions
 // like every other API error, they are rewritten to HTTP 200 with the error
 // in the body (owner decision 2026-11-09). The code is read from the
 // original status before it is overwritten, so TOKEN_EXPIRED is still
-// distinguished from a plain UNAUTHORIZED.
+// distinguished from a plain UNAUTHORIZED. Exception: an expired token
+// (TOKEN_EXPIRED) keeps its HTTP 401.
 app.UseStatusCodePages(async ctx =>
 {
     var http = ctx.HttpContext;
@@ -81,7 +82,10 @@ app.UseStatusCodePages(async ctx =>
     };
 
     var message = localizer.Get(code);
-    http.Response.StatusCode = StatusCodes.Status200OK;
+
+    // An expired token is a real 401: the client must refresh or sign in again.
+    var status = code == "TOKEN_EXPIRED" ? StatusCodes.Status401Unauthorized : StatusCodes.Status200OK;
+    http.Response.StatusCode = status;
     await http.Response.WriteAsJsonAsync(
         ApiResponse.Fail(message, [new ApiError { Code = code, Message = message }]));
 });

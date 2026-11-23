@@ -50,6 +50,8 @@ public abstract class BaseApiController : ControllerBase
     /// ({ success: false, errors: [{ code, message, field }] }); the error
     /// code identifies the failure, not the HTTP status (owner decision
     /// 2026-11-09). Success paths still return 200/201 as before.
+    /// Exception: token errors (REFRESH_REUSED / ADMIN_REFRESH_REUSED,
+    /// TOKEN_INVALID / ADMIN_TOKEN_INVALID) return HTTP 401.
     /// </summary>
     private IActionResult Failure(Error error)
     {
@@ -65,6 +67,13 @@ public abstract class BaseApiController : ControllerBase
             Field = error.Field,
             Extras = error.Extras is null ? null : new Dictionary<string, object?>(error.Extras)
         };
-        return StatusCode(StatusCodes.Status200OK, ApiResponse.Fail(message, [apiError]));
+
+        // Token errors are a real 401: a reused, unknown or expired refresh
+        // token means the session is dead and the client must sign in again.
+        // Every other error stays HTTP 200.
+        var status = error.Code is "REFRESH_REUSED" or "ADMIN_REFRESH_REUSED" or "TOKEN_INVALID" or "ADMIN_TOKEN_INVALID"
+            ? StatusCodes.Status401Unauthorized
+            : StatusCodes.Status200OK;
+        return StatusCode(status, ApiResponse.Fail(message, [apiError]));
     }
 }
