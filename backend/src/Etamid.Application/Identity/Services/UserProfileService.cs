@@ -48,7 +48,8 @@ public sealed class UserProfileService(IApplicationDbContext db, IFileUrlResolve
             account.HolderName,
             "SA" + new string('•', 9) + account.IbanLast4,
             LanguageHelper.Pick(bank.NameAr, bank.NameEn),
-            logo);
+            logo,
+            account.BankId);
     }
 
     public async Task<AuthResultDto> ToAuthResultAsync(TokenPair pair, CancellationToken ct)

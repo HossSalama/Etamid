@@ -209,6 +209,25 @@ public class Cycle2Tests(EtamidFactory factory) : IClassFixture<EtamidFactory>
         Code(await Json(dup)).Should().Be("IBAN_EXISTS");
     }
 
+    [Fact]
+    public async Task Bank_account_save_accepts_explicit_bank_id()
+    {
+        var client = await SignedInClient();
+
+        // An explicit bankId wins over the IBAN-derived bank (SNB IBAN + Rajhi id).
+        var save = await client.PutAsJsonAsync("/api/v1/me/bank-account", new { holderName = "Ahmed Ali", iban = IbanSnb, bankId = 1 });
+        save.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var data = (await Json(await client.GetAsync("/api/v1/me/bank-account"))).GetProperty("data");
+        data.GetProperty("bankId").GetInt64().Should().Be(1);
+        data.GetProperty("bankName").GetString().Should().Be("Al Rajhi Bank");
+
+        // An unknown bankId is rejected.
+        var bad = await client.PutAsJsonAsync("/api/v1/me/bank-account", new { holderName = "Ahmed Ali", iban = IbanRajhi, bankId = 999 });
+        bad.StatusCode.Should().Be(HttpStatusCode.OK);
+        Code(await Json(bad)).Should().Be("UNSUPPORTED_BANK");
+    }
+
     // ---------- Nafath
     [Fact]
     public async Task Nafath_flow_marks_the_user_verified()

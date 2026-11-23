@@ -110,6 +110,41 @@ public sealed class GetLookupsHandler(IApplicationDbContext db, IFileUrlResolver
     }
 }
 
+// ---------- Ticket subjects + support WhatsApp (contact page, one call)
+// GET /lookups/ticket-subjects returns an object, not a bare list, so the
+// contact page gets the WhatsApp number together with the subjects.
+public sealed record TicketSubjectsDto(string SupportWhatsapp, IReadOnlyList<LookupItemDto> Subjects);
+
+public sealed record GetTicketSubjectsQuery : IRequest<Result<TicketSubjectsDto>>;
+
+public sealed class GetTicketSubjectsHandler(IApplicationDbContext db, IFileUrlResolver files) : IRequestHandler<GetTicketSubjectsQuery, Result<TicketSubjectsDto>>
+{
+    public async Task<Result<TicketSubjectsDto>> Handle(GetTicketSubjectsQuery request, CancellationToken ct)
+    {
+        var whatsapp = await db.AppSettings.AsNoTracking()
+            .Where(s => s.Key == "support_whatsapp")
+            .Select(s => s.Value)
+            .FirstOrDefaultAsync(ct) ?? string.Empty;
+
+        var rows = await db.Lookups.AsNoTracking()
+            .Where(l => l.Type == "ticket_subject" && l.IsActive)
+            .OrderBy(l => l.SortOrder)
+            .ToListAsync(ct);
+        var iconIds = rows.Where(l => l.IconFileId.HasValue).Select(l => l.IconFileId!.Value).Distinct().ToList();
+        var iconFiles = iconIds.Count == 0
+            ? new Dictionary<long, string?>()
+            : (await db.Files.AsNoTracking().Where(f => iconIds.Contains(f.Id)).ToListAsync(ct))
+                .ToDictionary(f => f.Id, f => files.Resolve(f));
+        IReadOnlyList<LookupItemDto> subjects = rows
+            .Select(l => new LookupItemDto(
+                l.Id, l.Code, LanguageHelper.Pick(l.NameAr, l.NameEn),
+                l.IconFileId.HasValue && iconFiles.TryGetValue(l.IconFileId.Value, out var url) ? url : null))
+            .ToList();
+
+        return Result.Success(new TicketSubjectsDto(whatsapp, subjects));
+    }
+}
+
 // ---------- FAQs
 public sealed record GetFaqsQuery : IRequest<Result<IReadOnlyList<FaqDto>>>;
 

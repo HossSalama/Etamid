@@ -16,10 +16,16 @@ public sealed class ConfigController : BaseApiController
 [AllowAnonymous]
 public sealed class LookupsController : BaseApiController
 {
-    /// <summary>reject-reasons | dispute-reasons | company-reject-reasons | duration-units | payment-methods | store-categories | banks | shipping-companies | ticket-subjects</summary>
+    /// <summary>reject-reasons | dispute-reasons | company-reject-reasons | duration-units | payment-methods | store-categories | banks | shipping-companies | ticket-subjects (object: supportWhatsapp + subjects)</summary>
     [HttpGet("{type}")]
     public async Task<IActionResult> Get(string type, CancellationToken ct)
-        => Respond(await Sender.Send(new GetLookupsQuery(type), ct));
+    {
+        // ticket-subjects carries the support WhatsApp number too, so the
+        // contact page needs one call. Every other type returns a bare list.
+        if (type.Equals("ticket-subjects", StringComparison.OrdinalIgnoreCase))
+            return Respond(await Sender.Send(new GetTicketSubjectsQuery(), ct));
+        return Respond(await Sender.Send(new GetLookupsQuery(type), ct));
+    }
 }
 
 [Authorize]

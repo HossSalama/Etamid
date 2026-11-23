@@ -24,7 +24,7 @@ public sealed class GetMyBankAccountHandler(UserProfileService profiles, ICurren
     }
 }
 
-public sealed record SaveBankAccountCommand(string HolderName, string Iban) : IRequest<Result<BankAccountDto?>>;
+public sealed record SaveBankAccountCommand(string HolderName, string Iban, long? BankId = null) : IRequest<Result<BankAccountDto?>>;
 
 public sealed class SaveBankAccountValidator : AbstractValidator<SaveBankAccountCommand>
 {
@@ -34,6 +34,7 @@ public sealed class SaveBankAccountValidator : AbstractValidator<SaveBankAccount
         RuleFor(x => x.Iban)
             .NotEmpty().WithErrorCode("REQUIRED")
             .Must(IbanPolicy.IsValid).WithErrorCode("INVALID_IBAN");
+        RuleFor(x => x.BankId).GreaterThan(0).WithErrorCode("INVALID_VALUE").When(x => x.BankId is not null);
     }
 }
 
@@ -46,10 +47,13 @@ public sealed class SaveBankAccountHandler(
         if (currentUser.UserId is not { } userId) return CommonErrors.Unauthorized;
 
         var iban = IbanPolicy.Normalize(r.Iban);
-        var bankCode = IbanPolicy.BankCode(iban);
 
-        var bank = await db.Banks.AsNoTracking().FirstOrDefaultAsync(b => b.Code == bankCode && b.IsActive, ct);
-        if (bank is null) return Error.Validation("UNSUPPORTED_BANK", "iban");
+        // An explicit bankId (picked in the app) wins; otherwise the bank is
+        // derived from the IBAN's bank code (digits 5-6), as before.
+        var bank = r.BankId is { } bankId
+            ? await db.Banks.AsNoTracking().FirstOrDefaultAsync(b => b.Id == bankId && b.IsActive, ct)
+            : await db.Banks.AsNoTracking().FirstOrDefaultAsync(b => b.Code == IbanPolicy.BankCode(iban) && b.IsActive, ct);
+        if (bank is null) return Error.Validation("UNSUPPORTED_BANK", r.BankId is null ? "iban" : "bankId");
 
         var hash = protector.Hash(iban);
         if (await db.BankAccounts.AnyAsync(a => a.IbanHash == hash && a.UserId != userId, ct))
