@@ -76,7 +76,7 @@ public class AuthJourneyTests(EtamidFactory factory) : IClassFixture<EtamidFacto
         (await Post("/api/v1/auth/refresh", new { refreshToken = refresh })).StatusCode.Should().Be(HttpStatusCode.OK);
 
         var reused = await Post("/api/v1/auth/refresh", new { refreshToken = refresh });
-        reused.StatusCode.Should().Be(HttpStatusCode.OK);
+        reused.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
         Code(await Json(reused)).Should().Be("REFRESH_REUSED");
 
         (await Post("/api/v1/auth/login", new { phone = "0501110001", password = Password })).StatusCode.Should().Be(HttpStatusCode.OK);

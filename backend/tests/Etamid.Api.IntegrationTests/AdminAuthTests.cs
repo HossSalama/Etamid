@@ -322,19 +322,19 @@ public class AdminAuthTests(EtamidFactory factory) : IClassFixture<EtamidFactory
         secondRefresh.Should().NotBe(first.Refresh);
 
         var reuse = await _anon.PostAsJsonAsync("/admin/api/auth/refresh", new { refreshToken = first.Refresh });
-        reuse.StatusCode.Should().Be(HttpStatusCode.OK);
+        reuse.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
         (await Succeeded(reuse)).Should().BeFalse();
         (await Code(reuse)).Should().Be("ADMIN_REFRESH_REUSED");
 
         // The second refresh token was revoked when reuse was detected.
         var secondRefreshAgain = await _anon.PostAsJsonAsync("/admin/api/auth/refresh", new { refreshToken = secondRefresh });
-        secondRefreshAgain.StatusCode.Should().Be(HttpStatusCode.OK);
+        secondRefreshAgain.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
         (await Succeeded(secondRefreshAgain)).Should().BeFalse();
         (await Code(secondRefreshAgain)).Should().Be("ADMIN_TOKEN_INVALID");
 
         // Reuse revoked all sessions, so even the live access token dies.
         var deadMe = await MakeSession(secondAccess, secondRefresh).Client.GetAsync("/admin/api/auth/me");
-        deadMe.StatusCode.Should().Be(HttpStatusCode.OK);
+        deadMe.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
         (await Succeeded(deadMe)).Should().BeFalse();
         (await Code(deadMe)).Should().Be("ADMIN_TOKEN_INVALID");
     }
@@ -360,12 +360,12 @@ public class AdminAuthTests(EtamidFactory factory) : IClassFixture<EtamidFactory
         (await session.Client.PostAsync("/admin/api/auth/logout", null)).StatusCode.Should().Be(HttpStatusCode.OK);
 
         var deadMe = await session.Client.GetAsync("/admin/api/auth/me");
-        deadMe.StatusCode.Should().Be(HttpStatusCode.OK);
+        deadMe.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
         (await Succeeded(deadMe)).Should().BeFalse();
         (await Code(deadMe)).Should().Be("ADMIN_TOKEN_INVALID");
 
         var deadRefresh = await _anon.PostAsJsonAsync("/admin/api/auth/refresh", new { refreshToken = session.Refresh });
-        deadRefresh.StatusCode.Should().Be(HttpStatusCode.OK);
+        deadRefresh.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
         (await Succeeded(deadRefresh)).Should().BeFalse();
         (await Code(deadRefresh)).Should().Be("ADMIN_TOKEN_INVALID");
     }
@@ -513,7 +513,7 @@ public class AdminAuthTests(EtamidFactory factory) : IClassFixture<EtamidFactory
         (await superSession.Client.PostAsync($"/admin/api/admins/{targetId}/disable", null)).StatusCode.Should().Be(HttpStatusCode.OK);
 
         var deadMe = await target.Client.GetAsync("/admin/api/auth/me");
-        deadMe.StatusCode.Should().Be(HttpStatusCode.OK);
+        deadMe.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
         (await Succeeded(deadMe)).Should().BeFalse();
         (await Code(deadMe)).Should().Be("ADMIN_TOKEN_INVALID");
 

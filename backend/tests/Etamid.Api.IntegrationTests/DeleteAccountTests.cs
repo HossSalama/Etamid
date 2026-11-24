@@ -50,7 +50,7 @@ public class DeleteAccountTests(EtamidFactory factory) : IClassFixture<EtamidFac
         (await Json(del)).GetProperty("success").GetBoolean().Should().BeTrue();
 
         var login = await _anon.PostAsJsonAsync("/api/v1/auth/login", new { phone = a.Phone, password = Password });
-        Code(await Json(login)).Should().Be("INVALID_CREDENTIALS");
+        Code(await Json(login)).Should().Be("PHONE_NOT_REGISTERED");
 
         var me = await Json(await a.Client.GetAsync("/api/v1/me"));
         me.GetProperty("success").GetBoolean().Should().BeFalse();
@@ -99,7 +99,7 @@ public class DeleteAccountTests(EtamidFactory factory) : IClassFixture<EtamidFac
         var create = await seller.Client.PostAsJsonAsync("/api/v1/deals", new
         {
             title = "Phone", buyerPhoneOrCode = buyer.Phone, description = "Used phone", amount = 500m,
-            durationValue = 3, durationUnit = "days", needShipping = false, acceptTerms = true
+            durationValue = 3, durationUnit = "day", needShipping = false, acceptTerms = true
         });
         (await Json(create)).GetProperty("success").GetBoolean().Should().BeTrue();
 

@@ -56,7 +56,7 @@ public class ProfilePhoneTests(EtamidFactory factory) : IClassFixture<EtamidFact
         me.GetProperty("phoneVerified").GetBoolean().Should().BeFalse();
 
         var oldLogin = await _anon.PostAsJsonAsync("/api/v1/auth/login", new { phone = a.Phone, password = Password });
-        Code(await Json(oldLogin)).Should().Be("INVALID_CREDENTIALS");
+        Code(await Json(oldLogin)).Should().Be("PHONE_NOT_REGISTERED");
 
         var newLogin = await _anon.PostAsJsonAsync("/api/v1/auth/login", new { phone = newPhone, password = Password });
         (await Json(newLogin)).GetProperty("success").GetBoolean().Should().BeTrue();
@@ -120,6 +120,13 @@ public class ProfilePhoneTests(EtamidFactory factory) : IClassFixture<EtamidFact
     public async Task Changing_phone_and_email_together_sends_the_email_code_for_the_new_phone()
     {
         var a = await SignedIn();
+
+        // The registration OTP was issued seconds ago, and the email OTP has a
+        // 60-second resend cooldown per user, so the new email's OTP would be
+        // refused. Move the test clock past the cooldown (61s is harmless for
+        // the 60-minute tokens and 10-minute OTPs used in this class).
+        factory.Clock.Advance(TimeSpan.FromSeconds(61));
+
         var newPhone = $"05055{Interlocked.Increment(ref _counter):D5}";
         var newEmail = $"pp.new.{_counter}@example.com";
 

@@ -215,8 +215,11 @@ public class Cycle2Tests(EtamidFactory factory) : IClassFixture<EtamidFactory>
         var client = await SignedInClient();
 
         // An explicit bankId wins over the IBAN-derived bank (SNB IBAN + Rajhi id).
-        var save = await client.PutAsJsonAsync("/api/v1/me/bank-account", new { holderName = "Ahmed Ali", iban = IbanSnb, bankId = 1 });
+        // NOTE: a third SNB IBAN — IbanSnb is already saved by Same_iban_on_two_users_is_409
+        // in this class (same per-class DB), so reusing it here fails with IBAN_EXISTS.
+        var save = await client.PutAsJsonAsync("/api/v1/me/bank-account", new { holderName = "Ahmed Ali", iban = "SA1610123456789012345679", bankId = 1 });
         save.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await Json(save)).GetProperty("success").GetBoolean().Should().BeTrue();
 
         var data = (await Json(await client.GetAsync("/api/v1/me/bank-account"))).GetProperty("data");
         data.GetProperty("bankId").GetInt64().Should().Be(1);
