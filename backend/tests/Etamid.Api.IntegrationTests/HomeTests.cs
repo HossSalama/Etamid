@@ -96,9 +96,9 @@ public class HomeTests(EtamidFactory factory) : IClassFixture<EtamidFactory>
         data.GetProperty("user").GetProperty("name").GetString().Should().Be("Home User");
         data.GetProperty("user").GetProperty("code").GetString().Should().NotBeNullOrEmpty();
         var wallet = data.GetProperty("wallet");
-        wallet.GetProperty("activated").GetBoolean().Should().BeFalse();
-        wallet.GetProperty("availableBalance").ValueKind.Should().Be(JsonValueKind.Null);
-        wallet.GetProperty("escrowHeld").ValueKind.Should().Be(JsonValueKind.Null);
+        wallet.GetProperty("activated").GetBoolean().Should().BeTrue();
+        wallet.GetProperty("availableBalance").GetDecimal().Should().Be(0m);
+        wallet.GetProperty("escrowHeld").GetDecimal().Should().Be(0m);
         data.GetProperty("activeDeals").GetArrayLength().Should().Be(0);
         data.GetProperty("activeDealsCount").GetInt32().Should().Be(0);
     }

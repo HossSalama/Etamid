@@ -1,4 +1,5 @@
 using Etamid.Application.Common.Interfaces;
+using Etamid.Application.Deals.Services;
 using Etamid.Application.Identity.Dtos;
 using Etamid.Application.Identity.Errors;
 using Etamid.Application.Identity.Services;
@@ -29,7 +30,8 @@ public sealed class LoginHandler(
     IClock clock,
     SessionService sessions,
     UserProfileService profiles,
-    AuthAuditService audit) : IRequestHandler<LoginCommand, Result<AuthResultDto>>
+    AuthAuditService audit,
+    EscrowLedgerService ledger) : IRequestHandler<LoginCommand, Result<AuthResultDto>>
 {
     public async Task<Result<AuthResultDto>> Handle(LoginCommand r, CancellationToken ct)
     {
@@ -73,6 +75,24 @@ public sealed class LoginHandler(
 
         user.RecordSuccessfulLogin(now);
         audit.Record(AuthEvent.LoginSuccess, user.Id, user.PhoneNormalized);
+
+        // The wallet is active from the moment the user enters the account:
+        // no separate activation step. Best-effort: a wallet failure must
+        // never block signing in (the manual POST /me/wallet/activate stays
+        // as the fallback).
+        try
+        {
+            var wallet = await ledger.GetOrCreateWalletAsync(user.Id, ct);
+            if (!wallet.Activated)
+            {
+                wallet.Activated = true;
+                wallet.ActivatedAt = now;
+            }
+        }
+        catch
+        {
+            // Activation stays pending; the manual endpoint remains available.
+        }
 
         var pair = await sessions.StartSessionAsync(user, ct);   // saves everything above
         return await profiles.ToAuthResultAsync(pair, ct);
