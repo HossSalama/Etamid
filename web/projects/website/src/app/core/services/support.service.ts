@@ -34,6 +34,15 @@ export interface TicketSubject {
   iconUrl?: string | null;
 }
 
+// GET /api/v1/lookups/ticket-subjects returns ONE OBJECT, not a bare list:
+// the support WhatsApp number together with the subjects. (The old code
+// typed data as TicketSubject[] and set the dropdown signal to the whole
+// object, so @for could never iterate it and the dropdown stayed empty.)
+export interface TicketSubjectsResponse {
+  supportWhatsapp: string;
+  subjects: TicketSubject[];
+}
+
 // The ticket created by POST /api/v1/support/contact (only what the UI shows).
 export interface SupportTicket {
   id: number;
@@ -60,9 +69,10 @@ export class SupportService {
     return this.http.get<ApiResponse<Faq[]>>(`${this.baseUrl}/faqs`, { params });
   }
 
-  // The subject dropdown on the registered contact page.
-  getTicketSubjects(): Observable<ApiResponse<TicketSubject[]>> {
-    return this.http.get<ApiResponse<TicketSubject[]>>('/api/v1/lookups/ticket-subjects');
+  // The subject dropdown + WhatsApp number on the registered contact page.
+  // One call returns both: data is { supportWhatsapp, subjects }.
+  getTicketSubjects(): Observable<ApiResponse<TicketSubjectsResponse>> {
+    return this.http.get<ApiResponse<TicketSubjectsResponse>>('/api/v1/lookups/ticket-subjects');
   }
 
   // The WhatsApp number for the contact page (AppSettings support_whatsapp).

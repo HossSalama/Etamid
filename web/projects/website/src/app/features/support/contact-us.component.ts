@@ -331,7 +331,7 @@ export class ContactUsComponent implements OnInit {
   private reloadSubjects(): void {
     this.support.getTicketSubjects().subscribe({
       next: (res) => {
-        if (res.success && res.data) this.subjects.set(res.data);
+        if (res.success && res.data) this.subjects.set(res.data.subjects);
       },
       error: () => {
         // Keep the old list: a failed reload must not blank the dropdown.
@@ -343,27 +343,22 @@ export class ContactUsComponent implements OnInit {
     this.loading.set(true);
     this.loadError.set(false);
     this.sentTicket.set(null);
-    let done = 0;
-    const finish = () => {
-      if (++done === 2) this.loading.set(false);
-    };
+    // One call returns both the subjects and the WhatsApp number
+    // ({ supportWhatsapp, subjects }) — no separate /api/v1/config call.
     this.support.getTicketSubjects().subscribe({
       next: (res) => {
-        if (res.success && res.data) this.subjects.set(res.data);
-        else this.loadError.set(true);
-        finish();
+        if (res.success && res.data) {
+          this.subjects.set(res.data.subjects);
+          if (res.data.supportWhatsapp) this.whatsapp.set(res.data.supportWhatsapp);
+        } else {
+          this.loadError.set(true);
+        }
+        this.loading.set(false);
       },
       error: () => {
         this.loadError.set(true);
-        finish();
+        this.loading.set(false);
       },
-    });
-    this.support.getSupportWhatsapp().subscribe({
-      next: (res) => {
-        if (res.success && res.data?.supportWhatsapp) this.whatsapp.set(res.data.supportWhatsapp);
-        finish();
-      },
-      error: () => finish(),
     });
   }
 
