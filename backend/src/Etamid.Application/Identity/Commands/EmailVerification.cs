@@ -1,4 +1,5 @@
 using Etamid.Application.Common.Interfaces;
+using Etamid.Application.Deals.Services;
 using Etamid.Application.Identity.Dtos;
 using Etamid.Application.Identity.Errors;
 using Etamid.Application.Identity.Services;
@@ -33,7 +34,8 @@ public sealed class VerifyEmailHandler(
     IClock clock,
     SessionService sessions,
     UserProfileService profiles,
-    AuthAuditService audit) : IRequestHandler<VerifyEmailCommand, Result<AuthResultDto>>
+    AuthAuditService audit,
+    EscrowLedgerService ledger) : IRequestHandler<VerifyEmailCommand, Result<AuthResultDto>>
 {
     public async Task<Result<AuthResultDto>> Handle(VerifyEmailCommand r, CancellationToken ct)
     {
@@ -63,6 +65,23 @@ public sealed class VerifyEmailHandler(
         check.Value.ConsumedAt = now;
         user.VerifyEmail(now);
         audit.Record(AuthEvent.EmailVerified, user.Id, user.PhoneNormalized);
+
+        // Same as login: the wallet is active from the moment the user enters
+        // the account (registration signs the user straight in, so this is
+        // the new user's first entry). Best-effort; the manual endpoint stays.
+        try
+        {
+            var wallet = await ledger.GetOrCreateWalletAsync(user.Id, ct);
+            if (!wallet.Activated)
+            {
+                wallet.Activated = true;
+                wallet.ActivatedAt = now;
+            }
+        }
+        catch
+        {
+            // Activation stays pending; the manual endpoint remains available.
+        }
 
         var pair = await sessions.StartSessionAsync(user, ct);   // saves everything above
         return await profiles.ToAuthResultAsync(pair, ct);

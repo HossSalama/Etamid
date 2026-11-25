@@ -5,6 +5,7 @@ using System.Text;
 using System.Text.Json;
 using Etamid.Application.Common.Interfaces;
 using Etamid.Domain.Config;
+using Etamid.Domain.Identity.ValueObjects;
 using Etamid.Infrastructure.Payments;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -62,6 +63,20 @@ public class WalletTests(EtamidFactory factory) : IClassFixture<EtamidFactory>
 
     private static string Key() => Guid.NewGuid().ToString("N");
 
+    // Test-only: put an already-active wallet back to inactive, so the
+    // login-activation path can be exercised on its own.
+    private async Task DeactivateWalletAsync(string phone)
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<IApplicationDbContext>();
+        PhoneNumber.TryParse(phone, out var parsed).Should().BeTrue();
+        var user = await db.Users.FirstAsync(u => u.PhoneNormalized == parsed!.E164);
+        var wallet = await db.Wallets.FirstAsync(w => w.UserId == user.Id);
+        wallet.Activated = false;
+        wallet.ActivatedAt = null;
+        await db.SaveChangesAsync();
+    }
+
     private async Task<long> ReleasedDeal(Party buyer, Party seller)
     {
         var create = await Post(seller.Client, "/api/v1/deals", new
@@ -102,9 +117,39 @@ public class WalletTests(EtamidFactory factory) : IClassFixture<EtamidFactory>
         => root.GetProperty("errors")[0].GetProperty("code").GetString()!;
 
     [Fact]
+    public async Task Wallet_is_active_right_after_email_verification()
+    {
+        // NewUser registers + verifies: registration signs the user straight
+        // in, so the wallet must already be active — no separate activate call.
+        var user = await NewUser();
+
+        var wallet = await Data(await user.Client.GetAsync("/api/v1/me/wallet"));
+        wallet.GetProperty("activated").GetBoolean().Should().BeTrue();
+        wallet.GetProperty("availableBalance").GetDecimal().Should().Be(0m);
+        wallet.GetProperty("escrowHeld").GetDecimal().Should().Be(0m);
+    }
+
+    [Fact]
+    public async Task Login_activates_wallet()
+    {
+        var user = await NewUser();
+        await DeactivateWalletAsync(user.Phone);
+
+        var login = await _anon.PostAsJsonAsync("/api/v1/auth/login", new { phone = user.Phone, password = Password });
+        login.StatusCode.Should().Be(HttpStatusCode.OK, await login.Content.ReadAsStringAsync());
+        var token = (await Json(login)).GetProperty("data").GetProperty("accessToken").GetString()!;
+
+        var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        var wallet = await Data(await client.GetAsync("/api/v1/me/wallet"));
+        wallet.GetProperty("activated").GetBoolean().Should().BeTrue();
+    }
+
+    [Fact]
     public async Task Inactive_wallet_hides_balances_and_activates()
     {
         var user = await NewUser();
+        await DeactivateWalletAsync(user.Phone);
 
         var before = await Data(await user.Client.GetAsync("/api/v1/me/wallet"));
         before.GetProperty("activated").GetBoolean().Should().BeFalse();
@@ -215,6 +260,7 @@ public class WalletTests(EtamidFactory factory) : IClassFixture<EtamidFactory>
         ErrorCode(await Json(noBankReq)).Should().Be("WALLET_BANK_ACCOUNT_REQUIRED");
 
         var inactive = await NewUser();
+        await DeactivateWalletAsync(inactive.Phone);
         var inactiveReq = await Post(inactive.Client, "/api/v1/me/wallet/withdrawals", new { amount = 10m, idempotencyKey = Key() });
         inactiveReq.StatusCode.Should().Be(HttpStatusCode.OK);
         ErrorCode(await Json(inactiveReq)).Should().Be("WALLET_NOT_ACTIVATED");
