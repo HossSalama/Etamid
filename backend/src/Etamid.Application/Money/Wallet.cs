@@ -23,7 +23,7 @@ namespace Etamid.Application.Money;
 /// </summary>
 public sealed record WalletDto(
     bool Activated, DateTime? ActivatedAt, decimal? AvailableBalance, decimal? EscrowHeld,
-    bool HasBankAccount, string? BankAccountMasked);
+    bool HasBankAccount, string? BankAccountMasked, string? BankAccountHolderName);
 
 public sealed record WalletTransactionDto(
     long Id, string Type, string Direction, decimal Amount, decimal? BalanceAfter,
@@ -418,8 +418,9 @@ public static class WalletQueries
     {
         var bank = await db.BankAccounts.AsNoTracking().FirstOrDefaultAsync(a => a.UserId == userId, ct);
         var masked = bank is null ? null : "SA" + new string('•', 9) + bank.IbanLast4;
+        var holderName = bank?.HolderName;
         if (wallet is null || !wallet.Activated)
-            return new WalletDto(false, wallet?.ActivatedAt, null, null, bank is not null, masked);
+            return new WalletDto(false, wallet?.ActivatedAt, null, null, bank is not null, masked, holderName);
 
         var buyerHeld = new[] { DealStatus.Funded, DealStatus.InDelivery, DealStatus.Inspection, DealStatus.Disputed, DealStatus.RefundPending };
         var sellerHeld = new[] { DealStatus.Funded, DealStatus.InDelivery, DealStatus.Inspection, DealStatus.Disputed };
@@ -427,7 +428,7 @@ public static class WalletQueries
             .Where(d => (d.BuyerId == userId && buyerHeld.Contains(d.Status))
                 || (d.SellerId == userId && sellerHeld.Contains(d.Status)))
             .SumAsync(d => d.Amount, ct);
-        return new WalletDto(true, wallet.ActivatedAt, wallet.AvailableBalance, held, bank is not null, masked);
+        return new WalletDto(true, wallet.ActivatedAt, wallet.AvailableBalance, held, bank is not null, masked, holderName);
     }
 
     public static WithdrawalDto ToDto(WithdrawalRequest w) => new(

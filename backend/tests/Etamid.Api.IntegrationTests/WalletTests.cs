@@ -127,6 +127,8 @@ public class WalletTests(EtamidFactory factory) : IClassFixture<EtamidFactory>
         wallet.GetProperty("activated").GetBoolean().Should().BeTrue();
         wallet.GetProperty("availableBalance").GetDecimal().Should().Be(0m);
         wallet.GetProperty("escrowHeld").GetDecimal().Should().Be(0m);
+        // Fresh user, no bank account saved yet.
+        wallet.GetProperty("bankAccountHolderName").ValueKind.Should().Be(JsonValueKind.Null);
     }
 
     [Fact]
@@ -229,6 +231,7 @@ public class WalletTests(EtamidFactory factory) : IClassFixture<EtamidFactory>
 
         var wallet = await Data(await seller.Client.GetAsync("/api/v1/me/wallet"));
         wallet.GetProperty("availableBalance").GetDecimal().Should().Be(550m);
+        wallet.GetProperty("bankAccountHolderName").GetString().Should().Be("Wallet Seller");
 
         var tx = await Json(await seller.Client.GetAsync("/api/v1/me/wallet/transactions"));
         tx.GetProperty("meta").GetProperty("total").GetInt32().Should().Be(2);
