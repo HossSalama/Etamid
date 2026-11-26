@@ -4,6 +4,7 @@ using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
 using Etamid.Application.Common.Interfaces;
+using Etamid.Domain.Files;
 using Etamid.Infrastructure.Payments;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -154,7 +155,48 @@ public class RatingTests(EtamidFactory factory) : IClassFixture<EtamidFactory>
         items[0].GetProperty("stars").GetInt32().Should().Be(5);
         items[0].GetProperty("dealId").GetInt64().Should().Be(id);
         items[0].GetProperty("dealTitle").GetString().Should().Be("Used phone");
+        // Plain rater: no avatar uploaded, no Nafath verification.
+        items[0].GetProperty("raterAvatarUrl").ValueKind.Should().Be(JsonValueKind.Null);
+        items[0].GetProperty("raterVerified").GetBoolean().Should().BeFalse();
         reviews.GetProperty("meta").GetProperty("total").GetInt32().Should().Be(1);
+    }
+
+    [Fact]
+    public async Task Reviews_list_shows_rater_avatar_and_verified()
+    {
+        var buyer = await NewUser();
+        var seller = await NewUser();
+        var id = await ReleasedDeal(buyer, seller);
+
+        // Give the rater an avatar file and a Nafath verification, directly in the DB.
+        var storageKey = "avatars/rater-" + Key() + ".png";
+        await Db(async db =>
+        {
+            var buyerId = await db.Deals.AsNoTracking().Where(d => d.Id == id).Select(d => d.BuyerId).FirstAsync();
+            var user = await db.Users.FirstAsync(u => u.Id == buyerId);
+            var file = new StoredFile
+            {
+                PublicId = Guid.NewGuid(), OwnerUserId = buyerId, Purpose = FilePurpose.Avatar,
+                StorageKey = storageKey, FileName = "avatar.png", ContentType = "image/png",
+                SizeBytes = 123, Status = FileStatus.Uploaded
+            };
+            db.Files.Add(file);
+            await db.SaveChangesAsync();
+            user.SetAvatar(file.Id);
+            user.MarkNafathVerified();
+            await db.SaveChangesAsync();
+            return 0;
+        });
+
+        var r = await Post(buyer.Client, $"/api/v1/deals/{id}/rating", new { stars = 5, comment = "Great product and fast delivery." });
+        r.StatusCode.Should().Be(HttpStatusCode.Created, await r.Content.ReadAsStringAsync());
+
+        var sellerId = await SellerIdOf(id);
+        var reviews = await Json(await buyer.Client.GetAsync($"/api/v1/sellers/{sellerId}/reviews?page=1&pageSize=20"));
+        var items = reviews.GetProperty("data");
+        items.GetArrayLength().Should().Be(1);
+        items[0].GetProperty("raterAvatarUrl").GetString().Should().Contain(storageKey);
+        items[0].GetProperty("raterVerified").GetBoolean().Should().BeTrue();
     }
 
     [Fact]

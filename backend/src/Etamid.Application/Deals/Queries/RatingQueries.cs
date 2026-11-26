@@ -1,20 +1,22 @@
 using Etamid.Application.Common.Errors;
 using Etamid.Application.Common.Interfaces;
 using Etamid.Application.Common.Models;
+using Etamid.Domain.Files;
 using Etamid.SharedKernel;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 
 namespace Etamid.Application.Deals.Queries;
 
-/// <summary>One visible review on a seller's page: stars, comment, the deal it came from, and the rater's display name only.</summary>
+/// <summary>One visible review on a seller's page: stars, comment, the deal it came from, and the rater's display name, avatar URL and Nafath-verified flag.</summary>
 public sealed record SellerReviewDto(
-    long Id, long DealId, string DealTitle, int Stars, string? Comment, string RaterName, DateTime CreatedAt);
+    long Id, long DealId, string DealTitle, int Stars, string? Comment, string RaterName,
+    string? RaterAvatarUrl, bool RaterVerified, DateTime CreatedAt);
 
 public sealed record GetSellerReviewsQuery(long SellerId, int Page = 1, int PageSize = 20)
     : IRequest<Result<PagedResult<SellerReviewDto>>>;
 
-public sealed class GetSellerReviewsHandler(IApplicationDbContext db, ICurrentUser currentUser)
+public sealed class GetSellerReviewsHandler(IApplicationDbContext db, ICurrentUser currentUser, IFileUrlResolver files)
     : IRequestHandler<GetSellerReviewsQuery, Result<PagedResult<SellerReviewDto>>>
 {
     public async Task<Result<PagedResult<SellerReviewDto>>> Handle(GetSellerReviewsQuery r, CancellationToken ct)
@@ -39,12 +41,30 @@ public sealed class GetSellerReviewsHandler(IApplicationDbContext db, ICurrentUs
             .ToDictionaryAsync(d => d.Id, d => d.Title, ct);
         var raterIds = ratings.Select(x => x.RaterId).Distinct().ToList();
         var raters = await db.Users.AsNoTracking().Where(u => raterIds.Contains(u.Id))
-            .ToDictionaryAsync(u => u.Id, u => u.Name, ct);
+            .ToDictionaryAsync(u => u.Id, u => new RaterInfo(u.Name, u.AvatarFileId, u.NafathVerified), ct);
 
-        IReadOnlyList<SellerReviewDto> items = ratings.Select(x => new SellerReviewDto(
-            x.Id, x.DealId, deals.GetValueOrDefault(x.DealId, string.Empty), x.Stars, x.Comment,
-            raters.GetValueOrDefault(x.RaterId, string.Empty), x.CreatedAt)).ToList();
+        // Avatar files are loaded in one batch query (same dictionary pattern as deals/raters),
+        // never one query per review.
+        var avatarFileIds = raters.Values.Where(v => v.AvatarFileId is not null)
+            .Select(v => v.AvatarFileId!.Value).Distinct().ToList();
+        var avatarFiles = avatarFileIds.Count == 0
+            ? new Dictionary<long, StoredFile>()
+            : await db.Files.AsNoTracking().Where(f => avatarFileIds.Contains(f.Id))
+                .ToDictionaryAsync(f => f.Id, ct);
+
+        IReadOnlyList<SellerReviewDto> items = ratings.Select(x =>
+        {
+            var rater = raters.GetValueOrDefault(x.RaterId);
+            string? avatarUrl = null;
+            if (rater?.AvatarFileId is { } avatarId && avatarFiles.TryGetValue(avatarId, out var file))
+                avatarUrl = files.Resolve(file);
+            return new SellerReviewDto(
+                x.Id, x.DealId, deals.GetValueOrDefault(x.DealId, string.Empty), x.Stars, x.Comment,
+                rater?.Name ?? string.Empty, avatarUrl, rater?.NafathVerified ?? false, x.CreatedAt);
+        }).ToList();
 
         return new PagedResult<SellerReviewDto>(items, page, pageSize, total);
     }
+
+    private sealed record RaterInfo(string Name, long? AvatarFileId, bool NafathVerified);
 }
