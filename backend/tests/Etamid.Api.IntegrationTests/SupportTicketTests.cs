@@ -5,8 +5,9 @@ using System.Text.Json;
 
 namespace Etamid.Api.IntegrationTests;
 
-/// <summary>Support tickets v1: user create/list/detail/reply/close, contact form, admin
-/// assign/reply/close, reply notifications, ticket_subject lookups, FAQ content.</summary>
+/// <summary>Support tickets v1: user create/list/detail/reply, contact form, admin
+/// assign/reply/close (only the admin can close a ticket), reply notifications,
+/// ticket_subject lookups, FAQ content.</summary>
 public class SupportTicketTests(EtamidFactory factory) : IClassFixture<EtamidFactory>
 {
     private const string Password = "Pass#123";
@@ -179,10 +180,12 @@ public class SupportTicketTests(EtamidFactory factory) : IClassFixture<EtamidFac
     public async Task My_tickets_tabs_filter_open_and_closed()
     {
         var user = await NewUser("Ticket Tabs");
+        var admin = await AdminTestKit.CreateAsync(factory, "admin.support.manage");
         var first = await CreateTicket(user, "First ticket.");
         await CreateTicket(user, "Second ticket.");
 
-        var close = await Post(user.Client, $"/api/v1/support/tickets/{first}/close");
+        // Only the admin closes a ticket; the user close endpoint is gone.
+        var close = await Post(admin.Client, $"/api/v1/admin/support/tickets/{first}/close");
         close.StatusCode.Should().Be(HttpStatusCode.OK, await close.Content.ReadAsStringAsync());
 
         var open = await Data(await user.Client.GetAsync("/api/v1/support/tickets?status=open"));
@@ -238,16 +241,21 @@ public class SupportTicketTests(EtamidFactory factory) : IClassFixture<EtamidFac
     }
 
     [Fact]
-    public async Task User_close_then_reclose_fails()
+    public async Task Only_admin_can_close_user_close_is_gone()
     {
         var user = await NewUser("Ticket Closer");
+        var admin = await AdminTestKit.CreateAsync(factory, "admin.support.manage");
         var ticketId = await CreateTicket(user);
 
-        var close = await Post(user.Client, $"/api/v1/support/tickets/{ticketId}/close");
+        // The user close endpoint no longer exists (unknown route → NOT_FOUND).
+        var userClose = await Post(user.Client, $"/api/v1/support/tickets/{ticketId}/close");
+        (await Code(userClose)).Should().Be("NOT_FOUND");
+
+        var close = await Post(admin.Client, $"/api/v1/admin/support/tickets/{ticketId}/close");
         close.StatusCode.Should().Be(HttpStatusCode.OK, await close.Content.ReadAsStringAsync());
         (await Data(close)).GetProperty("status").GetString().Should().Be("closed");
 
-        var again = await Post(user.Client, $"/api/v1/support/tickets/{ticketId}/close");
+        var again = await Post(admin.Client, $"/api/v1/admin/support/tickets/{ticketId}/close");
         (await Code(again)).Should().Be("SUPPORT_TICKET_INVALID_STATE");
     }
 

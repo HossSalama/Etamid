@@ -1,0 +1,27 @@
+:host { display: block; }
+
+/* Status filter tabs (same role as the website support-requests tabs) */
+.filter-tabs {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+.tab-btn {
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  color: #374151;
+  border-radius: 999px;
+  padding: 0.4rem 1rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+.tab-btn:hover {
+  border-color: #eb5757;
+  color: #eb5757;
+}
+.tab-btn.active {
+  background: #eb5757;
+  border-color: #eb5757;
+  color: #fff;
+}

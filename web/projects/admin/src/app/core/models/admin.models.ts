@@ -211,3 +211,41 @@ export interface DisputeSettlementProposal {
   createdAt: string;
   decidedAt: string | null;
 }
+
+/** Support ticket from GET /api/v1/admin/support/tickets */
+export interface SupportTicketSummary {
+  id: number;
+  number: string;
+  subject: string;
+  status: 'open' | 'in_review' | 'closed';
+  userName: string;
+  assignedAdminName: string | null;
+  createdAt: string;
+  closedAt: string | null;
+  lastMessageAt: string | null;
+}
+
+/** Support ticket detail from GET /api/v1/admin/support/tickets/{id} */
+export interface SupportTicketDetail {
+  id: number;
+  number: string;
+  subject: string;
+  status: 'open' | 'in_review' | 'closed';
+  dealId: number | null;
+  dealTitle: string | null;
+  userName: string;
+  assignedAdminName: string | null;
+  createdAt: string;
+  closedAt: string | null;
+  messages: SupportTicketMessage[];
+}
+
+/** One message of a support ticket thread (detail only) */
+export interface SupportTicketMessage {
+  id: number;
+  senderType: 'admin' | 'user';
+  senderName: string;
+  message: string;
+  fileUrl: string | null;
+  createdAt: string;
+}

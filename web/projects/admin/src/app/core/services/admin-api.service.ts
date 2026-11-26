@@ -12,6 +12,9 @@ import {
   Penalty,
   Permission,
   Role,
+  SupportTicketDetail,
+  SupportTicketMessage,
+  SupportTicketSummary,
   UserCounts,
   Withdrawal,
 } from '../models/admin.models';
@@ -240,6 +243,38 @@ export class AdminApiService {
     return this.http.post<ApiResponse<unknown>>(
       `/api/v1/admin/disputes/${disputeId}/messages`,
       body,
+    );
+  }
+
+  // ── Support tickets (operator — /api/v1/admin paths) ───────────────────────
+
+  listSupportTickets(params?: {
+    status?: string;
+    page?: number;
+    pageSize?: number;
+  }): Observable<ApiResponse<SupportTicketSummary[]>> {
+    const q = this.toParams(params ?? {});
+    return this.http.get<ApiResponse<SupportTicketSummary[]>>(`/api/v1/admin/support/tickets${q}`);
+  }
+
+  getSupportTicket(ticketId: number): Observable<ApiResponse<SupportTicketDetail>> {
+    return this.http.get<ApiResponse<SupportTicketDetail>>(`/api/v1/admin/support/tickets/${ticketId}`);
+  }
+
+  postSupportTicketMessage(
+    ticketId: number,
+    body: { message: string },
+  ): Observable<ApiResponse<SupportTicketMessage>> {
+    return this.http.post<ApiResponse<SupportTicketMessage>>(
+      `/api/v1/admin/support/tickets/${ticketId}/messages`,
+      body,
+    );
+  }
+
+  closeSupportTicket(ticketId: number): Observable<ApiResponse<SupportTicketDetail>> {
+    return this.http.post<ApiResponse<SupportTicketDetail>>(
+      `/api/v1/admin/support/tickets/${ticketId}/close`,
+      {},
     );
   }
 

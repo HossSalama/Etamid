@@ -106,11 +106,6 @@ export class SupportService {
     return this.http.post<ApiResponse<SupportTicketMessage>>(`${this.baseUrl}/tickets/${id}/messages`, { message });
   }
 
-  // Close my own ticket. The API refuses an already-closed ticket.
-  closeTicket(id: number): Observable<ApiResponse<unknown>> {
-    return this.http.post<ApiResponse<unknown>>(`${this.baseUrl}/tickets/${id}/close`, {});
-  }
-
   // The user's own disputes (opened by me OR against me), newest first.
   // No status filter here: the API takes a single enum value and the "open"
   // tab spans two (UnderReview + AwaitingInfo), so the page filters

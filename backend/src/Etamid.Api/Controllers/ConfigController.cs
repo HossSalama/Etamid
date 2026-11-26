@@ -67,8 +67,4 @@ public sealed class SupportController : BaseApiController
         long ticketId, PostSupportTicketMessageCommand command, CancellationToken ct)
         => Respond(await Sender.Send(command with { TicketId = ticketId }, ct),
             "SUPPORT_TICKET_MESSAGE_SENT", StatusCodes.Status201Created);
-
-    [HttpPost("tickets/{ticketId:long}/close")]
-    public async Task<IActionResult> CloseTicket(long ticketId, CancellationToken ct)
-        => Respond(await Sender.Send(new CloseSupportTicketCommand(ticketId), ct), "SUPPORT_TICKET_CLOSED");
 }

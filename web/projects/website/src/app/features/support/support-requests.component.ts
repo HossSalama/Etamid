@@ -26,7 +26,8 @@ import {
 //   row is labelled with its direction (opened by you / opened against you)
 //   by comparing OpenedByName to the logged-in profile name — frontend-only,
 //   the list DTO has no OpenedById, so no backend change was needed.
-// - Tapping a ticket opens its thread here (detail + reply + close).
+// - Tapping a ticket opens its thread here (detail + reply). Only the admin
+//   can close a ticket — there is no user close action or endpoint.
 //   Tapping a dispute opens the existing dispute page (/deals/:id/dispute).
 // - No language reload is needed on this page: ticket subjects and deal
 //   titles are stored text (created in one language), only the labels are
@@ -129,9 +130,6 @@ interface RequestItem {
                 ></textarea>
                 <small class="counter" dir="ltr">({{ replyLength() }}/1000)</small>
                 <div class="reply-actions">
-                  <button type="button" class="btn-outline" (click)="closeTicket()" [disabled]="sending()">
-                    {{ lang.t('support_requests_close') }}
-                  </button>
                   <button type="submit" class="btn-black" [disabled]="sending() || replyLength() === 0">
                     {{ sending() ? lang.t('support_requests_sending') : lang.t('support_requests_send') }}
                   </button>
@@ -802,31 +800,6 @@ export class SupportRequestsComponent {
           this.selectedTicket.set({ ...ticket, messages: [...ticket.messages, res.data] });
           form.reset();
           this.replyLength.set(0);
-        } else {
-          this.actionError.set('support_requests_action_error');
-        }
-      },
-      error: () => {
-        this.sending.set(false);
-        this.actionError.set('support_requests_action_error');
-      },
-    });
-  }
-
-  protected closeTicket(): void {
-    const ticket = this.selectedTicket();
-    if (!ticket || this.sending()) return;
-    if (!globalThis.confirm(this.lang.t('support_requests_close_confirm'))) return;
-    this.sending.set(true);
-    this.actionError.set(null);
-    this.support.closeTicket(ticket.id).subscribe({
-      next: (res) => {
-        this.sending.set(false);
-        if (res.success) {
-          // Authoritative enough: the close succeeded, so the thread is
-          // closed now; the list reloads on the way back.
-          this.selectedTicket.set({ ...ticket, status: 'closed', closedAt: new Date().toISOString() });
-          this.needsRefresh = true;
         } else {
           this.actionError.set('support_requests_action_error');
         }

@@ -367,27 +367,3 @@ public sealed class PostSupportTicketMessageHandler(
             file is null ? null : files.Resolve(file), message.CreatedAt);
     }
 }
-
-// ---------- POST /support/tickets/{id}/close ----------
-
-public sealed record CloseSupportTicketCommand(long TicketId)
-    : IRequest<Result<SupportTicketDetailDto>>;
-
-public sealed class CloseSupportTicketHandler(
-    IApplicationDbContext db, ICurrentUser currentUser, IFileUrlResolver files)
-    : IRequestHandler<CloseSupportTicketCommand, Result<SupportTicketDetailDto>>
-{
-    public async Task<Result<SupportTicketDetailDto>> Handle(CloseSupportTicketCommand r, CancellationToken ct)
-    {
-        if (currentUser.UserId is not { } userId) return CommonErrors.Unauthorized;
-        var ticket = await db.SupportTickets.FirstOrDefaultAsync(t => t.Id == r.TicketId, ct);
-        if (ticket is null || ticket.UserId != userId) return SupportErrors.NotFound;
-        if (ticket.Status == TicketStatus.Closed) return SupportErrors.InvalidState;
-
-        ticket.Status = TicketStatus.Closed;
-        ticket.ClosedAt = DateTime.UtcNow;
-        var saved = await db.SaveGuardedAsync(ct);
-        if (saved.IsFailure) return saved.Error;
-        return await TicketMapper.DetailAsync(db, ticket, ct, files);
-    }
-}

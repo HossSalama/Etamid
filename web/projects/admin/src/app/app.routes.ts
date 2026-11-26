@@ -56,6 +56,18 @@ export const routes: Routes = [
           ),
       },
       {
+        path: 'support/tickets',
+        loadComponent: () =>
+          import('./features/support/support-tickets.component').then((m) => m.SupportTicketsComponent),
+      },
+      {
+        path: 'support/tickets/:id',
+        loadComponent: () =>
+          import('./features/support/support-ticket-detail.component').then(
+            (m) => m.SupportTicketDetailComponent,
+          ),
+      },
+      {
         path: 'deals',
         loadComponent: () =>
           import('./features/deals/deals.component').then((m) => m.DealsComponent),
