@@ -365,7 +365,7 @@ public class DisputeTests(EtamidFactory factory) : IClassFixture<EtamidFactory>
 
         // Full refund: the buyer gets the whole funded amount back, no fee is taken.
         (await WalletBalanceOf(await UserIdOf(buyer.Phone))).Should().Be(1000m);
-        (await WalletBalanceOf(await UserIdOf(seller.Phone))).Should().BeNull();
+        (await WalletBalanceOf(await UserIdOf(seller.Phone))).Should().Be(0m);
         (await DisputeTransactionCount(dealId)).Should().Be(1);
         (await DealStatusOf(buyer, dealId)).Should().Be("refunded");
 
@@ -426,7 +426,7 @@ public class DisputeTests(EtamidFactory factory) : IClassFixture<EtamidFactory>
         execution.GetProperty("dealStatus").GetString().Should().Be("released");
 
         (await WalletBalanceOf(await UserIdOf(seller.Phone))).Should().Be(950m);
-        (await WalletBalanceOf(await UserIdOf(buyer.Phone))).Should().BeNull();
+        (await WalletBalanceOf(await UserIdOf(buyer.Phone))).Should().Be(0m);
         (await DealStatusOf(buyer, dealId)).Should().Be("released");
     }
 
