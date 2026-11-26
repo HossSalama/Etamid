@@ -32,7 +32,7 @@ internal static class DealMapper
     {
         var otherId = viewerId == d.BuyerId ? d.SellerId : d.BuyerId;
         var other = await db.Users.AsNoTracking().Where(u => u.Id == otherId)
-            .Select(u => new { u.Name, u.Code }).FirstOrDefaultAsync(ct);
+            .Select(u => new { u.Name, u.Code, u.AvatarFileId, u.PhoneNormalized }).FirstOrDefaultAsync(ct);
 
         var history = await db.DealStatusHistory.AsNoTracking()
             .Where(h => h.DealId == d.Id)
@@ -56,6 +56,12 @@ internal static class DealMapper
             imageUrl = files.Resolve(await db.Files.AsNoTracking()
                 .FirstOrDefaultAsync(f => f.Id == imageFileId, ct));
 
+        // The counterparty's avatar: same resolver as the deal image, null when they never uploaded one.
+        string? counterpartyAvatarUrl = null;
+        if (other?.AvatarFileId is { } avatarFileId)
+            counterpartyAvatarUrl = files.Resolve(await db.Files.AsNoTracking()
+                .FirstOrDefaultAsync(f => f.Id == avatarFileId, ct));
+
         var alreadyRated = d.Status == DealStatus.Released
             && await db.Ratings.AsNoTracking().AnyAsync(x => x.DealId == d.Id, ct);
 
@@ -65,6 +71,7 @@ internal static class DealMapper
         return new DealDetailDto(
             d.Id, d.Number, d.Title, d.Description, d.Amount, d.Currency, ApiNames.Of(d.Status),
             RoleOf(d, viewerId), other?.Name ?? string.Empty, other?.Code ?? string.Empty,
+            counterpartyAvatarUrl, other?.PhoneNormalized ?? string.Empty,
             d.DurationValue, ApiNames.Of(d.DurationUnit), d.NeedShipping, d.ShippingCompanyId, d.ShippingAddressId,
             d.FeeAmount, d.SellerNetAmount, d.IsDisputed,
             d.CreatedAt, d.RespondDeadlineAt, d.AcceptedAt, d.FundedAt, d.DeliveredAt,

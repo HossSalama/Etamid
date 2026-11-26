@@ -35,6 +35,7 @@ public sealed record CounterpartyDto(
 public sealed record DealDetailDto(
     long Id, long Number, string Title, string Description, decimal Amount, string Currency, string Status,
     string Role, string CounterpartyName, string CounterpartyCode,
+    string? CounterpartyAvatarUrl, string CounterpartyWhatsapp,
     int DurationValue, string DurationUnit, bool NeedShipping, long? ShippingCompanyId, long? ShippingAddressId,
     decimal? FeeAmount, decimal? SellerNetAmount, bool IsDisputed,
     DateTime CreatedAt, DateTime RespondDeadlineAt, DateTime? AcceptedAt, DateTime? FundedAt, DateTime? DeliveredAt,
