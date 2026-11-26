@@ -47,7 +47,7 @@ internal static class StoreMapper
 /// only an unknown seller id is a 404.
 /// </summary>
 public sealed record SellerStoreDto(
-    long SellerId, string SellerName, string? StoreName, long? CategoryId, string? Category,
+    long SellerId, string SellerName, string? AvatarUrl, bool NafathVerified, string SellerWhatsapp, string? StoreName, long? CategoryId, string? Category,
     string? BannerUrl, decimal RatingAvg, int RatingCount, int SuccessfulDeals);
 
 public sealed record GetSellerStoreQuery(long SellerId) : IRequest<Result<SellerStoreDto>>;
@@ -62,13 +62,19 @@ public sealed class GetSellerStoreHandler(IApplicationDbContext db, ICurrentUser
         var seller = await db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == r.SellerId, ct);
         if (seller is null) return CommonErrors.NotFound;
 
+        // The seller's avatar: same resolver as the banner, null when they never uploaded one.
+        string? avatarUrl = null;
+        if (seller.AvatarFileId is { } avatarId)
+            avatarUrl = urls.Resolve(await db.Files.AsNoTracking().FirstOrDefaultAsync(f => f.Id == avatarId, ct));
+
         var profile = await db.StoreProfiles.AsNoTracking().FirstOrDefaultAsync(s => s.UserId == r.SellerId, ct);
         if (profile is null)
-            return Result.Success(new SellerStoreDto(r.SellerId, seller.Name, null, null, null, null, 0m, 0, 0));
+            return Result.Success(new SellerStoreDto(
+                r.SellerId, seller.Name, avatarUrl, seller.NafathVerified, seller.PhoneNormalized, null, null, null, null, 0m, 0, 0));
 
         var built = await StoreMapper.BuildAsync(db, urls, profile, ct);
         return Result.Success(new SellerStoreDto(
-            r.SellerId, seller.Name, built.Name, built.CategoryId, built.Category, built.BannerUrl,
+            r.SellerId, seller.Name, avatarUrl, seller.NafathVerified, seller.PhoneNormalized, built.Name, built.CategoryId, built.Category, built.BannerUrl,
             built.Rating, profile.RatingCount, built.SuccessfulDeals));
     }
 }

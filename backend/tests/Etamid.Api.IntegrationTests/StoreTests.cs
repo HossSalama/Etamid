@@ -4,6 +4,7 @@ using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
 using Etamid.Application.Common.Interfaces;
+using Etamid.Domain.Files;
 using Etamid.Infrastructure.Payments;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -126,6 +127,11 @@ public class StoreTests(EtamidFactory factory) : IClassFixture<EtamidFactory>
         data.GetProperty("ratingAvg").GetDecimal().Should().Be(0m);
         data.GetProperty("ratingCount").GetInt32().Should().Be(0);
         data.GetProperty("successfulDeals").GetInt32().Should().Be(0);
+        // Plain seller: no avatar uploaded, no Nafath verification.
+        data.GetProperty("avatarUrl").ValueKind.Should().Be(JsonValueKind.Null);
+        data.GetProperty("nafathVerified").GetBoolean().Should().BeFalse();
+        // E164: the seller's local 05… number with +966 in front.
+        data.GetProperty("sellerWhatsapp").GetString().Should().Be("+966" + seller.Phone[1..]);
     }
 
     [Fact]
@@ -142,9 +148,51 @@ public class StoreTests(EtamidFactory factory) : IClassFixture<EtamidFactory>
         data.GetProperty("storeName").ValueKind.Should().Be(JsonValueKind.Null);
         data.GetProperty("ratingAvg").GetDecimal().Should().Be(0m);
         data.GetProperty("ratingCount").GetInt32().Should().Be(0);
+        data.GetProperty("avatarUrl").ValueKind.Should().Be(JsonValueKind.Null);
+        data.GetProperty("nafathVerified").GetBoolean().Should().BeFalse();
+        data.GetProperty("sellerWhatsapp").GetString().Should().Be("+966" + seller.Phone[1..]);
 
         (await buyer.Client.GetAsync("/api/v1/sellers/999999999/store")).StatusCode.Should().Be(HttpStatusCode.OK);
         (await _anon.GetAsync($"/api/v1/sellers/{sellerId}/store")).StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task Store_shows_seller_avatar_verified_and_whatsapp()
+    {
+        var seller = await NewUser();
+        var buyer = await NewUser();
+        var sellerId = await UserIdOf(seller.Phone);
+        var categoryId = await StoreCategoryId(seller);
+
+        var save = await seller.Client.PutAsJsonAsync("/api/v1/me/store", new
+        {
+            storeName = "Shahd's Shop", categoryId, bannerFileId = (string?)null
+        });
+        save.StatusCode.Should().Be(HttpStatusCode.OK, await save.Content.ReadAsStringAsync());
+
+        // Give the seller an avatar file and a Nafath verification, directly in the DB.
+        var storageKey = "avatars/seller-" + Key() + ".png";
+        await Db(async db =>
+        {
+            var user = await db.Users.FirstAsync(u => u.Id == sellerId);
+            var file = new StoredFile
+            {
+                PublicId = Guid.NewGuid(), OwnerUserId = sellerId, Purpose = FilePurpose.Avatar,
+                StorageKey = storageKey, FileName = "avatar.png", ContentType = "image/png",
+                SizeBytes = 123, Status = FileStatus.Uploaded
+            };
+            db.Files.Add(file);
+            await db.SaveChangesAsync();
+            user.SetAvatar(file.Id);
+            user.MarkNafathVerified();
+            await db.SaveChangesAsync();
+            return 0;
+        });
+
+        var data = (await Json(await buyer.Client.GetAsync($"/api/v1/sellers/{sellerId}/store"))).GetProperty("data");
+        data.GetProperty("avatarUrl").GetString().Should().Contain(storageKey);
+        data.GetProperty("nafathVerified").GetBoolean().Should().BeTrue();
+        data.GetProperty("sellerWhatsapp").GetString().Should().Be("+966" + seller.Phone[1..]);
     }
 
     [Fact]
